@@ -84,7 +84,11 @@ versionsrv
 generated
 target
 
-/build*
+/build
+/build*/
+/build-*/
+/api-site/
+/.wrangler/
 /integration_test/*
 /source_date_epoch
 
