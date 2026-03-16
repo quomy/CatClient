@@ -640,7 +640,7 @@ No updates available
 Check now
 == 检查更新
 
-Loading DDNet Client
+Loading CatClient Client
 == 正在加载 DDNet 客户端
 
 Browser

@@ -442,10 +442,17 @@ float CUi::ButtonColorMul(const void *pId)
 	return ButtonColorMulDefault();
 }
 
+void CUi::SetScreenMode(bool UseDefaultScreenAspect, float Scale)
+{
+	m_UseDefaultScreenAspect = UseDefaultScreenAspect;
+	m_ScreenScale = maximum(Scale, 0.01f);
+}
+
 const CUIRect *CUi::Screen()
 {
-	m_Screen.h = 600.0f;
-	m_Screen.w = Graphics()->ScreenAspect() * m_Screen.h;
+	const float Aspect = m_UseDefaultScreenAspect ? (float)Graphics()->WindowWidth() / (float)maximum(Graphics()->WindowHeight(), 1) : Graphics()->ScreenAspect();
+	m_Screen.h = 600.0f / m_ScreenScale;
+	m_Screen.w = Aspect * m_Screen.h;
 	return &m_Screen;
 }
 
@@ -1395,32 +1402,31 @@ float CUi::DoScrollbarV(const void *pId, const CUIRect *pRect, float Current)
 float CUi::DoScrollbarH(const void *pId, const CUIRect *pRect, float Current, const ColorRGBA *pColorInner)
 {
 	Current = std::clamp(Current, 0.0f, 1.0f);
-
-	// layout
 	CUIRect Rail;
 	if(pColorInner)
 		Rail = *pRect;
 	else
-		pRect->HMargin(5.0f, &Rail);
-
-	CUIRect Handle;
-	Rail.VSplitLeft(pColorInner ? 8.0f : std::clamp(33.0f, Rail.h, Rail.w / 3.0f), &Handle, nullptr);
-	Handle.x += (Rail.w - Handle.w) * Current;
-
-	CUIRect HandleArea = Handle;
-	if(!pColorInner)
 	{
-		HandleArea.h = pRect->h * 0.9f;
-		HandleArea.y = pRect->y + pRect->h * 0.05f;
-		HandleArea.w += 6.0f;
-		HandleArea.x -= 3.0f;
+		Rail = *pRect;
+		const float RailHeight = minimum(4.0f, pRect->h);
+		Rail.y = pRect->y + (pRect->h - RailHeight) / 2.0f;
+		Rail.h = RailHeight;
 	}
 
-	// logic
+	const float HandleSize = pColorInner ? std::clamp(pRect->h - 4.0f, 12.0f, 16.0f) : std::clamp(pRect->h - 6.0f, 10.0f, 14.0f);
+	CUIRect Handle;
+	Handle.w = HandleSize;
+	Handle.h = HandleSize;
+	Handle.x = Rail.x + (Rail.w - Handle.w) * Current;
+	Handle.y = pRect->y + (pRect->h - Handle.h) / 2.0f;
+	CUIRect HandleArea = Handle;
+	HandleArea.x -= 4.0f;
+	HandleArea.y -= 4.0f;
+	HandleArea.w += 8.0f;
+	HandleArea.h += 8.0f;
 	const bool InsideRail = MouseHovered(&Rail);
 	const bool InsideHandle = MouseHovered(&HandleArea);
-	bool Grabbed = false; // whether to apply the offset
-
+	bool Grabbed = false;
 	if(CheckActiveItem(pId))
 	{
 		if(MouseButton(0))
@@ -1455,12 +1461,6 @@ float CUi::DoScrollbarH(const void *pId, const CUIRect *pRect, float Current, co
 		}
 	}
 
-	if(!pColorInner && (InsideHandle || Grabbed) && (CheckActiveItem(pId) || HotItem() == pId))
-	{
-		Handle.h += 3.0f;
-		Handle.y -= 1.5f;
-	}
-
 	if(InsideRail && !MouseButton(0))
 	{
 		SetHotItem(pId);
@@ -1470,26 +1470,40 @@ float CUi::DoScrollbarH(const void *pId, const CUIRect *pRect, float Current, co
 	if(Grabbed)
 	{
 		const float Min = Rail.x;
-		const float Max = Rail.w - Handle.w;
+		const float Max = maximum(Rail.w - Handle.w, 1.0f);
 		const float Cur = MouseX() - m_ActiveScrollbarOffset;
 		ReturnValue = std::clamp((Cur - Min) / Max, 0.0f, 1.0f);
 	}
 
 	// render
-	const ColorRGBA HandleColor = ms_ScrollBarColorFunction.GetColor(CheckActiveItem(pId), HotItem() == pId);
+	const bool Hovered = HotItem() == pId;
+	const bool Active = CheckActiveItem(pId);
+	const ColorRGBA HandleColor = ms_ScrollBarColorFunction.GetColor(Active, Hovered);
 	if(pColorInner)
 	{
-		CUIRect Slider;
-		Handle.VMargin(-2.0f, &Slider);
-		Slider.HMargin(-3.0f, &Slider);
-		Slider.Draw(ColorRGBA(0.15f, 0.15f, 0.15f, 1.0f).Multiply(HandleColor), IGraphics::CORNER_ALL, 5.0f);
-		Slider.Margin(2.0f, &Slider);
-		Slider.Draw(pColorInner->Multiply(HandleColor), IGraphics::CORNER_ALL, 3.0f);
+		CUIRect Outline = Handle;
+		Outline.x -= 1.5f;
+		Outline.y -= 1.5f;
+		Outline.w += 3.0f;
+		Outline.h += 3.0f;
+
+		const ColorRGBA OutlineColor = Active ? ColorRGBA(1.0f, 1.0f, 1.0f, 0.9f) : Hovered ? ColorRGBA(1.0f, 1.0f, 1.0f, 0.8f) :
+												      ColorRGBA(0.0f, 0.0f, 0.0f, 0.45f);
+		Outline.Draw(OutlineColor, IGraphics::CORNER_ALL, Outline.w / 2.0f);
+		Handle.Draw(*pColorInner, IGraphics::CORNER_ALL, Handle.w / 2.0f);
 	}
 	else
 	{
-		Rail.Draw(ColorRGBA(1.0f, 1.0f, 1.0f, 0.25f), IGraphics::CORNER_ALL, Rail.h / 2.0f);
-		Handle.Draw(HandleColor, IGraphics::CORNER_ALL, Rail.h / 2.0f);
+		CUIRect Fill = Rail;
+		Fill.w = maximum(Handle.x + Handle.w / 2.0f - Rail.x, Rail.h);
+
+		const ColorRGBA RailColor(1.0f, 1.0f, 1.0f, 0.10f);
+		const ColorRGBA FillColor = Active ? ColorRGBA(1.0f, 1.0f, 1.0f, 0.34f) : Hovered ? ColorRGBA(1.0f, 1.0f, 1.0f, 0.28f) :
+												    ColorRGBA(1.0f, 1.0f, 1.0f, 0.22f);
+
+		Rail.Draw(RailColor, IGraphics::CORNER_ALL, Rail.h / 2.0f);
+		Fill.Draw(FillColor, IGraphics::CORNER_ALL, Fill.h / 2.0f);
+		Handle.Draw(HandleColor, IGraphics::CORNER_ALL, Handle.w / 2.0f);
 	}
 
 	return ReturnValue;

@@ -544,7 +544,7 @@ Browser
 Ghost
 == Дух
 
-Loading DDNet Client
+Loading CatClient Client
 == Учитавам DDNet клијент
 
 Reconnect in %d sec

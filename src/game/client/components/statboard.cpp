@@ -310,7 +310,9 @@ void CStatboard::RenderGlobalStats()
 		Cursor.m_FontSize = FontSize;
 		Cursor.m_Flags |= TEXTFLAG_STOP_AT_END;
 		Cursor.m_LineWidth = 220;
-		TextRender()->TextEx(&Cursor, GameClient()->m_aClients[pInfo->m_ClientId].m_aName, -1);
+		char aSanitizedName[MAX_NAME_LENGTH];
+		GameClient()->m_CatClient.SanitizeText(GameClient()->m_aClients[pInfo->m_ClientId].m_aName, aSanitizedName, sizeof(aSanitizedName));
+		TextRender()->TextEx(&Cursor, aSanitizedName, -1);
 
 		px = 325;
 

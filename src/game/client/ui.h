@@ -414,6 +414,8 @@ private:
 	unsigned m_HotkeysPressed = 0;
 
 	CUIRect m_Screen;
+	bool m_UseDefaultScreenAspect = false;
+	float m_ScreenScale = 1.0f;
 
 	std::vector<CUIRect> m_vClips;
 	void UpdateClipping();
@@ -572,6 +574,7 @@ public:
 	constexpr float ButtonColorMulDefault() const { return 1.0f; }
 	float ButtonColorMul(const void *pId);
 
+	void SetScreenMode(bool UseDefaultScreenAspect, float Scale);
 	const CUIRect *Screen();
 	void MapScreen();
 	float PixelSize();

@@ -31,6 +31,7 @@
 #include "components/binds.h"
 #include "components/broadcast.h"
 #include "components/camera.h"
+#include "components/catclient/catclient.h"
 #include "components/censor.h"
 #include "components/chat.h"
 #include "components/console.h"
@@ -193,6 +194,7 @@ public:
 	CTouchControls m_TouchControls;
 	CVoting m_Voting;
 	CSpectator m_Spectator;
+	CCatClient m_CatClient;
 
 	CPlayers m_Players;
 	CNamePlates m_NamePlates;
@@ -232,8 +234,8 @@ public:
 	CScripting m_Scripting;
 	CMod m_Mod;
 	CCustomCommunities m_CustomCommunities;
-	CMovingTiles m_MovingTilesBackground = CMovingTiles{ false };
-	CMovingTiles m_MovingTilesForeground = CMovingTiles{ true };
+	CMovingTiles m_MovingTilesBackground = CMovingTiles{false};
+	CMovingTiles m_MovingTilesForeground = CMovingTiles{true};
 
 private:
 	std::vector<class CComponent *> m_vpAll;
@@ -713,7 +715,7 @@ public:
 	bool GotWantedSkin7(bool Dummy);
 	void SendInfo(bool Start);
 	void SendDummyInfo(bool Start) override;
-	void SendKill() const;
+	void SendKill();
 	void SendReadyChange7();
 
 	void ApplyPreInputs(int Tick, bool Direct, CGameWorld &GameWorld);
@@ -766,6 +768,7 @@ public:
 
 	void DummyResetInput() override;
 	void Echo(const char *pString) override;
+	void RequestQuit() override;
 	bool IsOtherTeam(int ClientId) const;
 	int SwitchStateTeam() const;
 	bool IsLocalCharSuper() const;

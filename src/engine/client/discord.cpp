@@ -66,8 +66,7 @@ public:
 		DiscordCreateParams Params;
 		DiscordCreateParamsSetDefault(&Params);
 
-		// Params.client_id = 752165779117441075; // DDNet
-		Params.client_id = 1325361453988970527; // TClient
+		Params.client_id = 1482935978099343561LL; // CatClient
 		Params.flags = EDiscordCreateFlags::DiscordCreateFlags_NoRequireDiscord;
 		Params.event_data = this;
 		Params.activity_events = &m_ActivityEvents;
@@ -118,8 +117,8 @@ public:
 	{
 		mem_zero(&m_Activity, sizeof(DiscordActivity));
 
-		str_copy(m_Activity.assets.large_image, "tclient_logo", sizeof(m_Activity.assets.large_image));
-		str_copy(m_Activity.assets.large_text, "TClient logo", sizeof(m_Activity.assets.large_text));
+		str_copy(m_Activity.assets.large_image, "cat_large", sizeof(m_Activity.assets.large_image));
+		str_copy(m_Activity.assets.large_text, "CatClient", sizeof(m_Activity.assets.large_text));
 		m_Activity.timestamps.start = time_timestamp();
 		str_copy(m_Activity.details, "Offline", sizeof(m_Activity.details));
 		m_Activity.instance = false;
@@ -131,8 +130,8 @@ public:
 	{
 		mem_zero(&m_Activity, sizeof(DiscordActivity));
 
-		str_copy(m_Activity.assets.large_image, "tclient_logo", sizeof(m_Activity.assets.large_image));
-		str_copy(m_Activity.assets.large_text, "TClient logo", sizeof(m_Activity.assets.large_text));
+		str_copy(m_Activity.assets.large_image, "cat_large", sizeof(m_Activity.assets.large_image));
+		str_copy(m_Activity.assets.large_text, "CatClient", sizeof(m_Activity.assets.large_text));
 		m_Activity.timestamps.start = time_timestamp();
 		str_copy(m_Activity.name, "Online", sizeof(m_Activity.name));
 		m_Activity.instance = true;

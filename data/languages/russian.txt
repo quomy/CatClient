@@ -595,7 +595,7 @@ Messages
 New random timeout code
 == Сгенерировать новый тайм-аут код
 
-Loading DDNet Client
+Loading CatClient Client
 == Загрузка DDNet Client
 
 Normal message

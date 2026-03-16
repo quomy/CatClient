@@ -114,6 +114,14 @@ public:
 	{
 	};
 
+	struct SCustomAudio : public SCustomItem
+	{
+	};
+
+	struct SCustomCursor : public SCustomItem
+	{
+	};
+
 protected:
 	std::vector<SCustomEntities> m_vEntitiesList;
 	std::vector<SCustomGame> m_vGameList;
@@ -121,6 +129,8 @@ protected:
 	std::vector<SCustomParticle> m_vParticlesList;
 	std::vector<SCustomHud> m_vHudList;
 	std::vector<SCustomExtras> m_vExtrasList;
+	std::vector<SCustomAudio> m_vAudioList;
+	std::vector<SCustomCursor> m_vCursorList;
 
 	bool m_IsInit = false;
 
@@ -132,6 +142,8 @@ protected:
 	static int ParticlesScan(const char *pName, int IsDir, int DirType, void *pUser);
 	static int HudScan(const char *pName, int IsDir, int DirType, void *pUser);
 	static int ExtrasScan(const char *pName, int IsDir, int DirType, void *pUser);
+	static int AudioScan(const char *pName, int IsDir, int DirType, void *pUser);
+	static int CursorScan(const char *pName, int IsDir, int DirType, void *pUser);
 
 	static void ConchainAssetsEntities(IConsole::IResult *pResult, void *pUserData, IConsole::FCommandCallback pfnCallback, void *pCallbackUserData);
 	static void ConchainAssetGame(IConsole::IResult *pResult, void *pUserData, IConsole::FCommandCallback pfnCallback, void *pCallbackUserData);
@@ -139,6 +151,8 @@ protected:
 	static void ConchainAssetEmoticons(IConsole::IResult *pResult, void *pUserData, IConsole::FCommandCallback pfnCallback, void *pCallbackUserData);
 	static void ConchainAssetHud(IConsole::IResult *pResult, void *pUserData, IConsole::FCommandCallback pfnCallback, void *pCallbackUserData);
 	static void ConchainAssetExtras(IConsole::IResult *pResult, void *pUserData, IConsole::FCommandCallback pfnCallback, void *pCallbackUserData);
+	static void ConchainAssetAudio(IConsole::IResult *pResult, void *pUserData, IConsole::FCommandCallback pfnCallback, void *pCallbackUserData);
+	static void ConchainAssetCursor(IConsole::IResult *pResult, void *pUserData, IConsole::FCommandCallback pfnCallback, void *pCallbackUserData);
 
 	void ClearCustomItems(int CurTab);
 
@@ -692,9 +706,43 @@ public:
 		SETTINGS_ASSETS,
 		SETTINGS_TCLIENT,
 		SETTINGS_PROFILES,
-		SETTINGS_CONFIGS,
+		SETTINGS_CATCLIENT,
 
 		SETTINGS_LENGTH,
+	};
+
+	enum
+	{
+		CATCLIENT_TAB_GENERAL = 0,
+		CATCLIENT_TAB_VISUALS,
+		CATCLIENT_TAB_STREAMER,
+		CATCLIENT_TAB_INFO,
+
+		NUM_CATCLIENT_TABS,
+	};
+
+	enum
+	{
+		ASSETS_TAB_ENTITIES = 0,
+		ASSETS_TAB_GAME,
+		ASSETS_TAB_EMOTICONS,
+		ASSETS_TAB_PARTICLES,
+		ASSETS_TAB_HUD,
+		ASSETS_TAB_EXTRAS,
+		ASSETS_TAB_AUDIO,
+		ASSETS_TAB_CURSORS,
+
+		NUM_ASSETS_TABS,
+	};
+
+	enum EFirstRunSetupStep
+	{
+		FIRST_RUN_SETUP_UI_SCALE = 0,
+		FIRST_RUN_SETUP_ASPECT_RATIO,
+		FIRST_RUN_SETUP_CURSORS,
+		FIRST_RUN_SETUP_AUDIO,
+
+		NUM_FIRST_RUN_SETUP_STEPS,
 	};
 
 	enum
@@ -731,6 +779,47 @@ public:
 	SUIAnimator m_aAnimatorsBigPage[BIG_TAB_LENGTH];
 	SUIAnimator m_aAnimatorsSmallPage[SMALL_TAB_LENGTH];
 	SUIAnimator m_aAnimatorsSettingsTab[SETTINGS_LENGTH];
+
+	struct SPageTransitionState
+	{
+		int m_Page = -1;
+		int m_PreviousPage = -1;
+		int m_Direction = 1;
+		std::chrono::nanoseconds m_StartTime = std::chrono::nanoseconds::zero();
+	};
+
+	SPageTransitionState m_MainPageTransition;
+	SPageTransitionState m_SettingsPageTransition;
+	SPageTransitionState m_BrowserToolboxTransition;
+	SPageTransitionState m_CatClientTransition;
+	SPageTransitionState m_AssetsTransition;
+	CUIRect m_PageTransitionOverlayRect{};
+	float m_PageTransitionOverlayAlpha = 0.0f;
+
+	struct SFirstRunFocusState
+	{
+		bool m_Valid = false;
+		CUIRect m_Rect{};
+	};
+
+	std::chrono::nanoseconds m_LastBrowserAutoRefresh = std::chrono::nanoseconds::zero();
+	int m_LastBrowserAutoRefreshPage = -1;
+	int m_CatClientTab = CATCLIENT_TAB_GENERAL;
+	int m_AssetsTab = ASSETS_TAB_ENTITIES;
+	int m_FirstRunSetupStep = FIRST_RUN_SETUP_UI_SCALE;
+	int m_FirstRunSetupAnimatedStep = -1;
+	std::chrono::nanoseconds m_FirstRunSetupAnimationStart = std::chrono::nanoseconds::zero();
+	SFirstRunFocusState m_aFirstRunFocus[NUM_FIRST_RUN_SETUP_STEPS];
+
+	void BeginPageTransition(SPageTransitionState &State, int Page, const CUIRect &ClipRect, CUIRect &RenderRect);
+	void EndPageTransition();
+	bool IsFirstRunSetupActive() const;
+	bool IsFirstRunSetupStepActive(EFirstRunSetupStep Step) const;
+	void RegisterFirstRunFocus(EFirstRunSetupStep Step, const CUIRect &Rect);
+	void ResetFirstRunFocus();
+	void UpdateFirstRunSetupRouting();
+	void RenderFirstRunSetupOverlay(const CUIRect &Screen);
+	void FinishFirstRunSetup(bool Skip);
 
 	// DDRace
 	int DoButton_CheckBox_Tristate(const void *pId, const char *pText, TRISTATE Checked, const CUIRect *pRect);
@@ -823,6 +912,8 @@ public:
 	void ForceRefreshLanPage();
 	void SetShowStart(bool ShowStart);
 	void ShowQuitPopup();
+	bool ShouldConfirmQuit() const;
+	void RequestQuit();
 	void JoinTutorial();
 
 private:
@@ -853,6 +944,11 @@ private:
 	void RenderSettingsTClientStatusBar(CUIRect MainView);
 	void RenderSettingsTClientProfiles(CUIRect MainView);
 	void RenderSettingsTClientConfigs(CUIRect MainView);
+	void RenderSettingsCatClient(CUIRect MainView);
+	void RenderSettingsCatClientGeneral(CUIRect MainView);
+	void RenderSettingsCatClientVisuals(CUIRect MainView);
+	void RenderSettingsCatClientStreamer(CUIRect MainView);
+	void RenderSettingsCatClientInfo(CUIRect MainView);
 	void RenderTeeCute(const CAnimState *pAnim, const CTeeRenderInfo *pInfo, int Emote, vec2 Dir, vec2 Pos, bool CuteEyes, float Alpha = 1.0f);
 
 	const CWarType *m_pRemoveWarType = nullptr;

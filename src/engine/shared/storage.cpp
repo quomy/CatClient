@@ -13,6 +13,8 @@
 #include <engine/shared/linereader.h>
 #include <engine/storage.h>
 
+#include <game/version.h>
+
 #include <unordered_set>
 
 #ifdef CONF_PLATFORM_HAIKU
@@ -68,7 +70,6 @@ public:
 				return false;
 			}
 		}
-
 		bool Success = true;
 		if(InitializationType == EInitializationType::CLIENT)
 		{
@@ -80,6 +81,8 @@ public:
 				"assets/game",
 				"assets/hud",
 				"assets/particles",
+				"assets/audio",
+				"assets/cursors",
 				"audio",
 				"communityicons",
 				"downloadedmaps",
@@ -260,7 +263,7 @@ public:
 		str_copy(m_aUserdir, "user");
 #else
 		char aFallbackUserdir[IO_MAX_PATH_LENGTH];
-		if(fs_storage_path("DDNet", m_aUserdir, sizeof(m_aUserdir)))
+		if(fs_storage_path(CLIENT_NAME, m_aUserdir, sizeof(m_aUserdir)))
 		{
 			log_error("storage", "could not determine user directory");
 		}

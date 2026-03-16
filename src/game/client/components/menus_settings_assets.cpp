@@ -23,18 +23,6 @@ struct SMenuAssetScanUser
 	TMenuAssetScanLoadedFunc m_LoadedFunc;
 };
 
-// IDs of the tabs in the Assets menu
-enum
-{
-	ASSETS_TAB_ENTITIES = 0,
-	ASSETS_TAB_GAME = 1,
-	ASSETS_TAB_EMOTICONS = 2,
-	ASSETS_TAB_PARTICLES = 3,
-	ASSETS_TAB_HUD = 4,
-	ASSETS_TAB_EXTRAS = 5,
-	NUMBER_OF_ASSETS_TABS = 6,
-};
-
 void CMenus::LoadEntities(SCustomEntities *pEntitiesItem, void *pUser)
 {
 	auto *pRealUser = (SMenuAssetScanUser *)pUser;
@@ -209,39 +197,125 @@ int CMenus::ExtrasScan(const char *pName, int IsDir, int DirType, void *pUser)
 	return AssetScan(pName, IsDir, DirType, pThis->m_vExtrasList, "extras", pGraphics, pUser);
 }
 
+static void LoadCursor(CMenus::SCustomCursor *pCursorItem, IGraphics *pGraphics)
+{
+	char aPath[IO_MAX_PATH_LENGTH];
+	if(str_comp(pCursorItem->m_aName, "default") == 0)
+	{
+		str_copy(aPath, "gui_cursor.png");
+		pCursorItem->m_RenderTexture = pGraphics->LoadTexture(aPath, IStorage::TYPE_ALL);
+	}
+	else
+	{
+		str_format(aPath, sizeof(aPath), "assets/cursors/%s.png", pCursorItem->m_aName);
+		pCursorItem->m_RenderTexture = pGraphics->LoadTexture(aPath, IStorage::TYPE_ALL);
+		if(pCursorItem->m_RenderTexture.IsNullTexture())
+		{
+			str_format(aPath, sizeof(aPath), "assets/cursors/%s/gui_cursor.png", pCursorItem->m_aName);
+			pCursorItem->m_RenderTexture = pGraphics->LoadTexture(aPath, IStorage::TYPE_ALL);
+		}
+	}
+}
+
+int CMenus::AudioScan(const char *pName, int IsDir, int DirType, void *pUser)
+{
+	auto *pRealUser = (SMenuAssetScanUser *)pUser;
+	auto *pThis = (CMenus *)pRealUser->m_pUser;
+	if(!IsDir || pName[0] == '.' || str_comp(pName, "default") == 0)
+	{
+		return 0;
+	}
+
+	for(const SCustomAudio &ExistingItem : pThis->m_vAudioList)
+	{
+		if(str_comp(ExistingItem.m_aName, pName) == 0)
+		{
+			return 0;
+		}
+	}
+
+	SCustomAudio AudioItem;
+	str_copy(AudioItem.m_aName, pName);
+	pThis->m_vAudioList.push_back(AudioItem);
+
+	pRealUser->m_LoadedFunc();
+	return 0;
+}
+
+int CMenus::CursorScan(const char *pName, int IsDir, int DirType, void *pUser)
+{
+	auto *pRealUser = (SMenuAssetScanUser *)pUser;
+	auto *pThis = (CMenus *)pRealUser->m_pUser;
+	if(IsDir)
+	{
+		if(pName[0] == '.' || str_comp(pName, "default") == 0)
+		{
+			return 0;
+		}
+
+		SCustomCursor CursorItem;
+		str_copy(CursorItem.m_aName, pName);
+		LoadCursor(&CursorItem, pThis->Graphics());
+		pThis->m_vCursorList.push_back(CursorItem);
+	}
+	else if(str_endswith(pName, ".png"))
+	{
+		char aName[IO_MAX_PATH_LENGTH];
+		str_truncate(aName, sizeof(aName), pName, str_length(pName) - 4);
+		if(str_comp(aName, "default") == 0)
+		{
+			return 0;
+		}
+
+		SCustomCursor CursorItem;
+		str_copy(CursorItem.m_aName, aName);
+		LoadCursor(&CursorItem, pThis->Graphics());
+		pThis->m_vCursorList.push_back(CursorItem);
+	}
+
+	pRealUser->m_LoadedFunc();
+	return 0;
+}
+
 static std::vector<const CMenus::SCustomEntities *> gs_vpSearchEntitiesList;
 static std::vector<const CMenus::SCustomGame *> gs_vpSearchGamesList;
 static std::vector<const CMenus::SCustomEmoticon *> gs_vpSearchEmoticonsList;
 static std::vector<const CMenus::SCustomParticle *> gs_vpSearchParticlesList;
 static std::vector<const CMenus::SCustomHud *> gs_vpSearchHudList;
 static std::vector<const CMenus::SCustomExtras *> gs_vpSearchExtrasList;
+static std::vector<const CMenus::SCustomAudio *> gs_vpSearchAudioList;
+static std::vector<const CMenus::SCustomCursor *> gs_vpSearchCursorList;
 
-static bool gs_aInitCustomList[NUMBER_OF_ASSETS_TABS] = {
+static bool gs_aInitCustomList[CMenus::NUM_ASSETS_TABS] = {
 	true,
 };
 
-static size_t gs_aCustomListSize[NUMBER_OF_ASSETS_TABS] = {
+static size_t gs_aCustomListSize[CMenus::NUM_ASSETS_TABS] = {
 	0,
 };
 
-static CLineInputBuffered<64> s_aFilterInputs[NUMBER_OF_ASSETS_TABS];
+static CLineInputBuffered<64> s_aFilterInputs[CMenus::NUM_ASSETS_TABS];
 
-static int s_CurCustomTab = ASSETS_TAB_ENTITIES;
+static int gs_CurCustomTab = CMenus::ASSETS_TAB_ENTITIES;
 
 static const CMenus::SCustomItem *GetCustomItem(int CurTab, size_t Index)
 {
-	if(CurTab == ASSETS_TAB_ENTITIES)
+	if(CurTab == CMenus::ASSETS_TAB_ENTITIES)
 		return gs_vpSearchEntitiesList[Index];
-	else if(CurTab == ASSETS_TAB_GAME)
+	else if(CurTab == CMenus::ASSETS_TAB_GAME)
 		return gs_vpSearchGamesList[Index];
-	else if(CurTab == ASSETS_TAB_EMOTICONS)
+	else if(CurTab == CMenus::ASSETS_TAB_EMOTICONS)
 		return gs_vpSearchEmoticonsList[Index];
-	else if(CurTab == ASSETS_TAB_PARTICLES)
+	else if(CurTab == CMenus::ASSETS_TAB_PARTICLES)
 		return gs_vpSearchParticlesList[Index];
-	else if(CurTab == ASSETS_TAB_HUD)
+	else if(CurTab == CMenus::ASSETS_TAB_HUD)
 		return gs_vpSearchHudList[Index];
-	else if(CurTab == ASSETS_TAB_EXTRAS)
+	else if(CurTab == CMenus::ASSETS_TAB_EXTRAS)
 		return gs_vpSearchExtrasList[Index];
+	else if(CurTab == CMenus::ASSETS_TAB_AUDIO)
+		return gs_vpSearchAudioList[Index];
+	else if(CurTab == CMenus::ASSETS_TAB_CURSORS)
+		return gs_vpSearchCursorList[Index];
 	dbg_assert_failed("Invalid CurTab: %d", CurTab);
 }
 
@@ -257,7 +331,7 @@ static void ClearAssetList(std::vector<TName> &vList, IGraphics *pGraphics)
 
 void CMenus::ClearCustomItems(int CurTab)
 {
-	if(CurTab == ASSETS_TAB_ENTITIES)
+	if(CurTab == CMenus::ASSETS_TAB_ENTITIES)
 	{
 		for(auto &Entity : m_vEntitiesList)
 		{
@@ -271,40 +345,50 @@ void CMenus::ClearCustomItems(int CurTab)
 		// reload current entities
 		GameClient()->m_MapImages.ChangeEntitiesPath(g_Config.m_ClAssetsEntities);
 	}
-	else if(CurTab == ASSETS_TAB_GAME)
+	else if(CurTab == CMenus::ASSETS_TAB_GAME)
 	{
 		ClearAssetList(m_vGameList, Graphics());
 
 		// reload current game skin
 		GameClient()->LoadGameSkin(g_Config.m_ClAssetGame);
 	}
-	else if(CurTab == ASSETS_TAB_EMOTICONS)
+	else if(CurTab == CMenus::ASSETS_TAB_EMOTICONS)
 	{
 		ClearAssetList(m_vEmoticonList, Graphics());
 
 		// reload current emoticons skin
 		GameClient()->LoadEmoticonsSkin(g_Config.m_ClAssetEmoticons);
 	}
-	else if(CurTab == ASSETS_TAB_PARTICLES)
+	else if(CurTab == CMenus::ASSETS_TAB_PARTICLES)
 	{
 		ClearAssetList(m_vParticlesList, Graphics());
 
 		// reload current particles skin
 		GameClient()->LoadParticlesSkin(g_Config.m_ClAssetParticles);
 	}
-	else if(CurTab == ASSETS_TAB_HUD)
+	else if(CurTab == CMenus::ASSETS_TAB_HUD)
 	{
 		ClearAssetList(m_vHudList, Graphics());
 
 		// reload current hud skin
 		GameClient()->LoadHudSkin(g_Config.m_ClAssetHud);
 	}
-	else if(CurTab == ASSETS_TAB_EXTRAS)
+	else if(CurTab == CMenus::ASSETS_TAB_EXTRAS)
 	{
 		ClearAssetList(m_vExtrasList, Graphics());
 
 		// reload current DDNet particles skin
 		GameClient()->LoadExtrasSkin(g_Config.m_ClAssetExtras);
+	}
+	else if(CurTab == CMenus::ASSETS_TAB_AUDIO)
+	{
+		m_vAudioList.clear();
+		GameClient()->m_Sounds.ReloadSamples();
+	}
+	else if(CurTab == CMenus::ASSETS_TAB_CURSORS)
+	{
+		ClearAssetList(m_vCursorList, Graphics());
+		GameClient()->m_CatClient.LoadCursorAsset(g_Config.m_ClAssetCursor);
 	}
 	else
 	{
@@ -327,8 +411,8 @@ static void InitAssetList(std::vector<TName> &vAssetList, const char *pAssetPath
 		pStorage->ListDirectory(IStorage::TYPE_ALL, pAssetPath, pfnCallback, Caller);
 		std::sort(vAssetList.begin(), vAssetList.end());
 	}
-	if(vAssetList.size() != gs_aCustomListSize[s_CurCustomTab])
-		gs_aInitCustomList[s_CurCustomTab] = true;
+	if(vAssetList.size() != gs_aCustomListSize[gs_CurCustomTab])
+		gs_aInitCustomList[gs_CurCustomTab] = true;
 }
 
 template<typename TName>
@@ -341,7 +425,7 @@ static int InitSearchList(std::vector<const TName *> &vpSearchList, std::vector<
 		const TName *pAsset = &vAssetList[i];
 
 		// filter quick search
-		if(!s_aFilterInputs[s_CurCustomTab].IsEmpty() && !str_utf8_find_nocase(pAsset->m_aName, s_aFilterInputs[s_CurCustomTab].GetString()))
+		if(!s_aFilterInputs[gs_CurCustomTab].IsEmpty() && !str_utf8_find_nocase(pAsset->m_aName, s_aFilterInputs[gs_CurCustomTab].GetString()))
 			continue;
 
 		vpSearchList.push_back(pAsset);
@@ -353,25 +437,29 @@ void CMenus::RenderSettingsCustom(CUIRect MainView)
 {
 	CUIRect TabBar, CustomList, QuickSearch, DirectoryButton, ReloadButton;
 
+	gs_CurCustomTab = m_AssetsTab;
 	MainView.HSplitTop(20.0f, &TabBar, &MainView);
-	const float TabWidth = TabBar.w / (float)NUMBER_OF_ASSETS_TABS;
-	static CButtonContainer s_aPageTabs[NUMBER_OF_ASSETS_TABS] = {};
-	const char *apTabNames[NUMBER_OF_ASSETS_TABS] = {
+	const float TabWidth = TabBar.w / (float)CMenus::NUM_ASSETS_TABS;
+	static CButtonContainer s_aPageTabs[CMenus::NUM_ASSETS_TABS] = {};
+	const char *apTabNames[CMenus::NUM_ASSETS_TABS] = {
 		Localize("Entities"),
 		Localize("Game"),
 		Localize("Emoticons"),
 		Localize("Particles"),
 		Localize("HUD"),
-		Localize("Extras")};
+		Localize("Extras"),
+		Localize("Audio"),
+		Localize("Cursors")};
 
-	for(int Tab = ASSETS_TAB_ENTITIES; Tab < NUMBER_OF_ASSETS_TABS; ++Tab)
+	for(int Tab = CMenus::ASSETS_TAB_ENTITIES; Tab < CMenus::NUM_ASSETS_TABS; ++Tab)
 	{
 		CUIRect Button;
 		TabBar.VSplitLeft(TabWidth, &Button, &TabBar);
-		const int Corners = Tab == ASSETS_TAB_ENTITIES ? IGraphics::CORNER_L : (Tab == NUMBER_OF_ASSETS_TABS - 1 ? IGraphics::CORNER_R : IGraphics::CORNER_NONE);
-		if(DoButton_MenuTab(&s_aPageTabs[Tab], apTabNames[Tab], s_CurCustomTab == Tab, &Button, Corners, nullptr, nullptr, nullptr, nullptr, 4.0f))
+		const int Corners = Tab == CMenus::ASSETS_TAB_ENTITIES ? IGraphics::CORNER_L : (Tab == CMenus::NUM_ASSETS_TABS - 1 ? IGraphics::CORNER_R : IGraphics::CORNER_NONE);
+		if(DoButton_MenuTab(&s_aPageTabs[Tab], apTabNames[Tab], gs_CurCustomTab == Tab, &Button, Corners, nullptr, nullptr, nullptr, nullptr, 4.0f))
 		{
-			s_CurCustomTab = Tab;
+			gs_CurCustomTab = Tab;
+			m_AssetsTab = Tab;
 		}
 	}
 
@@ -382,7 +470,7 @@ void CMenus::RenderSettingsCustom(CUIRect MainView)
 		if(time_get_nanoseconds() - LoadStartTime > 500ms)
 			RenderLoading(Localize("Loading assets"), "", 0);
 	};
-	if(s_CurCustomTab == ASSETS_TAB_ENTITIES)
+	if(gs_CurCustomTab == CMenus::ASSETS_TAB_ENTITIES)
 	{
 		if(m_vEntitiesList.empty())
 		{
@@ -395,42 +483,83 @@ void CMenus::RenderSettingsCustom(CUIRect MainView)
 			Storage()->ListDirectory(IStorage::TYPE_ALL, "assets/entities", EntitiesScan, &User);
 			std::sort(m_vEntitiesList.begin(), m_vEntitiesList.end());
 		}
-		if(m_vEntitiesList.size() != gs_aCustomListSize[s_CurCustomTab])
-			gs_aInitCustomList[s_CurCustomTab] = true;
+		if(m_vEntitiesList.size() != gs_aCustomListSize[gs_CurCustomTab])
+			gs_aInitCustomList[gs_CurCustomTab] = true;
 	}
-	else if(s_CurCustomTab == ASSETS_TAB_GAME)
+	else if(gs_CurCustomTab == CMenus::ASSETS_TAB_GAME)
 	{
 		InitAssetList(m_vGameList, "assets/game", "game", GameScan, Graphics(), Storage(), &User);
 	}
-	else if(s_CurCustomTab == ASSETS_TAB_EMOTICONS)
+	else if(gs_CurCustomTab == CMenus::ASSETS_TAB_EMOTICONS)
 	{
 		InitAssetList(m_vEmoticonList, "assets/emoticons", "emoticons", EmoticonsScan, Graphics(), Storage(), &User);
 	}
-	else if(s_CurCustomTab == ASSETS_TAB_PARTICLES)
+	else if(gs_CurCustomTab == CMenus::ASSETS_TAB_PARTICLES)
 	{
 		InitAssetList(m_vParticlesList, "assets/particles", "particles", ParticlesScan, Graphics(), Storage(), &User);
 	}
-	else if(s_CurCustomTab == ASSETS_TAB_HUD)
+	else if(gs_CurCustomTab == CMenus::ASSETS_TAB_HUD)
 	{
 		InitAssetList(m_vHudList, "assets/hud", "hud", HudScan, Graphics(), Storage(), &User);
 	}
-	else if(s_CurCustomTab == ASSETS_TAB_EXTRAS)
+	else if(gs_CurCustomTab == CMenus::ASSETS_TAB_EXTRAS)
 	{
 		InitAssetList(m_vExtrasList, "assets/extras", "extras", ExtrasScan, Graphics(), Storage(), &User);
 	}
+	else if(gs_CurCustomTab == CMenus::ASSETS_TAB_AUDIO)
+	{
+		if(m_vAudioList.empty())
+		{
+			SCustomAudio AudioItem;
+			str_copy(AudioItem.m_aName, "default");
+			m_vAudioList.push_back(AudioItem);
+
+			Storage()->ListDirectory(IStorage::TYPE_ALL, "assets/audio", AudioScan, &User);
+			Storage()->ListDirectory(IStorage::TYPE_ALL, "audio", AudioScan, &User);
+			std::sort(m_vAudioList.begin(), m_vAudioList.end());
+		}
+		if(m_vAudioList.size() != gs_aCustomListSize[gs_CurCustomTab])
+		{
+			gs_aInitCustomList[gs_CurCustomTab] = true;
+		}
+	}
+	else if(gs_CurCustomTab == CMenus::ASSETS_TAB_CURSORS)
+	{
+		if(m_vCursorList.empty())
+		{
+			SCustomCursor CursorItem;
+			str_copy(CursorItem.m_aName, "default");
+			LoadCursor(&CursorItem, Graphics());
+			m_vCursorList.push_back(CursorItem);
+
+			Storage()->ListDirectory(IStorage::TYPE_ALL, "assets/cursors", CursorScan, &User);
+			std::sort(m_vCursorList.begin(), m_vCursorList.end());
+		}
+		if(m_vCursorList.size() != gs_aCustomListSize[gs_CurCustomTab])
+		{
+			gs_aInitCustomList[gs_CurCustomTab] = true;
+		}
+	}
 	else
 	{
-		dbg_assert_failed("Invalid s_CurCustomTab: %d", s_CurCustomTab);
+		dbg_assert_failed("Invalid gs_CurCustomTab: %d", gs_CurCustomTab);
 	}
 
 	MainView.HSplitTop(10.0f, nullptr, &MainView);
+	CUIRect AnimatedMainView;
+	BeginPageTransition(m_AssetsTransition, gs_CurCustomTab, MainView, AnimatedMainView);
+	MainView = AnimatedMainView;
 
 	// skin selector
 	MainView.HSplitTop(MainView.h - 10.0f - ms_ButtonHeight, &CustomList, &MainView);
-	if(gs_aInitCustomList[s_CurCustomTab])
+	if(IsFirstRunSetupStepActive(FIRST_RUN_SETUP_CURSORS) && gs_CurCustomTab == CMenus::ASSETS_TAB_CURSORS)
+		RegisterFirstRunFocus(FIRST_RUN_SETUP_CURSORS, CustomList);
+	if(IsFirstRunSetupStepActive(FIRST_RUN_SETUP_AUDIO) && gs_CurCustomTab == CMenus::ASSETS_TAB_AUDIO)
+		RegisterFirstRunFocus(FIRST_RUN_SETUP_AUDIO, CustomList);
+	if(gs_aInitCustomList[gs_CurCustomTab])
 	{
 		int ListSize = 0;
-		if(s_CurCustomTab == ASSETS_TAB_ENTITIES)
+		if(gs_CurCustomTab == CMenus::ASSETS_TAB_ENTITIES)
 		{
 			gs_vpSearchEntitiesList.clear();
 			ListSize = m_vEntitiesList.size();
@@ -439,34 +568,42 @@ void CMenus::RenderSettingsCustom(CUIRect MainView)
 				const SCustomEntities *pEntity = &m_vEntitiesList[i];
 
 				// filter quick search
-				if(!s_aFilterInputs[s_CurCustomTab].IsEmpty() && !str_utf8_find_nocase(pEntity->m_aName, s_aFilterInputs[s_CurCustomTab].GetString()))
+				if(!s_aFilterInputs[gs_CurCustomTab].IsEmpty() && !str_utf8_find_nocase(pEntity->m_aName, s_aFilterInputs[gs_CurCustomTab].GetString()))
 					continue;
 
 				gs_vpSearchEntitiesList.push_back(pEntity);
 			}
 		}
-		else if(s_CurCustomTab == ASSETS_TAB_GAME)
+		else if(gs_CurCustomTab == CMenus::ASSETS_TAB_GAME)
 		{
 			ListSize = InitSearchList(gs_vpSearchGamesList, m_vGameList);
 		}
-		else if(s_CurCustomTab == ASSETS_TAB_EMOTICONS)
+		else if(gs_CurCustomTab == CMenus::ASSETS_TAB_EMOTICONS)
 		{
 			ListSize = InitSearchList(gs_vpSearchEmoticonsList, m_vEmoticonList);
 		}
-		else if(s_CurCustomTab == ASSETS_TAB_PARTICLES)
+		else if(gs_CurCustomTab == CMenus::ASSETS_TAB_PARTICLES)
 		{
 			ListSize = InitSearchList(gs_vpSearchParticlesList, m_vParticlesList);
 		}
-		else if(s_CurCustomTab == ASSETS_TAB_HUD)
+		else if(gs_CurCustomTab == CMenus::ASSETS_TAB_HUD)
 		{
 			ListSize = InitSearchList(gs_vpSearchHudList, m_vHudList);
 		}
-		else if(s_CurCustomTab == ASSETS_TAB_EXTRAS)
+		else if(gs_CurCustomTab == CMenus::ASSETS_TAB_EXTRAS)
 		{
 			ListSize = InitSearchList(gs_vpSearchExtrasList, m_vExtrasList);
 		}
-		gs_aInitCustomList[s_CurCustomTab] = false;
-		gs_aCustomListSize[s_CurCustomTab] = ListSize;
+		else if(gs_CurCustomTab == CMenus::ASSETS_TAB_AUDIO)
+		{
+			ListSize = InitSearchList(gs_vpSearchAudioList, m_vAudioList);
+		}
+		else if(gs_CurCustomTab == CMenus::ASSETS_TAB_CURSORS)
+		{
+			ListSize = InitSearchList(gs_vpSearchCursorList, m_vCursorList);
+		}
+		gs_aInitCustomList[gs_CurCustomTab] = false;
+		gs_aCustomListSize[gs_CurCustomTab] = ListSize;
 	}
 
 	int OldSelected = -1;
@@ -476,68 +613,89 @@ void CMenus::RenderSettingsCustom(CUIRect MainView)
 
 	size_t SearchListSize = 0;
 
-	if(s_CurCustomTab == ASSETS_TAB_ENTITIES)
+	if(gs_CurCustomTab == CMenus::ASSETS_TAB_ENTITIES)
 	{
 		SearchListSize = gs_vpSearchEntitiesList.size();
 	}
-	else if(s_CurCustomTab == ASSETS_TAB_GAME)
+	else if(gs_CurCustomTab == CMenus::ASSETS_TAB_GAME)
 	{
 		SearchListSize = gs_vpSearchGamesList.size();
 		TextureHeight = 75;
 	}
-	else if(s_CurCustomTab == ASSETS_TAB_EMOTICONS)
+	else if(gs_CurCustomTab == CMenus::ASSETS_TAB_EMOTICONS)
 	{
 		SearchListSize = gs_vpSearchEmoticonsList.size();
 	}
-	else if(s_CurCustomTab == ASSETS_TAB_PARTICLES)
+	else if(gs_CurCustomTab == CMenus::ASSETS_TAB_PARTICLES)
 	{
 		SearchListSize = gs_vpSearchParticlesList.size();
 	}
-	else if(s_CurCustomTab == ASSETS_TAB_HUD)
+	else if(gs_CurCustomTab == CMenus::ASSETS_TAB_HUD)
 	{
 		SearchListSize = gs_vpSearchHudList.size();
 	}
-	else if(s_CurCustomTab == ASSETS_TAB_EXTRAS)
+	else if(gs_CurCustomTab == CMenus::ASSETS_TAB_EXTRAS)
 	{
 		SearchListSize = gs_vpSearchExtrasList.size();
+	}
+	else if(gs_CurCustomTab == CMenus::ASSETS_TAB_AUDIO)
+	{
+		SearchListSize = gs_vpSearchAudioList.size();
+		TextureHeight = 60;
+	}
+	else if(gs_CurCustomTab == CMenus::ASSETS_TAB_CURSORS)
+	{
+		SearchListSize = gs_vpSearchCursorList.size();
+		TextureWidth = 96;
+		TextureHeight = 96;
 	}
 
 	static CListBox s_ListBox;
 	s_ListBox.DoStart(TextureHeight + 15.0f + 10.0f + Margin, SearchListSize, CustomList.w / (Margin + TextureWidth), 1, OldSelected, &CustomList, false);
 	for(size_t i = 0; i < SearchListSize; ++i)
 	{
-		const SCustomItem *pItem = GetCustomItem(s_CurCustomTab, i);
+		const SCustomItem *pItem = GetCustomItem(gs_CurCustomTab, i);
 		if(pItem == nullptr)
 			continue;
 
-		if(s_CurCustomTab == ASSETS_TAB_ENTITIES)
+		if(gs_CurCustomTab == CMenus::ASSETS_TAB_ENTITIES)
 		{
 			if(str_comp(pItem->m_aName, g_Config.m_ClAssetsEntities) == 0)
 				OldSelected = i;
 		}
-		else if(s_CurCustomTab == ASSETS_TAB_GAME)
+		else if(gs_CurCustomTab == CMenus::ASSETS_TAB_GAME)
 		{
 			if(str_comp(pItem->m_aName, g_Config.m_ClAssetGame) == 0)
 				OldSelected = i;
 		}
-		else if(s_CurCustomTab == ASSETS_TAB_EMOTICONS)
+		else if(gs_CurCustomTab == CMenus::ASSETS_TAB_EMOTICONS)
 		{
 			if(str_comp(pItem->m_aName, g_Config.m_ClAssetEmoticons) == 0)
 				OldSelected = i;
 		}
-		else if(s_CurCustomTab == ASSETS_TAB_PARTICLES)
+		else if(gs_CurCustomTab == CMenus::ASSETS_TAB_PARTICLES)
 		{
 			if(str_comp(pItem->m_aName, g_Config.m_ClAssetParticles) == 0)
 				OldSelected = i;
 		}
-		else if(s_CurCustomTab == ASSETS_TAB_HUD)
+		else if(gs_CurCustomTab == CMenus::ASSETS_TAB_HUD)
 		{
 			if(str_comp(pItem->m_aName, g_Config.m_ClAssetHud) == 0)
 				OldSelected = i;
 		}
-		else if(s_CurCustomTab == ASSETS_TAB_EXTRAS)
+		else if(gs_CurCustomTab == CMenus::ASSETS_TAB_EXTRAS)
 		{
 			if(str_comp(pItem->m_aName, g_Config.m_ClAssetExtras) == 0)
+				OldSelected = i;
+		}
+		else if(gs_CurCustomTab == CMenus::ASSETS_TAB_AUDIO)
+		{
+			if(str_comp(pItem->m_aName, g_Config.m_ClAssetAudio) == 0)
+				OldSelected = i;
+		}
+		else if(gs_CurCustomTab == CMenus::ASSETS_TAB_CURSORS)
+		{
+			if(str_comp(pItem->m_aName, g_Config.m_ClAssetCursor) == 0)
 				OldSelected = i;
 		}
 
@@ -562,42 +720,60 @@ void CMenus::RenderSettingsCustom(CUIRect MainView)
 			Graphics()->QuadsEnd();
 			Graphics()->WrapNormal();
 		}
+		else if(gs_CurCustomTab == CMenus::ASSETS_TAB_AUDIO || gs_CurCustomTab == CMenus::ASSETS_TAB_CURSORS)
+		{
+			TextRender()->SetFontPreset(EFontPreset::ICON_FONT);
+			TextRender()->SetRenderFlags(ETextRenderFlags::TEXT_RENDER_FLAG_ONLY_ADVANCE_WIDTH | ETextRenderFlags::TEXT_RENDER_FLAG_NO_X_BEARING | ETextRenderFlags::TEXT_RENDER_FLAG_NO_Y_BEARING | ETextRenderFlags::TEXT_RENDER_FLAG_NO_PIXEL_ALIGNMENT | ETextRenderFlags::TEXT_RENDER_FLAG_NO_OVERSIZE);
+			Ui()->DoLabel(&TextureRect, gs_CurCustomTab == CMenus::ASSETS_TAB_AUDIO ? FontIcon::MUSIC : FontIcon::IMAGE, TextureHeight * 0.5f, TEXTALIGN_MC);
+			TextRender()->SetRenderFlags(0);
+			TextRender()->SetFontPreset(EFontPreset::DEFAULT_FONT);
+		}
 	}
 
 	const int NewSelected = s_ListBox.DoEnd();
 	if(OldSelected != NewSelected)
 	{
-		if(GetCustomItem(s_CurCustomTab, NewSelected)->m_aName[0] != '\0')
+		if(GetCustomItem(gs_CurCustomTab, NewSelected)->m_aName[0] != '\0')
 		{
-			if(s_CurCustomTab == ASSETS_TAB_ENTITIES)
+			if(gs_CurCustomTab == CMenus::ASSETS_TAB_ENTITIES)
 			{
-				str_copy(g_Config.m_ClAssetsEntities, GetCustomItem(s_CurCustomTab, NewSelected)->m_aName);
-				GameClient()->m_MapImages.ChangeEntitiesPath(GetCustomItem(s_CurCustomTab, NewSelected)->m_aName);
+				str_copy(g_Config.m_ClAssetsEntities, GetCustomItem(gs_CurCustomTab, NewSelected)->m_aName);
+				GameClient()->m_MapImages.ChangeEntitiesPath(GetCustomItem(gs_CurCustomTab, NewSelected)->m_aName);
 			}
-			else if(s_CurCustomTab == ASSETS_TAB_GAME)
+			else if(gs_CurCustomTab == CMenus::ASSETS_TAB_GAME)
 			{
-				str_copy(g_Config.m_ClAssetGame, GetCustomItem(s_CurCustomTab, NewSelected)->m_aName);
+				str_copy(g_Config.m_ClAssetGame, GetCustomItem(gs_CurCustomTab, NewSelected)->m_aName);
 				GameClient()->LoadGameSkin(g_Config.m_ClAssetGame);
 			}
-			else if(s_CurCustomTab == ASSETS_TAB_EMOTICONS)
+			else if(gs_CurCustomTab == CMenus::ASSETS_TAB_EMOTICONS)
 			{
-				str_copy(g_Config.m_ClAssetEmoticons, GetCustomItem(s_CurCustomTab, NewSelected)->m_aName);
+				str_copy(g_Config.m_ClAssetEmoticons, GetCustomItem(gs_CurCustomTab, NewSelected)->m_aName);
 				GameClient()->LoadEmoticonsSkin(g_Config.m_ClAssetEmoticons);
 			}
-			else if(s_CurCustomTab == ASSETS_TAB_PARTICLES)
+			else if(gs_CurCustomTab == CMenus::ASSETS_TAB_PARTICLES)
 			{
-				str_copy(g_Config.m_ClAssetParticles, GetCustomItem(s_CurCustomTab, NewSelected)->m_aName);
+				str_copy(g_Config.m_ClAssetParticles, GetCustomItem(gs_CurCustomTab, NewSelected)->m_aName);
 				GameClient()->LoadParticlesSkin(g_Config.m_ClAssetParticles);
 			}
-			else if(s_CurCustomTab == ASSETS_TAB_HUD)
+			else if(gs_CurCustomTab == CMenus::ASSETS_TAB_HUD)
 			{
-				str_copy(g_Config.m_ClAssetHud, GetCustomItem(s_CurCustomTab, NewSelected)->m_aName);
+				str_copy(g_Config.m_ClAssetHud, GetCustomItem(gs_CurCustomTab, NewSelected)->m_aName);
 				GameClient()->LoadHudSkin(g_Config.m_ClAssetHud);
 			}
-			else if(s_CurCustomTab == ASSETS_TAB_EXTRAS)
+			else if(gs_CurCustomTab == CMenus::ASSETS_TAB_EXTRAS)
 			{
-				str_copy(g_Config.m_ClAssetExtras, GetCustomItem(s_CurCustomTab, NewSelected)->m_aName);
+				str_copy(g_Config.m_ClAssetExtras, GetCustomItem(gs_CurCustomTab, NewSelected)->m_aName);
 				GameClient()->LoadExtrasSkin(g_Config.m_ClAssetExtras);
+			}
+			else if(gs_CurCustomTab == CMenus::ASSETS_TAB_AUDIO)
+			{
+				str_copy(g_Config.m_ClAssetAudio, GetCustomItem(gs_CurCustomTab, NewSelected)->m_aName);
+				GameClient()->m_Sounds.ReloadSamples();
+			}
+			else if(gs_CurCustomTab == CMenus::ASSETS_TAB_CURSORS)
+			{
+				str_copy(g_Config.m_ClAssetCursor, GetCustomItem(gs_CurCustomTab, NewSelected)->m_aName);
+				GameClient()->m_CatClient.LoadCursorAsset(g_Config.m_ClAssetCursor);
 			}
 		}
 	}
@@ -606,9 +782,9 @@ void CMenus::RenderSettingsCustom(CUIRect MainView)
 	MainView.HSplitBottom(ms_ButtonHeight, &MainView, &QuickSearch);
 	QuickSearch.VSplitLeft(220.0f, &QuickSearch, &DirectoryButton);
 	QuickSearch.HSplitTop(5.0f, nullptr, &QuickSearch);
-	if(Ui()->DoEditBox_Search(&s_aFilterInputs[s_CurCustomTab], &QuickSearch, 14.0f, !Ui()->IsPopupOpen() && !GameClient()->m_GameConsole.IsActive()))
+	if(Ui()->DoEditBox_Search(&s_aFilterInputs[gs_CurCustomTab], &QuickSearch, 14.0f, !Ui()->IsPopupOpen() && !GameClient()->m_GameConsole.IsActive()))
 	{
-		gs_aInitCustomList[s_CurCustomTab] = true;
+		gs_aInitCustomList[gs_CurCustomTab] = true;
 	}
 
 	DirectoryButton.HSplitTop(5.0f, nullptr, &DirectoryButton);
@@ -620,21 +796,33 @@ void CMenus::RenderSettingsCustom(CUIRect MainView)
 	{
 		char aBuf[IO_MAX_PATH_LENGTH];
 		char aBufFull[IO_MAX_PATH_LENGTH + 7];
-		if(s_CurCustomTab == ASSETS_TAB_ENTITIES)
+		if(gs_CurCustomTab == CMenus::ASSETS_TAB_ENTITIES)
 			str_copy(aBufFull, "assets/entities");
-		else if(s_CurCustomTab == ASSETS_TAB_GAME)
+		else if(gs_CurCustomTab == CMenus::ASSETS_TAB_GAME)
 			str_copy(aBufFull, "assets/game");
-		else if(s_CurCustomTab == ASSETS_TAB_EMOTICONS)
+		else if(gs_CurCustomTab == CMenus::ASSETS_TAB_EMOTICONS)
 			str_copy(aBufFull, "assets/emoticons");
-		else if(s_CurCustomTab == ASSETS_TAB_PARTICLES)
+		else if(gs_CurCustomTab == CMenus::ASSETS_TAB_PARTICLES)
 			str_copy(aBufFull, "assets/particles");
-		else if(s_CurCustomTab == ASSETS_TAB_HUD)
+		else if(gs_CurCustomTab == CMenus::ASSETS_TAB_HUD)
 			str_copy(aBufFull, "assets/hud");
-		else if(s_CurCustomTab == ASSETS_TAB_EXTRAS)
+		else if(gs_CurCustomTab == CMenus::ASSETS_TAB_EXTRAS)
 			str_copy(aBufFull, "assets/extras");
+		else if(gs_CurCustomTab == CMenus::ASSETS_TAB_AUDIO)
+			str_copy(aBufFull, "assets/audio");
+		else if(gs_CurCustomTab == CMenus::ASSETS_TAB_CURSORS)
+			str_copy(aBufFull, "assets/cursors");
 		Storage()->GetCompletePath(IStorage::TYPE_SAVE, aBufFull, aBuf, sizeof(aBuf));
-		Storage()->CreateFolder("assets", IStorage::TYPE_SAVE);
-		Storage()->CreateFolder(aBufFull, IStorage::TYPE_SAVE);
+		if(gs_CurCustomTab == CMenus::ASSETS_TAB_AUDIO)
+		{
+			Storage()->CreateFolder("assets", IStorage::TYPE_SAVE);
+			Storage()->CreateFolder("assets/audio", IStorage::TYPE_SAVE);
+		}
+		else
+		{
+			Storage()->CreateFolder("assets", IStorage::TYPE_SAVE);
+			Storage()->CreateFolder(aBufFull, IStorage::TYPE_SAVE);
+		}
 		Client()->ViewFile(aBuf);
 	}
 	GameClient()->m_Tooltips.DoToolTip(&s_AssetsDirId, &DirectoryButton, Localize("Open the directory to add custom assets"));
@@ -644,10 +832,11 @@ void CMenus::RenderSettingsCustom(CUIRect MainView)
 	static CButtonContainer s_AssetsReloadBtnId;
 	if(DoButton_Menu(&s_AssetsReloadBtnId, FontIcon::ARROW_ROTATE_RIGHT, 0, &ReloadButton) || Input()->KeyPress(KEY_F5) || (Input()->KeyPress(KEY_R) && Input()->ModifierIsPressed()))
 	{
-		ClearCustomItems(s_CurCustomTab);
+		ClearCustomItems(gs_CurCustomTab);
 	}
 	TextRender()->SetRenderFlags(0);
 	TextRender()->SetFontPreset(EFontPreset::DEFAULT_FONT);
+	EndPageTransition();
 }
 
 void CMenus::ConchainAssetsEntities(IConsole::IResult *pResult, void *pUserData, IConsole::FCommandCallback pfnCallback, void *pCallbackUserData)
@@ -734,6 +923,36 @@ void CMenus::ConchainAssetExtras(IConsole::IResult *pResult, void *pUserData, IC
 		if(str_comp(pArg, g_Config.m_ClAssetExtras) != 0)
 		{
 			pThis->GameClient()->LoadExtrasSkin(pArg);
+		}
+	}
+
+	pfnCallback(pResult, pCallbackUserData);
+}
+
+void CMenus::ConchainAssetAudio(IConsole::IResult *pResult, void *pUserData, IConsole::FCommandCallback pfnCallback, void *pCallbackUserData)
+{
+	CMenus *pThis = (CMenus *)pUserData;
+	if(pResult->NumArguments() == 1)
+	{
+		const char *pArg = pResult->GetString(0);
+		if(str_comp(pArg, g_Config.m_ClAssetAudio) != 0)
+		{
+			pThis->GameClient()->m_Sounds.ReloadSamples();
+		}
+	}
+
+	pfnCallback(pResult, pCallbackUserData);
+}
+
+void CMenus::ConchainAssetCursor(IConsole::IResult *pResult, void *pUserData, IConsole::FCommandCallback pfnCallback, void *pCallbackUserData)
+{
+	CMenus *pThis = (CMenus *)pUserData;
+	if(pResult->NumArguments() == 1)
+	{
+		const char *pArg = pResult->GetString(0);
+		if(str_comp(pArg, g_Config.m_ClAssetCursor) != 0)
+		{
+			pThis->GameClient()->m_CatClient.LoadCursorAsset(pArg);
 		}
 	}
 

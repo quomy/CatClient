@@ -1441,11 +1441,77 @@ bool CMenus::RenderLanguageSelection(CUIRect MainView)
 	return s_ListBox.WasItemActivated();
 }
 
+namespace
+{
+	constexpr float gs_SettingsTopTabsButtonHeight = 26.0f;
+	constexpr float gs_SettingsTopTabsSpacing = 4.0f;
+	constexpr float gs_SettingsTopTabsPreferredWidth = 110.0f;
+	constexpr float gs_SettingsTopTabsMinWidth = 84.0f;
+	constexpr float gs_SettingsTopTabsRightOffset = 5.0f;
+
+	void RenderTopSettingsTabs(CMenus *pMenus, CUIRect &View, const char *const *apTabs, CButtonContainer *pTabButtons)
+	{
+		const int NumTabs = (int)CMenus::SETTINGS_LENGTH;
+		CUIRect TabBar;
+		const int MaxTabsPerRow = maximum(1, minimum(NumTabs, (int)((View.w + gs_SettingsTopTabsSpacing) / (gs_SettingsTopTabsMinWidth + gs_SettingsTopTabsSpacing))));
+		const int NumRows = maximum(1, (NumTabs + MaxTabsPerRow - 1) / MaxTabsPerRow);
+		const float TabBarHeight = NumRows * gs_SettingsTopTabsButtonHeight + maximum(0, NumRows - 1) * gs_SettingsTopTabsSpacing;
+		View.HSplitTop(TabBarHeight, &TabBar, &View);
+
+		for(int Row = 0, Tab = 0; Row < NumRows; ++Row)
+		{
+			CUIRect RowRect;
+			TabBar.HSplitTop(gs_SettingsTopTabsButtonHeight, &RowRect, &TabBar);
+
+			const int TabsLeft = NumTabs - Tab;
+			const int RowsLeft = NumRows - Row;
+			const int TabsInRow = (TabsLeft + RowsLeft - 1) / RowsLeft;
+			const float AvailableWidth = RowRect.w - gs_SettingsTopTabsSpacing * (TabsInRow - 1);
+			const float ButtonWidth = minimum(gs_SettingsTopTabsPreferredWidth, AvailableWidth / TabsInRow);
+			const float RowWidth = ButtonWidth * TabsInRow + gs_SettingsTopTabsSpacing * (TabsInRow - 1);
+			CUIRect CenteredRow = RowRect;
+			if(RowWidth < CenteredRow.w)
+			{
+				CenteredRow.VMargin((CenteredRow.w - RowWidth) / 2.0f, &CenteredRow);
+				CenteredRow.x += minimum(gs_SettingsTopTabsRightOffset, maximum((RowRect.w - RowWidth) / 2.0f, 0.0f));
+			}
+
+			for(int Col = 0; Col < TabsInRow; ++Col, ++Tab)
+			{
+				CUIRect Button;
+				if(Col == TabsInRow - 1)
+				{
+					Button = CenteredRow;
+				}
+				else
+				{
+					CenteredRow.VSplitLeft(ButtonWidth, &Button, &CenteredRow);
+					CenteredRow.VSplitLeft(gs_SettingsTopTabsSpacing, nullptr, &CenteredRow);
+				}
+
+				if(pMenus->DoButton_MenuTab(&pTabButtons[Tab], apTabs[Tab], g_Config.m_UiSettingsPage == Tab, &Button, IGraphics::CORNER_ALL, &pMenus->m_aAnimatorsSettingsTab[Tab], nullptr, nullptr, nullptr, 4.0f))
+					g_Config.m_UiSettingsPage = Tab;
+			}
+
+			if(Row + 1 < NumRows)
+				TabBar.HSplitTop(gs_SettingsTopTabsSpacing, nullptr, &TabBar);
+		}
+
+		View.HSplitTop(12.0f, nullptr, &View);
+	}
+}
+
 void CMenus::RenderSettings(CUIRect MainView)
 {
+	ResetFirstRunFocus();
+	if(IsFirstRunSetupActive())
+		UpdateFirstRunSetupRouting();
+
 	// render background
 	CUIRect Button, TabBar, RestartBar;
-	MainView.VSplitRight(120.0f, &MainView, &TabBar);
+	const bool UseHorizontalTabs = g_Config.m_CcHorizontalSettingsTabs != 0;
+	if(!UseHorizontalTabs)
+		MainView.VSplitRight(120.0f, &MainView, &TabBar);
 	MainView.Draw(ms_ColorTabbarActive, IGraphics::CORNER_B, 10.0f);
 	MainView.Margin(20.0f, &MainView);
 
@@ -1455,9 +1521,6 @@ void CMenus::RenderSettings(CUIRect MainView)
 		MainView.HSplitBottom(20.0f, &MainView, &RestartBar);
 		MainView.HSplitBottom(10.0f, &MainView, nullptr);
 	}
-
-	TabBar.HSplitTop(50.0f, &Button, &TabBar);
-	Button.Draw(ms_ColorTabbarActive, IGraphics::CORNER_BR, 10.0f);
 
 	const char *apTabs[SETTINGS_LENGTH] = {
 		Localize("Language"),
@@ -1472,90 +1535,128 @@ void CMenus::RenderSettings(CUIRect MainView)
 		Localize("Assets"),
 		TCLocalize("TClient"),
 		Localize("Profiles"),
-		Localize("Configs")};
+		Localize("CatClient")};
 
 	static CButtonContainer s_aTabButtons[SETTINGS_LENGTH];
-
-	for(int i = 0; i < SETTINGS_LENGTH; i++)
+	for(SUIAnimator &Animator : m_aAnimatorsSettingsTab)
 	{
-		TabBar.HSplitTop(10.0f, nullptr, &TabBar);
-		TabBar.HSplitTop(26.0f, &Button, &TabBar);
-		if(DoButton_MenuTab(&s_aTabButtons[i], apTabs[i], g_Config.m_UiSettingsPage == i, &Button, IGraphics::CORNER_R, &m_aAnimatorsSettingsTab[i]))
-			g_Config.m_UiSettingsPage = i;
+		if(UseHorizontalTabs)
+		{
+			Animator.m_XOffset = -1.0f;
+			Animator.m_YOffset = -1.0f;
+			Animator.m_WOffset = 2.0f;
+			Animator.m_HOffset = 2.0f;
+			Animator.m_ScaleLabel = true;
+			Animator.m_RepositionLabel = false;
+		}
+		else
+		{
+			Animator.m_XOffset = 2.0f;
+			Animator.m_YOffset = 0.0f;
+			Animator.m_WOffset = 1.0f;
+			Animator.m_HOffset = 0.0f;
+			Animator.m_ScaleLabel = false;
+			Animator.m_RepositionLabel = false;
+		}
 	}
+
+	if(UseHorizontalTabs)
+	{
+		RenderTopSettingsTabs(this, MainView, apTabs, s_aTabButtons);
+	}
+	else
+	{
+		TabBar.HSplitTop(50.0f, &Button, &TabBar);
+		Button.Draw(ms_ColorTabbarActive, IGraphics::CORNER_BR, 10.0f);
+
+		for(int i = 0; i < SETTINGS_LENGTH; i++)
+		{
+			TabBar.HSplitTop(10.0f, nullptr, &TabBar);
+			TabBar.HSplitTop(26.0f, &Button, &TabBar);
+			if(DoButton_MenuTab(&s_aTabButtons[i], apTabs[i], g_Config.m_UiSettingsPage == i, &Button, IGraphics::CORNER_R, &m_aAnimatorsSettingsTab[i]))
+				g_Config.m_UiSettingsPage = i;
+		}
+	}
+
+	CUIRect AnimatedMainView;
+	BeginPageTransition(m_SettingsPageTransition, g_Config.m_UiSettingsPage, MainView, AnimatedMainView);
 
 	if(g_Config.m_UiSettingsPage == SETTINGS_LANGUAGE)
 	{
 		GameClient()->m_MenuBackground.ChangePosition(CMenuBackground::POS_SETTINGS_LANGUAGE);
-		RenderLanguageSettings(MainView);
+		RenderLanguageSettings(AnimatedMainView);
 	}
 	else if(g_Config.m_UiSettingsPage == SETTINGS_GENERAL)
 	{
 		GameClient()->m_MenuBackground.ChangePosition(CMenuBackground::POS_SETTINGS_GENERAL);
-		RenderSettingsGeneral(MainView);
+		RenderSettingsGeneral(AnimatedMainView);
 	}
 	else if(g_Config.m_UiSettingsPage == SETTINGS_PLAYER)
 	{
 		GameClient()->m_MenuBackground.ChangePosition(CMenuBackground::POS_SETTINGS_PLAYER);
-		RenderSettingsPlayer(MainView);
+		RenderSettingsPlayer(AnimatedMainView);
 	}
 	else if(g_Config.m_UiSettingsPage == SETTINGS_TEE)
 	{
 		GameClient()->m_MenuBackground.ChangePosition(CMenuBackground::POS_SETTINGS_TEE);
 		if(Client()->IsSixup())
-			RenderSettingsTee7(MainView);
+			RenderSettingsTee7(AnimatedMainView);
 		else
-			RenderSettingsTee(MainView);
+			RenderSettingsTee(AnimatedMainView);
 	}
 	else if(g_Config.m_UiSettingsPage == SETTINGS_APPEARANCE)
 	{
 		GameClient()->m_MenuBackground.ChangePosition(CMenuBackground::POS_SETTINGS_APPEARANCE);
-		RenderSettingsAppearance(MainView);
+		RenderSettingsAppearance(AnimatedMainView);
 	}
 	else if(g_Config.m_UiSettingsPage == SETTINGS_CONTROLS)
 	{
 		GameClient()->m_MenuBackground.ChangePosition(CMenuBackground::POS_SETTINGS_CONTROLS);
-		m_MenusSettingsControls.Render(MainView);
+		m_MenusSettingsControls.Render(AnimatedMainView);
 	}
 	else if(g_Config.m_UiSettingsPage == SETTINGS_GRAPHICS)
 	{
 		GameClient()->m_MenuBackground.ChangePosition(CMenuBackground::POS_SETTINGS_GRAPHICS);
-		RenderSettingsGraphics(MainView);
+		RenderSettingsGraphics(AnimatedMainView);
 	}
 	else if(g_Config.m_UiSettingsPage == SETTINGS_SOUND)
 	{
 		GameClient()->m_MenuBackground.ChangePosition(CMenuBackground::POS_SETTINGS_SOUND);
-		RenderSettingsSound(MainView);
+		RenderSettingsSound(AnimatedMainView);
 	}
 	else if(g_Config.m_UiSettingsPage == SETTINGS_DDNET)
 	{
 		GameClient()->m_MenuBackground.ChangePosition(CMenuBackground::POS_SETTINGS_DDNET);
-		RenderSettingsDDNet(MainView);
+		RenderSettingsDDNet(AnimatedMainView);
 	}
 	else if(g_Config.m_UiSettingsPage == SETTINGS_ASSETS)
 	{
 		GameClient()->m_MenuBackground.ChangePosition(CMenuBackground::POS_SETTINGS_ASSETS);
-		RenderSettingsCustom(MainView);
+		RenderSettingsCustom(AnimatedMainView);
 	}
 	else if(g_Config.m_UiSettingsPage == SETTINGS_TCLIENT)
 	{
 		GameClient()->m_MenuBackground.ChangePosition(13);
-		RenderSettingsTClient(MainView);
+		RenderSettingsTClient(AnimatedMainView);
 	}
 	else if(g_Config.m_UiSettingsPage == SETTINGS_PROFILES)
 	{
 		GameClient()->m_MenuBackground.ChangePosition(14);
-		RenderSettingsTClientProfiles(MainView);
+		RenderSettingsTClientProfiles(AnimatedMainView);
 	}
-	else if(g_Config.m_UiSettingsPage == SETTINGS_CONFIGS)
+	else if(g_Config.m_UiSettingsPage == SETTINGS_CATCLIENT)
 	{
 		GameClient()->m_MenuBackground.ChangePosition(15);
-		RenderSettingsTClientConfigs(MainView);
+		RenderSettingsCatClient(AnimatedMainView);
 	}
 	else
 	{
 		dbg_assert_failed("ui_settings_page invalid");
 	}
+	EndPageTransition();
+
+	if(IsFirstRunSetupActive())
+		RenderFirstRunSetupOverlay(*Ui()->Screen());
 
 	if(NeedRestart)
 	{
@@ -2753,7 +2854,7 @@ void CMenus::RenderSettingsDDNet(CUIRect MainView)
 {
 	CUIRect Button, Left, Right, LeftLeft, Label;
 
-#if defined(CONF_AUTOUPDATE)
+#if defined(CONF_AUTOUPDATE) || defined(CONF_INFORM_UPDATE)
 	CUIRect UpdaterRect;
 	MainView.HSplitBottom(20.0f, &MainView, &UpdaterRect);
 	MainView.HSplitBottom(5.0f, &MainView, nullptr);
@@ -3005,30 +3106,34 @@ void CMenus::RenderSettingsDDNet(CUIRect MainView)
 #endif
 
 	// Updater
-#if defined(CONF_AUTOUPDATE)
+#if defined(CONF_AUTOUPDATE) || defined(CONF_INFORM_UPDATE)
 	{
 		const bool NeedUpdate = GameClient()->m_TClient.NeedUpdate();
-		IUpdater::EUpdaterState State = Updater()->GetCurrentState();
 
 		// Update Button
 		char aBuf[256];
-		if(NeedUpdate && State <= IUpdater::CLEAN)
+		if(NeedUpdate)
 		{
-			str_format(aBuf, sizeof(aBuf), Localize("TClient %s is available:"), GameClient()->m_TClient.m_aVersionStr);
+			str_format(aBuf, sizeof(aBuf), Localize("CatClient %s is available on GitHub:"), GameClient()->m_TClient.m_aVersionStr);
 			UpdaterRect.VSplitLeft(TextRender()->TextWidth(14.0f, aBuf, -1, -1.0f) + 10.0f, &UpdaterRect, &Button);
-			Button.VSplitLeft(100.0f, &Button, nullptr);
+			Button.VSplitLeft(135.0f, &Button, nullptr);
 			static CButtonContainer s_ButtonUpdate;
-			if(DoButton_Menu(&s_ButtonUpdate, Localize("Update now"), 0, &Button))
+			if(DoButton_Menu(&s_ButtonUpdate, Localize("Download update"), 0, &Button))
 			{
-				Updater()->InitiateUpdate();
+				Client()->ViewLink(GameClient()->m_TClient.LatestReleaseUrl());
 			}
 		}
-		else if(State >= IUpdater::GETTING_MANIFEST && State < IUpdater::NEED_RESTART)
-			str_copy(aBuf, Localize("Updating…"));
-		else if(State == IUpdater::NEED_RESTART)
+		else if(!GameClient()->m_TClient.m_FetchedTClientInfo)
 		{
-			str_copy(aBuf, Localize("TClient Client updated!"));
-			m_NeedRestartUpdate = true;
+			str_copy(aBuf, Localize("Checking CatClient updates…"));
+		}
+		else if(GameClient()->m_TClient.NoPublishedRelease())
+		{
+			str_copy(aBuf, Localize("No CatClient release has been published on GitHub yet."));
+		}
+		else if(GameClient()->m_TClient.UpdateCheckFailed())
+		{
+			str_copy(aBuf, Localize("Couldn't check CatClient updates."));
 		}
 		else
 		{

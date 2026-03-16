@@ -4,7 +4,7 @@
 #define GAME_VERSION_H
 
 // ddnet
-#define GAME_NAME "DDNet"
+#define GAME_NAME "CatClient"
 #define DDNET_VERSION_NUMBER 19080
 extern const char *GIT_SHORTREV_HASH;
 #ifndef GAME_RELEASE_VERSION_INTERNAL
@@ -18,13 +18,17 @@ extern const char *GIT_SHORTREV_HASH;
 #define GAME_NETVERSION "0.6 626fce9a778df4d4"
 #define GAME_NETVERSION7 "0.7 802f1be60a05665f"
 
-// TClient
+// CatClient
+#ifndef CATCLIENT_VERSION
+#define CATCLIENT_VERSION "1.0.0"
+#endif
+
 #ifndef TCLIENT_VERSION
-#define TCLIENT_VERSION "10.8.7"
+#define TCLIENT_VERSION CATCLIENT_VERSION
 #endif
 
 // custom
-#define CLIENT_NAME "TClient"
-#define CLIENT_RELEASE_VERSION TCLIENT_VERSION
+#define CLIENT_NAME "CatClient"
+#define CLIENT_RELEASE_VERSION CATCLIENT_VERSION
 
 #endif

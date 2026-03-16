@@ -569,14 +569,22 @@ void CMenus::RenderPlayers(CUIRect MainView)
 		vec2 TeeRenderPos(Button.x + Button.h / 2, Button.y + Button.h / 2 + OffsetToMid.y);
 		RenderTools()->RenderTee(pIdleState, &TeeInfo, EMOTE_NORMAL, vec2(1.0f, 0.0f), TeeRenderPos);
 		Ui()->DoButtonLogic(&s_aPlayerIds[Index][3], 0, &Button, BUTTONFLAG_NONE);
+		if(Ui()->MouseInside(&Button))
+		{
+			GameClient()->m_Skins.RequestDatabaseSkin(CurrentClient.m_aSkinName);
+		}
 		GameClient()->m_Tooltips.DoToolTip(&s_aPlayerIds[Index][3], &Button, CurrentClient.m_aSkinName);
 
 		Player.HSplitTop(1.5f, nullptr, &Player);
 		Player.VSplitMid(&Player, &Button);
 		Row.VSplitRight(210.0f, &Button2, &Row);
 
-		Ui()->DoLabel(&Player, CurrentClient.m_aName, 14.0f, TEXTALIGN_ML);
-		Ui()->DoLabel(&Button, CurrentClient.m_aClan, 14.0f, TEXTALIGN_ML);
+		char aSanitizedName[MAX_NAME_LENGTH];
+		char aSanitizedClan[MAX_CLAN_LENGTH];
+		GameClient()->m_CatClient.SanitizeText(CurrentClient.m_aName, aSanitizedName, sizeof(aSanitizedName));
+		GameClient()->m_CatClient.SanitizeText(CurrentClient.m_aClan, aSanitizedClan, sizeof(aSanitizedClan));
+		Ui()->DoLabel(&Player, aSanitizedName, 14.0f, TEXTALIGN_ML);
+		Ui()->DoLabel(&Button, aSanitizedClan, 14.0f, TEXTALIGN_ML);
 
 		GameClient()->m_CountryFlags.Render(CurrentClient.m_Country, ColorRGBA(1.0f, 1.0f, 1.0f, 0.5f),
 			Button2.x, Button2.y + Button2.h / 2.0f - 0.75f * Button2.h / 2.0f, 1.5f * Button2.h, 0.75f * Button2.h);
@@ -606,7 +614,9 @@ void CMenus::RenderPlayers(CUIRect MainView)
 		Row.VSplitLeft(Width, &Button, &Row);
 		Button.VSplitLeft((Width - Button.h) / 4.0f, nullptr, &Button);
 		Button.VSplitLeft(Button.h, &Button, nullptr);
-		if(DoButton_Toggle(&s_aPlayerIds[Index][2], CurrentClient.m_Friend, &Button, true))
+		if(GameClient()->m_CatClient.HasStreamerFlag(CCatClient::STREAMER_HIDE_FRIEND_WHISPER))
+			DoButton_Toggle(&s_aPlayerIds[Index][2], 0, &Button, false);
+		else if(DoButton_Toggle(&s_aPlayerIds[Index][2], CurrentClient.m_Friend, &Button, true))
 		{
 			if(CurrentClient.m_Friend)
 				GameClient()->Friends()->RemoveFriend(CurrentClient.m_aName, CurrentClient.m_aClan);
@@ -644,11 +654,14 @@ void CMenus::RenderServerInfo(CUIRect MainView)
 
 	ServerInfo.HSplitTop(FontSizeBody, &Label, &ServerInfo);
 	ServerInfo.HSplitTop(FontSizeBody, nullptr, &ServerInfo);
-	Ui()->DoLabel(&Label, CurrentServerInfo.m_aName, FontSizeBody, TEXTALIGN_ML);
+	char aSanitizedServerName[256];
+	GameClient()->m_CatClient.SanitizeText(CurrentServerInfo.m_aName, aSanitizedServerName, sizeof(aSanitizedServerName));
+	Ui()->DoLabel(&Label, aSanitizedServerName, FontSizeBody, TEXTALIGN_ML);
 
 	ServerInfo.HSplitTop(FontSizeBody, &Label, &ServerInfo);
 	char aBuf[256];
-	str_format(aBuf, sizeof(aBuf), "%s: %s", Localize("Address"), CurrentServerInfo.m_aAddress);
+	char aMaskedAddress[NETADDR_MAXSTRSIZE];
+	str_format(aBuf, sizeof(aBuf), "%s: %s", Localize("Address"), GameClient()->m_CatClient.MaskServerAddress(CurrentServerInfo.m_aAddress, aMaskedAddress, sizeof(aMaskedAddress)));
 	Ui()->DoLabel(&Label, aBuf, FontSizeBody, TEXTALIGN_ML);
 
 	if(GameClient()->m_Snap.m_pLocalInfo)
@@ -701,7 +714,7 @@ void CMenus::RenderServerInfo(CUIRect MainView)
 				"Address: ddnet://%s\n"
 				"My IGN: %s\n",
 				CurrentServerInfo.m_aName,
-				CurrentServerInfo.m_aAddress,
+				GameClient()->m_CatClient.HasStreamerFlag(CCatClient::STREAMER_HIDE_SERVER_IP) ? "hidden" : CurrentServerInfo.m_aAddress,
 				Client()->PlayerName());
 			Input()->SetClipboardText(aInfo);
 		}

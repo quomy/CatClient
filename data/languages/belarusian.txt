@@ -533,7 +533,7 @@ Connected
 Loading map file from storage
 == Загрузка файла карты са сховішча
 
-Loading DDNet Client
+Loading CatClient Client
 == Загрузка кліента DDNet
 
 Why are you slowmo replaying to read this?

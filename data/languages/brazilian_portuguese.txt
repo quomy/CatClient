@@ -640,7 +640,7 @@ Net
 Miscellaneous
 == Diversos
 
-Loading DDNet Client
+Loading CatClient Client
 == Carregando DDNet Client
 
 FPM

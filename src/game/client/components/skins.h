@@ -15,8 +15,10 @@
 #include <list>
 #include <optional>
 #include <set>
+#include <string>
 #include <string_view>
 #include <unordered_map>
+#include <unordered_set>
 #include <utility>
 
 class CHttpRequest;
@@ -242,6 +244,7 @@ public:
 	const CSkinContainer *FindContainerOrNullptr(const char *pName);
 	const CSkin *FindOrNullptr(const char *pName);
 	const CSkin *Find(const char *pName);
+	void RequestDatabaseSkin(const char *pName);
 
 	void AddFavorite(const char *pName);
 	void RemoveFavorite(const char *pName);
@@ -295,6 +298,10 @@ private:
 
 	std::unordered_map<std::string_view, std::unique_ptr<CSkinContainer>> m_Skins;
 	std::optional<std::chrono::nanoseconds> m_ContainerUpdateTime;
+	std::unordered_map<std::string, std::shared_ptr<CSkinDownloadJob>> m_DatabaseDownloadJobs;
+	std::unordered_map<std::string, std::chrono::nanoseconds> m_DatabaseRequestTimes;
+	std::unordered_set<std::string> m_DatabaseResolvedSkins;
+	std::unordered_set<std::string> m_DatabaseFailedDownloads;
 	/**
 	 * Sorted from most recently to least recently used. Must be kept synchronized with the skin containers.
 	 * Only contains pending and loaded skins as only these are unloaded.
@@ -308,14 +315,18 @@ private:
 	char m_aEventSkinPrefix[MAX_SKIN_LENGTH];
 
 	bool LoadSkinData(const char *pName, CSkinLoadData &Data) const;
+	bool LoadSkinPng(CImageInfo &Info, const char *pName, int StorageType, char *pLoadedPath, size_t LoadedPathSize) const;
 	void LoadSkinFinish(CSkinContainer *pSkinContainer, const CSkinLoadData &Data);
 	void LoadSkinDirect(const char *pName);
+	bool ResolveCatClientDatabaseUrl(const char *pName, char *pUrl, size_t UrlSize) const;
 	const CSkinContainer *FindContainerImpl(const char *pName);
 	static int SkinScan(const char *pName, int IsDir, int StorageType, void *pUser);
+	void UnloadSkin(CSkinContainer *pSkinContainer);
 
 	void UpdateUnloadSkins(CSkinLoadingStats &Stats);
 	void UpdateStartLoading(CSkinLoadingStats &Stats);
 	void UpdateFinishLoading(CSkinLoadingStats &Stats, std::chrono::nanoseconds StartTime, std::chrono::nanoseconds MaxTime);
+	void UpdateDatabaseDownloads(std::chrono::nanoseconds StartTime, std::chrono::nanoseconds MaxTime);
 
 	static void ConAddFavoriteSkin(IConsole::IResult *pResult, void *pUserData);
 	static void ConRemFavoriteSkin(IConsole::IResult *pResult, void *pUserData);

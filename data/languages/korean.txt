@@ -523,7 +523,7 @@ Browser
 Ghost
 == 고스트
 
-Loading DDNet Client
+Loading CatClient Client
 == DDNet 클라이언트 로딩 중
 
 Reconnect in %d sec

@@ -89,7 +89,7 @@ void CMenusStart::RenderStartMenu(CUIRect MainView)
 	bool UsedEscape = false;
 	if(GameClient()->m_Menus.DoButton_Menu(&s_QuitButton, Localize("Quit"), 0, &Button, BUTTONFLAG_LEFT, nullptr, IGraphics::CORNER_ALL, Rounding, 0.5f, ColorRGBA(0.0f, 0.0f, 0.0f, 0.25f)) || (UsedEscape = Ui()->ConsumeHotkey(CUi::HOTKEY_ESCAPE)) || CheckHotKey(KEY_Q))
 	{
-		if(UsedEscape || GameClient()->Editor()->HasUnsavedData() || (GameClient()->CurrentRaceTime() / 60 >= g_Config.m_ClConfirmQuitTime && g_Config.m_ClConfirmQuitTime >= 0))
+		if(UsedEscape || GameClient()->m_Menus.ShouldConfirmQuit())
 		{
 			GameClient()->m_Menus.ShowQuitPopup();
 		}
@@ -162,17 +162,29 @@ void CMenusStart::RenderStartMenu(CUIRect MainView)
 	char aTBuf[64];
 	str_format(aTBuf, sizeof(aTBuf), CLIENT_NAME " %s", CLIENT_RELEASE_VERSION);
 	Ui()->DoLabel(&TClientVersion, aTBuf, 14.0f, TEXTALIGN_MR);
-#if defined(CONF_AUTOUPDATE)
+#if defined(CONF_AUTOUPDATE) || defined(CONF_INFORM_UPDATE)
 	CUIRect UpdateToDateText;
 	MainView.HSplitTop(15.0f, &UpdateToDateText, nullptr);
 	UpdateToDateText.VSplitRight(40.0f, &UpdateToDateText, nullptr);
-	if(!GameClient()->m_TClient.NeedUpdate() && GameClient()->m_TClient.m_FetchedTClientInfo)
+	if(!GameClient()->m_TClient.m_FetchedTClientInfo)
 	{
-		Ui()->DoLabel(&UpdateToDateText, TCLocalize("(On Latest)"), 14.0f, TEXTALIGN_MR);
+		Ui()->DoLabel(&UpdateToDateText, Localize("(Checking GitHub release)"), 14.0f, TEXTALIGN_MR);
+	}
+	else if(GameClient()->m_TClient.NoPublishedRelease())
+	{
+		Ui()->DoLabel(&UpdateToDateText, Localize("(No published release)"), 14.0f, TEXTALIGN_MR);
+	}
+	else if(GameClient()->m_TClient.NeedUpdate())
+	{
+		Ui()->DoLabel(&UpdateToDateText, Localize("(Update available)"), 14.0f, TEXTALIGN_MR);
+	}
+	else if(GameClient()->m_TClient.UpdateCheckFailed())
+	{
+		Ui()->DoLabel(&UpdateToDateText, Localize("(Update check unavailable)"), 14.0f, TEXTALIGN_MR);
 	}
 	else
 	{
-		Ui()->DoLabel(&UpdateToDateText, TCLocalize("(Fetching Update Info)"), 14.0f, TEXTALIGN_MR);
+		Ui()->DoLabel(&UpdateToDateText, Localize("(On Latest)"), 14.0f, TEXTALIGN_MR);
 	}
 #endif
 	static CButtonContainer s_ConsoleButton;
@@ -188,82 +200,40 @@ void CMenusStart::RenderStartMenu(CUIRect MainView)
 	CUIRect VersionUpdate;
 	MainView.HSplitBottom(20.0f, nullptr, &VersionUpdate);
 	VersionUpdate.VMargin(VMargin, &VersionUpdate);
-#if defined(CONF_AUTOUPDATE)
-	CUIRect UpdateButton;
-	VersionUpdate.VSplitRight(100.0f, &VersionUpdate, &UpdateButton);
-	VersionUpdate.VSplitRight(10.0f, &VersionUpdate, nullptr);
-
-	char aBuf[128];
-	const IUpdater::EUpdaterState State = Updater()->GetCurrentState();
+#if defined(CONF_AUTOUPDATE) || defined(CONF_INFORM_UPDATE)
+	char aBuf[256] = "";
 	const bool NeedUpdate = GameClient()->m_TClient.NeedUpdate();
-
-	if(State == IUpdater::CLEAN && NeedUpdate)
-	{
-		static CButtonContainer s_VersionUpdate;
-		if(GameClient()->m_Menus.DoButton_Menu(&s_VersionUpdate, Localize("Update now"), 0, &UpdateButton, BUTTONFLAG_LEFT, 0, IGraphics::CORNER_ALL, 5.0f, 0.0f, ColorRGBA(0.0f, 0.0f, 0.0f, 0.25f)))
-		{
-			Updater()->InitiateUpdate();
-		}
-	}
-	else if(State == IUpdater::NEED_RESTART)
-	{
-		static CButtonContainer s_VersionUpdate;
-		if(GameClient()->m_Menus.DoButton_Menu(&s_VersionUpdate, Localize("Restart"), 0, &UpdateButton, BUTTONFLAG_LEFT, 0, IGraphics::CORNER_ALL, 5.0f, 0.0f, ColorRGBA(0.0f, 0.0f, 0.0f, 0.25f)))
-		{
-			Client()->Restart();
-		}
-	}
-	else if(State >= IUpdater::GETTING_MANIFEST && State < IUpdater::NEED_RESTART)
-	{
-		Ui()->RenderProgressBar(UpdateButton, Updater()->GetCurrentPercent() / 100.0f);
-	}
-
-	if(State == IUpdater::CLEAN && NeedUpdate)
-	{
-		str_format(aBuf, sizeof(aBuf), Localize("TClient %s is out!"), GameClient()->m_TClient.m_aVersionStr);
-		TextRender()->TextColor(1.0f, 0.4f, 0.4f, 1.0f);
-	}
-	else if(State == IUpdater::CLEAN)
-	{
-		aBuf[0] = '\0';
-	}
-	else if(State >= IUpdater::GETTING_MANIFEST && State < IUpdater::NEED_RESTART)
-	{
-		char aCurrentFile[64];
-		Updater()->GetCurrentFile(aCurrentFile, sizeof(aCurrentFile));
-		str_format(aBuf, sizeof(aBuf), Localize("Downloading %s:"), aCurrentFile);
-	}
-	else if(State == IUpdater::FAIL)
-	{
-		str_copy(aBuf, Localize("Update failed! Check log…"));
-		TextRender()->TextColor(1.0f, 0.4f, 0.4f, 1.0f);
-	}
-	else if(State == IUpdater::NEED_RESTART)
-	{
-		str_copy(aBuf, Localize("DDNet Client updated!"));
-		TextRender()->TextColor(1.0f, 0.4f, 0.4f, 1.0f);
-	}
-	Ui()->DoLabel(&VersionUpdate, aBuf, 14.0f, TEXTALIGN_ML);
-	TextRender()->TextColor(TextRender()->DefaultTextColor());
-#elif defined(CONF_INFORM_UPDATE)
-	if(str_comp(Client()->LatestVersion(), "0") != 0 && false)
+	if(NeedUpdate)
 	{
 		CUIRect DownloadButton;
-		VersionUpdate.VSplitRight(100.0f, &VersionUpdate, &DownloadButton);
+		VersionUpdate.VSplitRight(135.0f, &VersionUpdate, &DownloadButton);
 		VersionUpdate.VSplitRight(10.0f, &VersionUpdate, nullptr);
 
 		static CButtonContainer s_DownloadButton;
-		if(GameClient()->m_Menus.DoButton_Menu(&s_DownloadButton, Localize("Download"), 0, &DownloadButton, BUTTONFLAG_LEFT, 0, IGraphics::CORNER_ALL, 5.0f, 0.0f, ColorRGBA(0.0f, 0.0f, 0.0f, 0.25f)))
+		if(GameClient()->m_Menus.DoButton_Menu(&s_DownloadButton, Localize("Download update"), 0, &DownloadButton, BUTTONFLAG_LEFT, 0, IGraphics::CORNER_ALL, 5.0f, 0.0f, ColorRGBA(0.0f, 0.0f, 0.0f, 0.25f)))
 		{
-			Client()->ViewLink("https://ddnet.org/downloads/");
+			Client()->ViewLink(GameClient()->m_TClient.LatestReleaseUrl());
 		}
 
-		char aBuf[64];
-		str_format(aBuf, sizeof(aBuf), Localize("DDNet %s is out!"), Client()->LatestVersion());
-		SLabelProperties UpdateLabelProps;
-		UpdateLabelProps.SetColor(ColorRGBA(1.0f, 0.4f, 0.4f, 1.0f));
-		Ui()->DoLabel(&VersionUpdate, aBuf, 14.0f, TEXTALIGN_ML, UpdateLabelProps);
+		str_format(aBuf, sizeof(aBuf), Localize("CatClient %s is available on GitHub."), GameClient()->m_TClient.m_aVersionStr);
+		TextRender()->TextColor(1.0f, 0.4f, 0.4f, 1.0f);
 	}
+	else if(!GameClient()->m_TClient.m_FetchedTClientInfo)
+	{
+		str_copy(aBuf, Localize("Checking CatClient updates…"));
+	}
+	else if(GameClient()->m_TClient.NoPublishedRelease())
+	{
+		str_copy(aBuf, Localize("No CatClient release has been published on GitHub yet."));
+	}
+	else if(GameClient()->m_TClient.UpdateCheckFailed())
+	{
+		str_copy(aBuf, Localize("Couldn't check CatClient updates."));
+		TextRender()->TextColor(1.0f, 0.4f, 0.4f, 1.0f);
+	}
+
+	Ui()->DoLabel(&VersionUpdate, aBuf, 14.0f, TEXTALIGN_ML);
+	TextRender()->TextColor(TextRender()->DefaultTextColor());
 #endif
 
 	if(NewPage != -1)

@@ -69,19 +69,18 @@ CMenus::CMenus()
 	m_NeedSendDummyinfo = false;
 	m_MenuActive = true;
 	m_ShowStart = true;
-
 	str_copy(m_aCurrentDemoFolder, "demos");
 	m_DemolistStorageType = IStorage::TYPE_ALL;
-
 	m_DemoPlayerState = DEMOPLAYER_NONE;
 	m_Dummy = false;
-
 	for(SUIAnimator &Animator : m_aAnimatorsSettingsTab)
 	{
-		Animator.m_YOffset = -2.5f;
-		Animator.m_HOffset = 5.0f;
-		Animator.m_WOffset = 5.0f;
-		Animator.m_RepositionLabel = true;
+		Animator.m_XOffset = -1.0f;
+		Animator.m_YOffset = -1.0f;
+		Animator.m_HOffset = 2.0f;
+		Animator.m_WOffset = 2.0f;
+		Animator.m_ScaleLabel = true;
+		Animator.m_RepositionLabel = false;
 	}
 
 	for(SUIAnimator &Animator : m_aAnimatorsBigPage)
@@ -519,14 +518,7 @@ void CMenus::RenderMenubar(CUIRect Box, IClient::EClientState ClientState)
 	ColorRGBA QuitColor(1, 0, 0, 0.5f);
 	if(DoButton_MenuTab(&s_QuitButton, FontIcon::POWER_OFF, 0, &Button, IGraphics::CORNER_T, &m_aAnimatorsSmallPage[SMALL_TAB_QUIT], nullptr, nullptr, &QuitColor, 10.0f))
 	{
-		if(GameClient()->Editor()->HasUnsavedData() || (GameClient()->CurrentRaceTime() / 60 >= g_Config.m_ClConfirmQuitTime && g_Config.m_ClConfirmQuitTime >= 0) || m_MenusIngameTouchControls.UnsavedChanges() || GameClient()->m_TouchControls.HasEditingChanges())
-		{
-			m_Popup = POPUP_QUIT;
-		}
-		else
-		{
-			Client()->Quit();
-		}
+		RequestQuit();
 	}
 	GameClient()->m_Tooltips.DoToolTip(&s_QuitButton, &Button, Localize("Quit"));
 
@@ -897,6 +889,8 @@ void CMenus::OnInit()
 	Console()->Chain("cl_asset_particles", ConchainAssetParticles, this);
 	Console()->Chain("cl_asset_hud", ConchainAssetHud, this);
 	Console()->Chain("cl_asset_extras", ConchainAssetExtras, this);
+	Console()->Chain("cl_asset_audio", ConchainAssetAudio, this);
+	Console()->Chain("cl_asset_cursor", ConchainAssetCursor, this);
 
 	Console()->Chain("demo_play", ConchainDemoPlay, this);
 	Console()->Chain("demo_speed", ConchainDemoSpeed, this);
@@ -1081,6 +1075,16 @@ void CMenus::Render()
 		Screen.Margin(10.0f, &Screen);
 	}
 
+	if(IsFirstRunSetupActive() && m_Popup == POPUP_NONE && (ClientState == IClient::STATE_OFFLINE || ClientState == IClient::STATE_ONLINE))
+	{
+		m_ShowStart = false;
+		if(ClientState == IClient::STATE_OFFLINE && m_MenuPage != PAGE_SETTINGS)
+			SetMenuPage(PAGE_SETTINGS);
+		else if(ClientState == IClient::STATE_ONLINE && m_GamePage != PAGE_SETTINGS)
+			m_GamePage = PAGE_SETTINGS;
+		UpdateFirstRunSetupRouting();
+	}
+
 	switch(ClientState)
 	{
 	case IClient::STATE_QUITTING:
@@ -1109,27 +1113,30 @@ void CMenus::Render()
 		{
 			CUIRect TabBar, MainView;
 			Screen.HSplitTop(24.0f, &TabBar, &MainView);
+			CUIRect AnimatedMainView;
+			BeginPageTransition(m_MainPageTransition, m_MenuPage, MainView, AnimatedMainView);
 
 			if(m_MenuPage == PAGE_NEWS)
 			{
-				RenderNews(MainView);
+				RenderNews(AnimatedMainView);
 			}
 			else if(m_MenuPage >= PAGE_INTERNET && m_MenuPage <= PAGE_FAVORITE_COMMUNITY_5)
 			{
-				RenderServerbrowser(MainView);
+				RenderServerbrowser(AnimatedMainView);
 			}
 			else if(m_MenuPage == PAGE_DEMOS)
 			{
-				RenderDemoBrowser(MainView);
+				RenderDemoBrowser(AnimatedMainView);
 			}
 			else if(m_MenuPage == PAGE_SETTINGS)
 			{
-				RenderSettings(MainView);
+				RenderSettings(AnimatedMainView);
 			}
 			else
 			{
 				dbg_assert_failed("Invalid m_MenuPage: %d", m_MenuPage);
 			}
+			EndPageTransition();
 
 			RenderMenubar(TabBar, ClientState);
 		}
@@ -1144,44 +1151,47 @@ void CMenus::Render()
 		{
 			CUIRect TabBar, MainView;
 			Screen.HSplitTop(24.0f, &TabBar, &MainView);
+			CUIRect AnimatedMainView;
+			BeginPageTransition(m_MainPageTransition, 100 + m_GamePage, MainView, AnimatedMainView);
 
 			if(m_GamePage == PAGE_GAME)
 			{
-				RenderGame(MainView);
+				RenderGame(AnimatedMainView);
 				RenderIngameHint();
 			}
 			else if(m_GamePage == PAGE_PLAYERS)
 			{
-				RenderPlayers(MainView);
+				RenderPlayers(AnimatedMainView);
 			}
 			else if(m_GamePage == PAGE_SERVER_INFO)
 			{
-				RenderServerInfo(MainView);
+				RenderServerInfo(AnimatedMainView);
 			}
 			else if(m_GamePage == PAGE_NETWORK)
 			{
-				RenderInGameNetwork(MainView);
+				RenderInGameNetwork(AnimatedMainView);
 			}
 			else if(m_GamePage == PAGE_GHOST)
 			{
-				RenderGhost(MainView);
+				RenderGhost(AnimatedMainView);
 			}
 			else if(m_GamePage == PAGE_CALLVOTE)
 			{
-				RenderServerControl(MainView);
+				RenderServerControl(AnimatedMainView);
 			}
 			else if(m_GamePage == PAGE_DEMOS)
 			{
-				RenderDemoBrowser(MainView);
+				RenderDemoBrowser(AnimatedMainView);
 			}
 			else if(m_GamePage == PAGE_SETTINGS)
 			{
-				RenderSettings(MainView);
+				RenderSettings(AnimatedMainView);
 			}
 			else
 			{
 				dbg_assert_failed("Invalid m_GamePage: %d", m_GamePage);
 			}
+			EndPageTransition();
 
 			RenderMenubar(TabBar, ClientState);
 		}
@@ -1483,7 +1493,8 @@ void CMenus::RenderPopupFullscreen(CUIRect Screen)
 		Part.VSplitLeft(100.0f, &Label, &Address);
 		Address.VSplitLeft(20.0f, nullptr, &Address);
 		Ui()->DoLabel(&Label, Localize("Address"), 18.0f, TEXTALIGN_ML);
-		Ui()->DoLabel(&Address, aAddr, 18.0f, TEXTALIGN_ML);
+		char aMaskedAddr[NETADDR_MAXSTRSIZE];
+		Ui()->DoLabel(&Address, GameClient()->m_CatClient.MaskServerAddress(aAddr, aMaskedAddr, sizeof(aMaskedAddr)), 18.0f, TEXTALIGN_ML);
 
 		const CServerBrowser::CServerEntry *pEntry = ServerBrowser()->Find(Client()->ServerAddress());
 		if(pEntry != nullptr && pEntry->m_GotInfo)
@@ -2125,7 +2136,8 @@ void CMenus::RenderPopupConnecting(CUIRect Screen)
 	SLabelProperties Props;
 	Props.m_MaxWidth = Label.w;
 	Props.m_EllipsisAtEnd = true;
-	Ui()->DoLabel(&Label, Client()->ConnectAddressString(), FontSize, TEXTALIGN_MC, Props);
+	char aMaskedConnectAddress[NETADDR_MAXSTRSIZE];
+	Ui()->DoLabel(&Label, GameClient()->m_CatClient.MaskServerAddress(Client()->ConnectAddressString(), aMaskedConnectAddress, sizeof(aMaskedConnectAddress)), FontSize, TEXTALIGN_MC, Props);
 
 	if(time_get() - Client()->StateStartTime() > time_freq())
 	{
@@ -2493,6 +2505,10 @@ void CMenus::OnWindowResize()
 
 void CMenus::OnRender()
 {
+	const bool MenuActive = IsActive();
+	const float MenuScale = MenuActive ? g_Config.m_CcUiScale / 100.0f : 1.0f;
+	Ui()->SetScreenMode(MenuActive, MenuScale);
+
 	if(Client()->State() != IClient::STATE_ONLINE && Client()->State() != IClient::STATE_DEMOPLAYBACK)
 		SetActive(true);
 
@@ -2515,6 +2531,8 @@ void CMenus::OnRender()
 			return;
 		}
 	}
+
+	Ui()->SetScreenMode(IsActive(), IsActive() ? g_Config.m_CcUiScale / 100.0f : 1.0f);
 
 	Ui()->StartCheck();
 	UpdateColors();
@@ -2570,7 +2588,7 @@ void CMenus::RenderBackground()
 	Graphics()->BlendNormal();
 
 	const float ScreenHeight = 300.0f;
-	const float ScreenWidth = ScreenHeight * Graphics()->ScreenAspect();
+	const float ScreenWidth = ScreenHeight * ((float)Graphics()->WindowWidth() / (float)maximum(Graphics()->WindowHeight(), 1));
 	Graphics()->MapScreen(0.0f, 0.0f, ScreenWidth, ScreenHeight);
 
 	// render background color
@@ -2671,7 +2689,7 @@ int CMenus::MenuImageScan(const char *pName, int IsDir, int DirType, void *pUser
 	str_truncate(MenuImage.m_aName, sizeof(MenuImage.m_aName), pName, str_length(pName) - str_length(pExtension));
 	pSelf->m_vMenuImages.push_back(MenuImage);
 
-	pSelf->RenderLoading(Localize("Loading DDNet Client"), Localize("Loading menu images"), 0);
+	pSelf->RenderLoading(Localize("Loading CatClient Client"), Localize("Loading menu images"), 0);
 
 	return 0;
 }
@@ -2682,6 +2700,46 @@ const CMenus::CMenuImage *CMenus::FindMenuImage(const char *pName)
 		if(str_comp(Image.m_aName, pName) == 0)
 			return &Image;
 	return nullptr;
+}
+
+void CMenus::BeginPageTransition(SPageTransitionState &State, int Page, const CUIRect &ClipRect, CUIRect &RenderRect)
+{
+	const auto Now = time_get_nanoseconds();
+	if(State.m_Page != Page)
+	{
+		State.m_PreviousPage = State.m_Page;
+		State.m_Direction = State.m_PreviousPage == -1 || State.m_PreviousPage <= Page ? 1 : -1;
+		State.m_Page = Page;
+		State.m_StartTime = Now;
+	}
+
+	RenderRect = ClipRect;
+	if(State.m_StartTime == std::chrono::nanoseconds::zero())
+	{
+		Ui()->ClipEnable(&ClipRect);
+		return;
+	}
+
+	constexpr auto Duration = std::chrono::milliseconds(95);
+	const float RawProgress = std::clamp(std::chrono::duration<float>(Now - State.m_StartTime).count() / std::chrono::duration<float>(Duration).count(), 0.0f, 1.0f);
+	const float SmoothProgress = RawProgress * RawProgress * (3.0f - 2.0f * RawProgress);
+	const float Reveal = 1.0f - SmoothProgress;
+
+	CUIRect AnimatedClip = ClipRect;
+	const float HorizontalInset = minimum(14.0f, ClipRect.w * 0.03f) * Reveal;
+	const float VerticalInset = minimum(8.0f, ClipRect.h * 0.03f) * Reveal;
+	AnimatedClip.x += HorizontalInset;
+	AnimatedClip.y += VerticalInset;
+	AnimatedClip.w -= HorizontalInset * 2.0f;
+	AnimatedClip.h -= VerticalInset * 2.0f;
+
+	RenderRect.y += Reveal * 5.0f;
+	Ui()->ClipEnable(&AnimatedClip);
+}
+
+void CMenus::EndPageTransition()
+{
+	Ui()->ClipDisable();
 }
 
 void CMenus::SetMenuPage(int NewPage)
@@ -2706,6 +2764,12 @@ void CMenus::SetMenuPage(int NewPage)
 
 void CMenus::RefreshBrowserTab(bool Force)
 {
+	if(g_Config.m_UiPage >= PAGE_INTERNET && g_Config.m_UiPage <= PAGE_FAVORITE_COMMUNITY_5)
+	{
+		m_LastBrowserAutoRefreshPage = g_Config.m_UiPage;
+		m_LastBrowserAutoRefresh = time_get_nanoseconds();
+	}
+
 	if(g_Config.m_UiPage == PAGE_INTERNET)
 	{
 		if(Force || ServerBrowser()->GetCurrentType() != IServerBrowser::TYPE_INTERNET)
@@ -2765,7 +2829,29 @@ void CMenus::SetShowStart(bool ShowStart)
 
 void CMenus::ShowQuitPopup()
 {
+	SetActive(true);
 	m_Popup = POPUP_QUIT;
+}
+
+bool CMenus::ShouldConfirmQuit() const
+{
+	return g_Config.m_CcAntiQuit ||
+	       GameClient()->Editor()->HasUnsavedData() ||
+	       (GameClient()->CurrentRaceTime() / 60 >= g_Config.m_ClConfirmQuitTime && g_Config.m_ClConfirmQuitTime >= 0) ||
+	       m_MenusIngameTouchControls.UnsavedChanges() ||
+	       GameClient()->m_TouchControls.HasEditingChanges();
+}
+
+void CMenus::RequestQuit()
+{
+	if(ShouldConfirmQuit())
+	{
+		ShowQuitPopup();
+	}
+	else
+	{
+		Client()->Quit();
+	}
 }
 
 void CMenus::JoinTutorial()

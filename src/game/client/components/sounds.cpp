@@ -27,7 +27,7 @@ void CSoundLoading::Run()
 {
 	for(int s = 0; s < g_pData->m_NumSounds; s++)
 	{
-		const char *pLoadingCaption = Localize("Loading DDNet Client");
+		const char *pLoadingCaption = Localize("Loading CatClient Client");
 		const char *pLoadingContent = Localize("Loading sound files");
 
 		for(int i = 0; i < g_pData->m_aSounds[s].m_NumSounds; i++)
@@ -35,7 +35,9 @@ void CSoundLoading::Run()
 			if(State() == IJob::STATE_ABORTED)
 				return;
 
-			int Id = m_pGameClient->Sound()->LoadWV(g_pData->m_aSounds[s].m_aSounds[i].m_pFilename);
+			char aAssetPath[IO_MAX_PATH_LENGTH];
+			const char *pFilename = m_pGameClient->m_CatClient.ResolveAudioFile(g_pData->m_aSounds[s].m_aSounds[i].m_pFilename, aAssetPath, sizeof(aAssetPath));
+			int Id = m_pGameClient->Sound()->LoadWV(pFilename);
 			g_pData->m_aSounds[s].m_aSounds[i].m_Id = Id;
 			// try to render a frame
 			if(m_Render)
@@ -112,7 +114,7 @@ void CSounds::OnInit()
 		m_pSoundJob = std::make_shared<CSoundLoading>(GameClient(), false);
 		GameClient()->Engine()->AddJob(m_pSoundJob);
 		m_WaitForSoundJob = true;
-		GameClient()->m_Menus.RenderLoading(Localize("Loading DDNet Client"), Localize("Loading sound files"), 0);
+		GameClient()->m_Menus.RenderLoading(Localize("Loading CatClient Client"), Localize("Loading sound files"), 0);
 	}
 	else
 	{
@@ -169,6 +171,43 @@ void CSounds::ClearQueue()
 	mem_zero(m_aQueue, sizeof(m_aQueue));
 	m_QueuePos = 0;
 	m_QueueWaitTime = time();
+}
+
+void CSounds::ReloadSamples()
+{
+	if(m_pSoundJob && m_pSoundJob->State() != IJob::STATE_DONE)
+	{
+		m_pSoundJob->Abort();
+		m_pSoundJob = nullptr;
+		m_WaitForSoundJob = false;
+	}
+
+	ClearQueue();
+	Sound()->StopAll();
+	for(int s = 0; s < g_pData->m_NumSounds; s++)
+	{
+		for(int i = 0; i < g_pData->m_aSounds[s].m_NumSounds; i++)
+		{
+			int &Id = g_pData->m_aSounds[s].m_aSounds[i].m_Id;
+			if(Id != -1)
+			{
+				Sound()->UnloadSample(Id);
+				Id = -1;
+			}
+		}
+	}
+
+	if(g_Config.m_ClThreadsoundloading)
+	{
+		m_pSoundJob = std::make_shared<CSoundLoading>(GameClient(), false);
+		GameClient()->Engine()->AddJob(m_pSoundJob);
+		m_WaitForSoundJob = true;
+	}
+	else
+	{
+		CSoundLoading(GameClient(), false).Run();
+		m_WaitForSoundJob = false;
+	}
 }
 
 void CSounds::Enqueue(int Channel, int SetId)

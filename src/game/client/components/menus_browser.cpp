@@ -229,7 +229,25 @@ void CMenus::RenderServerbrowserServerList(CUIRect View, bool &WasListboxItemAct
 		}
 	}
 
-	const int NumServers = ServerBrowser()->NumSortedServers();
+	const int NumSortedServers = ServerBrowser()->NumSortedServers();
+	std::vector<int> vVisibleServers;
+	vVisibleServers.reserve(NumSortedServers);
+	for(int SortedIndex = 0; SortedIndex < NumSortedServers; ++SortedIndex)
+	{
+		const CServerInfo *pInfo = ServerBrowser()->SortedGet(SortedIndex);
+		if(pInfo == nullptr)
+		{
+			continue;
+		}
+
+		if(g_Config.m_CcBrFilterCatClient && !GameClient()->m_CatClient.HasCatServer(pInfo->m_aAddress))
+		{
+			continue;
+		}
+
+		vVisibleServers.push_back(SortedIndex);
+	}
+	const int NumServers = (int)vVisibleServers.size();
 
 	// display important messages in the middle of the screen so no
 	// users misses it
@@ -313,23 +331,24 @@ void CMenus::RenderServerbrowserServerList(CUIRect View, bool &WasListboxItemAct
 	};
 
 	std::vector<CUIElement *> &vpServerBrowserUiElements = m_avpServerBrowserUiElements[ServerBrowser()->GetCurrentType()];
-	if(vpServerBrowserUiElements.size() < (size_t)NumServers)
-		vpServerBrowserUiElements.resize(NumServers, nullptr);
+	if(vpServerBrowserUiElements.size() < (size_t)NumSortedServers)
+		vpServerBrowserUiElements.resize(NumSortedServers, nullptr);
 
-	for(int i = 0; i < NumServers; i++)
+	for(int DisplayIndex = 0; DisplayIndex < NumServers; DisplayIndex++)
 	{
-		const CServerInfo *pItem = ServerBrowser()->SortedGet(i);
+		const int SortedIndex = vVisibleServers[DisplayIndex];
+		const CServerInfo *pItem = ServerBrowser()->SortedGet(SortedIndex);
 		const CCommunity *pCommunity = ServerBrowser()->Community(pItem->m_aCommunityId);
 
-		if(vpServerBrowserUiElements[i] == nullptr)
+		if(vpServerBrowserUiElements[SortedIndex] == nullptr)
 		{
-			vpServerBrowserUiElements[i] = Ui()->GetNewUIElement(NUM_UI_ELEMS);
+			vpServerBrowserUiElements[SortedIndex] = Ui()->GetNewUIElement(NUM_UI_ELEMS);
 		}
-		CUIElement *pUiElement = vpServerBrowserUiElements[i];
+		CUIElement *pUiElement = vpServerBrowserUiElements[SortedIndex];
 
 		const CListboxItem ListItem = s_ListBox.DoNextItem(pItem, str_comp(pItem->m_aAddress, g_Config.m_UiServerAddress) == 0);
 		if(ListItem.m_Selected)
-			m_SelectedIndex = i;
+			m_SelectedIndex = SortedIndex;
 
 		if(!ListItem.m_Visible)
 		{
@@ -387,6 +406,15 @@ void CMenus::RenderServerbrowserServerList(CUIRect View, bool &WasListboxItemAct
 			}
 			else if(Id == COL_NAME)
 			{
+				const bool ShowCatServerIcon = GameClient()->m_CatClient.HasCatIconTexture() && GameClient()->m_CatClient.HasCatServer(pItem->m_aAddress);
+				if(ShowCatServerIcon)
+				{
+					CUIRect CatIcon;
+					Button.VSplitRight(Button.h + 2.0f, &Button, &CatIcon);
+					CatIcon.Margin(2.0f, &CatIcon);
+					GameClient()->m_CatClient.RenderCatIcon(CatIcon, 1.0f);
+				}
+
 				SLabelProperties Props;
 				Props.m_MaxWidth = Button.w;
 				Props.m_StopAtEnd = true;
@@ -484,7 +512,8 @@ void CMenus::RenderServerbrowserServerList(CUIRect View, bool &WasListboxItemAct
 		}
 	}
 
-	const int NewSelected = s_ListBox.DoEnd();
+	const int NewSelectedDisplay = s_ListBox.DoEnd();
+	const int NewSelected = NewSelectedDisplay >= 0 && NewSelectedDisplay < NumServers ? vVisibleServers[NewSelectedDisplay] : -1;
 	if(NewSelected != m_SelectedIndex)
 	{
 		m_SelectedIndex = NewSelected;
@@ -652,9 +681,16 @@ void CMenus::RenderServerbrowserStatusBox(CUIRect StatusBox, bool WasListboxItem
 		ServerAddr.VSplitLeft(SearchExcludeAddrStrMax + 5.0f + ExcludeSearchIconMax + 5.0f, &ServerAddrLabel, &ServerAddrEditBox);
 
 		Ui()->DoLabel(&ServerAddrLabel, Localize("Server address:"), 14.0f, TEXTALIGN_ML);
-		static CLineInput s_ServerAddressInput(g_Config.m_UiServerAddress, sizeof(g_Config.m_UiServerAddress));
-		if(Ui()->DoClearableEditBox(&s_ServerAddressInput, &ServerAddrEditBox, 12.0f))
-			m_ServerBrowserShouldRevealSelection = true;
+		if(GameClient()->m_CatClient.HasStreamerFlag(CCatClient::STREAMER_HIDE_SERVER_IP))
+		{
+			Ui()->DoLabel(&ServerAddrEditBox, Localize("Hidden"), 12.0f, TEXTALIGN_ML);
+		}
+		else
+		{
+			static CLineInput s_ServerAddressInput(g_Config.m_UiServerAddress, sizeof(g_Config.m_UiServerAddress));
+			if(Ui()->DoClearableEditBox(&s_ServerAddressInput, &ServerAddrEditBox, 12.0f))
+				m_ServerBrowserShouldRevealSelection = true;
+		}
 	}
 
 	// buttons
@@ -743,6 +779,25 @@ void CMenus::RenderServerbrowserFilters(CUIRect View)
 	View.HSplitTop(RowHeight, &Button, &View);
 	if(DoButton_CheckBox(&g_Config.m_BrFilterFriends, Localize("Show friends only"), g_Config.m_BrFilterFriends, &Button))
 		g_Config.m_BrFilterFriends ^= 1;
+
+	View.HSplitTop(RowHeight, &Button, &View);
+	if(DoButton_CheckBox(&g_Config.m_CcBrFilterCatClient, Localize("Show CatClient only"), g_Config.m_CcBrFilterCatClient, &Button))
+		g_Config.m_CcBrFilterCatClient ^= 1;
+
+	View.HSplitTop(RowHeight, &Button, &View);
+	{
+		CUIRect Icon, Label;
+		Button.VSplitLeft(RowHeight, &Icon, &Label);
+		Icon.Margin(2.0f, &Icon);
+		if(GameClient()->m_CatClient.HasCatIconTexture())
+		{
+			GameClient()->m_CatClient.RenderCatIcon(Icon, 0.95f);
+		}
+
+		char aBuf[64];
+		str_format(aBuf, sizeof(aBuf), Localize("CatClient servers online: %d"), GameClient()->m_CatClient.KnownCatServerCount());
+		Ui()->DoLabel(&Label, aBuf, FontSize - 1.0f, TEXTALIGN_ML);
+	}
 
 	View.HSplitTop(RowHeight, &Button, &View);
 	if(DoButton_CheckBox(&g_Config.m_BrFilterPw, Localize("No password"), g_Config.m_BrFilterPw, &Button))
@@ -882,6 +937,7 @@ void CMenus::ResetServerbrowserFilters()
 	g_Config.m_BrFilterEmpty = 0;
 	g_Config.m_BrFilterSpectators = 0;
 	g_Config.m_BrFilterFriends = 0;
+	g_Config.m_CcBrFilterCatClient = 0;
 	g_Config.m_BrFilterCountry = 0;
 	g_Config.m_BrFilterCountryIndex = -1;
 	g_Config.m_BrFilterPw = 0;
@@ -1660,6 +1716,15 @@ void CMenus::RenderServerbrowserFriends(CUIRect View)
 						}
 					}
 
+					if(GameClient()->m_CatClient.HasCatIconTexture() && GameClient()->m_CatClient.HasCatServer(Friend.ServerInfo()->m_aAddress))
+					{
+						CUIRect CatIcon;
+						InfoLabel.VSplitLeft(21.0f, &CatIcon, &InfoLabel);
+						InfoLabel.VSplitLeft(2.0f, nullptr, &InfoLabel);
+						CatIcon.Margin(2.0f, &CatIcon);
+						GameClient()->m_CatClient.RenderCatIcon(CatIcon, 1.0f);
+					}
+
 					// server info text
 					char aLatency[16];
 					FormatServerbrowserPing(aLatency, Friend.ServerInfo());
@@ -1841,20 +1906,25 @@ void CMenus::RenderServerbrowserToolBox(CUIRect ToolBox)
 {
 	ToolBox.Draw(ColorRGBA(0.0f, 0.0f, 0.0f, 0.3f), IGraphics::CORNER_B, 4.0f);
 
+	CUIRect AnimatedToolBox;
+	BeginPageTransition(m_BrowserToolboxTransition, g_Config.m_UiToolboxPage, ToolBox, AnimatedToolBox);
+
 	switch(g_Config.m_UiToolboxPage)
 	{
 	case UI_TOOLBOX_PAGE_FILTERS:
-		RenderServerbrowserFilters(ToolBox);
-		return;
+		RenderServerbrowserFilters(AnimatedToolBox);
+		break;
 	case UI_TOOLBOX_PAGE_INFO:
-		RenderServerbrowserInfo(ToolBox);
-		return;
+		RenderServerbrowserInfo(AnimatedToolBox);
+		break;
 	case UI_TOOLBOX_PAGE_FRIENDS:
-		RenderServerbrowserFriends(ToolBox);
-		return;
+		RenderServerbrowserFriends(AnimatedToolBox);
+		break;
 	default:
 		dbg_assert_failed("ui_toolbox_page invalid");
 	}
+
+	EndPageTransition();
 }
 
 void CMenus::RenderServerbrowser(CUIRect MainView)
@@ -1886,6 +1956,19 @@ void CMenus::RenderServerbrowser(CUIRect MainView)
 		break;
 	default:
 		dbg_assert_failed("ui_page invalid for RenderServerbrowser: %d", g_Config.m_UiPage);
+	}
+
+	const auto Now = time_get_nanoseconds();
+	if(m_LastBrowserAutoRefreshPage != g_Config.m_UiPage)
+	{
+		m_LastBrowserAutoRefreshPage = g_Config.m_UiPage;
+		m_LastBrowserAutoRefresh = Now;
+	}
+	else if(g_Config.m_CcServerBrowserAutoRefresh &&
+		!Ui()->IsPopupOpen() && CLineInput::GetActiveInput() == nullptr && !ServerBrowser()->IsRefreshing() &&
+		Now - m_LastBrowserAutoRefresh >= std::chrono::seconds(g_Config.m_CcServerBrowserRefreshInterval))
+	{
+		RefreshBrowserTab(true);
 	}
 
 	// clang-format off

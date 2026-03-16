@@ -1,0 +1,21 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "catclient-tags-api",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-03-16",
+  "workers_dev": true,
+  "observability": {
+    "enabled": true
+  },
+  "assets": {
+    "directory": "./public"
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "catclient",
+      "database_id": "d2c089b2-2716-4056-ac42-7cb5f11f3dff",
+      "migrations_dir": "migrations"
+    }
+  ]
+}

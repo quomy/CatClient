@@ -347,7 +347,18 @@ bool CMenuBackground::Render()
 		m_ChangedPosition = false;
 	}
 
+	const float SavedAspect = Graphics()->HasScreenAspectOverride() ? Graphics()->ScreenAspect() : 0.0f;
+	if(SavedAspect > 0.0f)
+	{
+		Graphics()->ClearScreenAspectOverride();
+	}
+
 	CMapLayers::OnRender();
+
+	if(SavedAspect > 0.0f)
+	{
+		Graphics()->SetScreenAspectOverride(SavedAspect);
+	}
 
 	m_CurrentPosition = -1;
 

@@ -319,7 +319,7 @@ Browser
 Ghost
 == ﺡﻭﺭ ﺖﻟﺎﺣ
 
-Loading DDNet Client
+Loading CatClient Client
 == ﺖﻨﯾﺪﯾﺩ ﺖﻨﯾﻼﮐ ﻥﺩﺮﮐ ﻩﺩﺎﻣﺁ ﻝﺎﺣﺭﺩ
 
 Reconnect in %d sec

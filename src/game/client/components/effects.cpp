@@ -25,25 +25,28 @@ CEffects::CEffects()
 
 void CEffects::AirJump(vec2 Pos, float Alpha, float Volume)
 {
-	CParticle p;
-	p.SetDefault();
-	p.m_Spr = SPRITE_PART_AIRJUMP;
-	p.m_Pos = Pos + vec2(-6.0f, 16.0f);
-	p.m_Vel = vec2(0.0f, -200.0f);
-	p.m_LifeSpan = 0.5f;
-	p.m_StartSize = 48.0f;
-	p.m_EndSize = 0.0f;
-	p.m_Rot = random_angle();
-	p.m_Rotspeed = pi * 2.0f;
-	p.m_Gravity = 500.0f;
-	p.m_Friction = 0.7f;
-	p.m_FlowAffected = 0.0f;
-	p.m_Color.a = Alpha;
-	p.m_StartAlpha = Alpha;
-	GameClient()->m_Particles.Add(CParticles::GROUP_GENERAL, &p);
+	if(!GameClient()->m_CatClient.HasHideEffectFlag(CCatClient::HIDE_EFFECT_JUMPS))
+	{
+		CParticle p;
+		p.SetDefault();
+		p.m_Spr = SPRITE_PART_AIRJUMP;
+		p.m_Pos = Pos + vec2(-6.0f, 16.0f);
+		p.m_Vel = vec2(0.0f, -200.0f);
+		p.m_LifeSpan = 0.5f;
+		p.m_StartSize = 48.0f;
+		p.m_EndSize = 0.0f;
+		p.m_Rot = random_angle();
+		p.m_Rotspeed = pi * 2.0f;
+		p.m_Gravity = 500.0f;
+		p.m_Friction = 0.7f;
+		p.m_FlowAffected = 0.0f;
+		p.m_Color.a = Alpha;
+		p.m_StartAlpha = Alpha;
+		GameClient()->m_Particles.Add(CParticles::GROUP_GENERAL, &p);
 
-	p.m_Pos = Pos + vec2(6.0f, 16.0f);
-	GameClient()->m_Particles.Add(CParticles::GROUP_GENERAL, &p);
+		p.m_Pos = Pos + vec2(6.0f, 16.0f);
+		GameClient()->m_Particles.Add(CParticles::GROUP_GENERAL, &p);
+	}
 
 	if(g_Config.m_SndGame)
 		GameClient()->m_Sounds.PlayAt(CSounds::CHN_WORLD, SOUND_PLAYER_AIRJUMP, Volume, Pos);
@@ -79,7 +82,7 @@ void CEffects::PowerupShine(vec2 Pos, vec2 Size, float Alpha)
 
 void CEffects::FreezingFlakes(vec2 Pos, vec2 Size, float Alpha)
 {
-	if(!m_Add5hz)
+	if(!m_Add5hz || GameClient()->m_CatClient.HasHideEffectFlag(CCatClient::HIDE_EFFECT_FREEZE_FLAKES))
 		return;
 
 	CParticle p;
@@ -391,21 +394,24 @@ void CEffects::Explosion(vec2 Pos, float Alpha)
 	}
 }
 
-void CEffects::HammerHit(vec2 Pos, float Alpha, float Volume)
+void CEffects::HammerHit(vec2 Pos, float Alpha, float Volume, int OwnerId)
 {
-	// add the explosion
-	CParticle p;
-	p.SetDefault();
-	p.m_Spr = SPRITE_PART_HIT01;
-	p.m_Pos = Pos;
-	p.m_LifeSpan = 0.3f;
-	p.m_StartSize = 120.0f;
-	p.m_EndSize = 0.0f;
-	p.m_Rot = random_angle();
-	p.m_Color.a = Alpha;
-	p.m_StartAlpha = Alpha;
-	GameClient()->m_Particles.Add(CParticles::GROUP_EXPLOSIONS, &p);
-	if(g_Config.m_SndGame)
+	if(!GameClient()->m_CatClient.HasHideEffectFlag(CCatClient::HIDE_EFFECT_HAMMER_HITS))
+	{
+		CParticle p;
+		p.SetDefault();
+		p.m_Spr = SPRITE_PART_HIT01;
+		p.m_Pos = Pos;
+		p.m_LifeSpan = 0.3f;
+		p.m_StartSize = 120.0f;
+		p.m_EndSize = 0.0f;
+		p.m_Rot = random_angle();
+		p.m_Color.a = Alpha;
+		p.m_StartAlpha = Alpha;
+		GameClient()->m_Particles.Add(CParticles::GROUP_EXPLOSIONS, &p);
+	}
+
+	if(g_Config.m_SndGame && !GameClient()->m_CatClient.ShouldMuteSound(SOUND_HAMMER_HIT, OwnerId, &Pos))
 		GameClient()->m_Sounds.PlayAt(CSounds::CHN_WORLD, SOUND_HAMMER_HIT, Volume, Pos);
 }
 

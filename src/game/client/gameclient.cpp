@@ -7,6 +7,7 @@
 #include "components/binds.h"
 #include "components/broadcast.h"
 #include "components/camera.h"
+#include "components/catclient/catclient.h"
 #include "components/chat.h"
 #include "components/console.h"
 #include "components/controls.h"
@@ -127,6 +128,7 @@ void CGameClient::OnConsoleInit()
 					      &m_Controls,
 					      &m_Camera,
 					      &m_Sounds,
+					      &m_CatClient,
 					      &m_Voting,
 					      &m_Particles, // doesn't render anything, just updates all the particles
 					      &m_RaceDemo,
@@ -144,10 +146,10 @@ void CGameClient::OnConsoleInit()
 					      &m_Ghost,
 					      &m_TClient, // TClient (Must be before chat and players)
 					      &m_Players,
-						  &m_MovingTilesBackground, // TClient
-						  &m_MapLayersForeground,
-						  &m_MovingTilesForeground, // TClient
-					      &m_Outlines,  // TClient
+					      &m_MovingTilesBackground, // TClient
+					      &m_MapLayersForeground,
+					      &m_MovingTilesForeground, // TClient
+					      &m_Outlines, // TClient
 					      &m_Mumble, // TClient
 					      &m_Pet, // TClient
 					      &m_Particles.m_RenderExplosions,
@@ -394,7 +396,7 @@ void CGameClient::OnInit()
 	// update and swap after font loading, they are quite huge
 	Client()->UpdateAndSwap();
 
-	const char *pLoadingDDNetCaption = Localize("Loading DDNet Client");
+	const char *pLoadingDDNetCaption = Localize("Loading CatClient Client");
 	const char *pLoadingMessageComponents = Localize("Initializing components");
 	const char *pLoadingMessageComponentsSpecial = Localize("Why are you slowmo replaying to read this?");
 	char aLoadingMessage[256];
@@ -1462,7 +1464,7 @@ void CGameClient::ProcessEvents()
 			vec2 HammerHitPos = vec2(pEvent->m_X, pEvent->m_Y);
 			if(!m_PredictedWorld.CheckPredictedEventHandled(CGameWorld::CPredictedEvent(Item.m_Type, HammerHitPos, -1, Client()->GameTick(g_Config.m_ClDummy))))
 			{
-				m_Effects.HammerHit(HammerHitPos, Alpha, Volume);
+				m_Effects.HammerHit(HammerHitPos, Alpha, Volume, -1);
 			}
 		}
 		else if(Item.m_Type == NETEVENTTYPE_BIRTHDAY)
@@ -1497,6 +1499,8 @@ void CGameClient::ProcessEvents()
 			vec2 SoundPos = vec2(pEvent->m_X, pEvent->m_Y);
 			if(!m_PredictedWorld.CheckPredictedEventHandled(CGameWorld::CPredictedEvent(Item.m_Type, SoundPos, -1, Client()->GameTick(g_Config.m_ClDummy), pEvent->m_SoundId)))
 			{
+				if(m_CatClient.ShouldMuteSound(pEvent->m_SoundId, -1, &SoundPos))
+					continue;
 				m_Sounds.PlayAt(CSounds::CHN_WORLD, pEvent->m_SoundId, 1.0f, SoundPos);
 			}
 		}
@@ -2813,7 +2817,10 @@ void CGameClient::OnPredict()
 			if(g_Config.m_SndGame && !m_SuppressEvents)
 			{
 				if(Events & COREEVENT_GROUND_JUMP)
-					m_Sounds.PlayAndRecord(CSounds::CHN_WORLD, SOUND_PLAYER_JUMP, 1.0f, Pos);
+				{
+					if(!m_CatClient.ShouldMuteSound(SOUND_PLAYER_JUMP, pLocalChar->GetCid(), &Pos))
+						m_Sounds.PlayAndRecord(CSounds::CHN_WORLD, SOUND_PLAYER_JUMP, 1.0f, Pos);
+				}
 				if(Events & COREEVENT_HOOK_ATTACH_GROUND)
 					m_Sounds.PlayAndRecord(CSounds::CHN_WORLD, SOUND_HOOK_ATTACH_GROUND, 1.0f, Pos);
 				if(Events & COREEVENT_HOOK_HIT_NOHOOK)
@@ -3630,8 +3637,14 @@ void CGameClient::SendDummyInfo(bool Start)
 	}
 }
 
-void CGameClient::SendKill() const
+void CGameClient::SendKill()
 {
+	if(m_CatClient.ShouldBlockKill())
+	{
+		Echo(Localize("Kill is blocked while another player is in your team"));
+		return;
+	}
+
 	CNetMsg_Cl_Kill Msg;
 	Client()->SendPackMsgActive(&Msg, MSGFLAG_VITAL);
 
@@ -4211,6 +4224,11 @@ void CGameClient::HandlePredictedEvents(const int Tick)
 					EventsIterator = m_PredictedWorld.m_PredictedEvents.erase(EventsIterator);
 					continue;
 				}
+				if(m_CatClient.ShouldMuteSound(EventsIterator->m_ExtraInfo, EventsIterator->m_Id, &EventsIterator->m_Pos))
+				{
+					EventsIterator = m_PredictedWorld.m_PredictedEvents.erase(EventsIterator);
+					continue;
+				}
 				m_Sounds.PlayAt(CSounds::CHN_WORLD, EventsIterator->m_ExtraInfo, 1.0f, EventsIterator->m_Pos);
 			}
 			else if(EventsIterator->m_EventId == NETEVENTTYPE_EXPLOSION)
@@ -4219,7 +4237,7 @@ void CGameClient::HandlePredictedEvents(const int Tick)
 			}
 			else if(EventsIterator->m_EventId == NETEVENTTYPE_HAMMERHIT)
 			{
-				m_Effects.HammerHit(EventsIterator->m_Pos, Alpha, Volume);
+				m_Effects.HammerHit(EventsIterator->m_Pos, Alpha, Volume, EventsIterator->m_Id);
 			}
 			else if(EventsIterator->m_EventId == NETEVENTTYPE_DAMAGEIND)
 			{
@@ -4457,6 +4475,11 @@ vec2 CGameClient::GetFreezePos(int ClientId)
 void CGameClient::Echo(const char *pString)
 {
 	m_Chat.Echo(pString);
+}
+
+void CGameClient::RequestQuit()
+{
+	m_Menus.RequestQuit();
 }
 
 bool CGameClient::IsOtherTeam(int ClientId) const

@@ -6,12 +6,14 @@
 
 #include <engine/updater.h>
 
+#include <game/version.h>
+
 #include <forward_list>
 #include <memory>
 #include <string>
 
-#define CLIENT_EXEC "DDNet"
-#define SERVER_EXEC "DDNet-Server"
+#define CLIENT_EXEC CLIENT_NAME
+#define SERVER_EXEC CLIENT_NAME "-Server"
 
 #if defined(CONF_FAMILY_WINDOWS)
 #define PLAT_EXT ".exe"

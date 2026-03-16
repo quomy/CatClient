@@ -32,6 +32,8 @@ public:
 	ColorRGBA m_Color;
 	bool m_ShowName;
 	char m_aName[std::max<size_t>(MAX_NAME_LENGTH, protocol7::MAX_NAME_ARRAY_SIZE)];
+	bool m_ShowCatTag;
+	float m_FontSizeCatTag;
 	bool m_ShowFriendMark;
 	bool m_ShowClientId;
 	int m_ClientId;
@@ -338,6 +340,33 @@ public:
 	{
 		m_Color = ColorRGBA(1.0f, 0.0f, 0.0f);
 	}
+};
+
+class CNamePlatePartCatTag : public CNamePlatePartText
+{
+private:
+	float m_FontSize = -INFINITY;
+
+protected:
+	bool UpdateNeeded(CGameClient &This, const CNamePlateData &Data) override
+	{
+		m_Visible = Data.m_ShowCatTag;
+		if(!m_Visible)
+			return false;
+		m_Color = ColorRGBA(1.0f, 0.56f, 0.18f, Data.m_Color.a);
+		return m_FontSize != Data.m_FontSizeCatTag;
+	}
+	void UpdateText(CGameClient &This, const CNamePlateData &Data) override
+	{
+		m_FontSize = Data.m_FontSizeCatTag;
+		CTextCursor Cursor;
+		Cursor.m_FontSize = m_FontSize;
+		This.TextRender()->CreateOrAppendTextContainer(m_TextContainerIndex, &Cursor, "[CAT]");
+	}
+
+public:
+	CNamePlatePartCatTag(CGameClient &This) :
+		CNamePlatePartText(This) {}
 };
 
 class CNamePlatePartName : public CNamePlatePartText
@@ -730,6 +759,8 @@ private:
 		AddPart<CNamePlatePartClientId>(This, false);
 		AddPart<CNamePlatePartName>(This);
 		AddPart<CNamePlatePartNewLine>(This);
+		AddPart<CNamePlatePartCatTag>(This);
+		AddPart<CNamePlatePartNewLine>(This);
 
 		AddPart<CNamePlatePartClan>(This);
 		AddPart<CNamePlatePartNewLine>(This);
@@ -863,8 +894,10 @@ void CNamePlates::RenderNamePlateGame(vec2 Position, const CNetObj_PlayerInfo *p
 	Data.m_InGame = true;
 
 	Data.m_ShowName = pPlayerInfo->m_Local ? g_Config.m_ClNamePlatesOwn : g_Config.m_ClNamePlates;
-	str_copy(Data.m_aName, GameClient()->m_aClients[pPlayerInfo->m_ClientId].m_aName);
-	Data.m_ShowFriendMark = Data.m_ShowName && g_Config.m_ClNamePlatesFriendMark && GameClient()->m_aClients[pPlayerInfo->m_ClientId].m_Friend;
+	GameClient()->m_CatClient.SanitizeText(GameClient()->m_aClients[pPlayerInfo->m_ClientId].m_aName, Data.m_aName, sizeof(Data.m_aName));
+	Data.m_ShowCatTag = Data.m_ShowName && GameClient()->m_CatClient.HasCatTag(pPlayerInfo->m_ClientId);
+	Data.m_FontSizeCatTag = (18.0f + 20.0f * g_Config.m_ClNamePlatesSize / 100.0f) * 0.8f;
+	Data.m_ShowFriendMark = Data.m_ShowName && g_Config.m_ClNamePlatesFriendMark && !GameClient()->m_CatClient.HasStreamerFlag(CCatClient::STREAMER_HIDE_FRIEND_WHISPER) && GameClient()->m_aClients[pPlayerInfo->m_ClientId].m_Friend;
 	Data.m_ShowClientId = Data.m_ShowName && (g_Config.m_Debug || g_Config.m_ClNamePlatesIds);
 	Data.m_FontSize = 18.0f + 20.0f * g_Config.m_ClNamePlatesSize / 100.0f;
 
@@ -873,7 +906,7 @@ void CNamePlates::RenderNamePlateGame(vec2 Position, const CNetObj_PlayerInfo *p
 	Data.m_FontSizeClientId = Data.m_ClientIdSeparateLine ? (18.0f + 20.0f * g_Config.m_ClNamePlatesIdsSize / 100.0f) : Data.m_FontSize;
 
 	Data.m_ShowClan = Data.m_ShowName && g_Config.m_ClNamePlatesClan;
-	str_copy(Data.m_aClan, GameClient()->m_aClients[pPlayerInfo->m_ClientId].m_aClan);
+	GameClient()->m_CatClient.SanitizeText(GameClient()->m_aClients[pPlayerInfo->m_ClientId].m_aClan, Data.m_aClan, sizeof(Data.m_aClan));
 	Data.m_FontSizeClan = 18.0f + 20.0f * g_Config.m_ClNamePlatesClanSize / 100.0f;
 
 	Data.m_FontSizeHookStrongWeak = 18.0f + 20.0f * g_Config.m_ClNamePlatesStrongSize / 100.0f;
@@ -1005,10 +1038,12 @@ void CNamePlates::RenderNamePlatePreview(vec2 Position, int Dummy)
 	Data.m_Color.a = 1.0f;
 
 	Data.m_ShowName = g_Config.m_ClNamePlates || g_Config.m_ClNamePlatesOwn;
+	Data.m_ShowCatTag = false;
 	const char *pName = Dummy == 0 ? Client()->PlayerName() : Client()->DummyName();
 	str_copy(Data.m_aName, str_utf8_skip_whitespaces(pName));
 	str_utf8_trim_right(Data.m_aName);
 	Data.m_FontSize = FontSize;
+	Data.m_FontSizeCatTag = FontSize * 0.8f;
 
 	Data.m_ShowFriendMark = Data.m_ShowName && g_Config.m_ClNamePlatesFriendMark;
 

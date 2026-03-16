@@ -413,6 +413,7 @@ public:
 	virtual void OnDummyDisconnect() = 0;
 	virtual void DummyResetInput() = 0;
 	virtual void Echo(const char *pString) = 0;
+	virtual void RequestQuit() = 0;
 
 	virtual bool CanDisplayWarning() const = 0;
 	virtual void RenderShutdownMessage() = 0;

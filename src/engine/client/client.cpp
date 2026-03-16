@@ -214,7 +214,7 @@ int CClient::SendMsgActive(CMsgPacker *pMsg, int Flags)
 void CClient::SendTClientInfo(int Conn)
 {
 	CMsgPacker Msg(NETMSG_IAMTATER, true);
-	Msg.AddString(TCLIENT_VERSION " built on " __DATE__ ", " __TIME__);
+	Msg.AddString(CLIENT_RELEASE_VERSION " built on " __DATE__ ", " __TIME__);
 	SendMsg(Conn, &Msg, MSGFLAG_VITAL);
 }
 
@@ -535,7 +535,6 @@ void CClient::OnPostConnect(int Conn)
 	if(g_Config.m_ClDummyDefaultEyes || g_Config.m_ClPlayerDefaultEyes)
 	{
 		int Emote = Conn == CONN_DUMMY ? g_Config.m_ClDummyDefaultEyes : g_Config.m_ClPlayerDefaultEyes;
-
 		if(Emote != EMOTE_NORMAL)
 		{
 			char aBuf[32];
@@ -632,10 +631,6 @@ void CClient::Connect(const char *pAddress, const char *pPassword)
 
 	if(pAddress != m_aConnectAddressStr)
 		str_copy(m_aConnectAddressStr, pAddress);
-
-	char aMsg[512];
-	str_format(aMsg, sizeof(aMsg), "connecting to '%s'", m_aConnectAddressStr);
-	m_pConsole->Print(IConsole::OUTPUT_LEVEL_STANDARD, "client", aMsg, CLIENT_NETWORK_PRINT_COLOR);
 
 	int NumConnectAddrs = 0;
 	NETADDR aConnectAddrs[MAX_SERVER_ADDRESSES];
@@ -3235,7 +3230,7 @@ void CClient::Run()
 
 	m_Fifo.Init(m_pConsole, g_Config.m_ClInputFifo, CFGFLAG_CLIENT);
 
-	m_pConsole->Print(IConsole::OUTPUT_LEVEL_STANDARD, "client", "version " GAME_RELEASE_VERSION " on " CONF_PLATFORM_STRING " " CONF_ARCH_STRING, ColorRGBA(0.7f, 0.7f, 1.0f, 1.0f));
+	m_pConsole->Print(IConsole::OUTPUT_LEVEL_STANDARD, "client", CLIENT_NAME " " CLIENT_RELEASE_VERSION " on " CONF_PLATFORM_STRING " " CONF_ARCH_STRING, ColorRGBA(0.7f, 0.7f, 1.0f, 1.0f));
 	if(GIT_SHORTREV_HASH)
 	{
 		char aBuf[64];
@@ -3313,7 +3308,7 @@ void CClient::Run()
 			if(State() == IClient::STATE_QUITTING)
 				break;
 			else
-				SetState(IClient::STATE_QUITTING); // SDL_QUIT
+				GameClient()->RequestQuit(); // SDL_QUIT
 		}
 
 		char aFile[IO_MAX_PATH_LENGTH];
@@ -3632,7 +3627,7 @@ void CClient::Con_DummyResetInput(IConsole::IResult *pResult, void *pUserData)
 void CClient::Con_Quit(IConsole::IResult *pResult, void *pUserData)
 {
 	CClient *pSelf = (CClient *)pUserData;
-	pSelf->Quit();
+	pSelf->GameClient()->RequestQuit();
 }
 
 void CClient::Con_Restart(IConsole::IResult *pResult, void *pUserData)
@@ -4287,7 +4282,7 @@ void CClient::InitChecksum()
 {
 	CChecksumData *pData = &m_Checksum.m_Data;
 	pData->m_SizeofData = sizeof(*pData);
-	str_copy(pData->m_aVersionStr, CLIENT_NAME " " GAME_RELEASE_VERSION " (" CONF_PLATFORM_STRING "; " CONF_ARCH_STRING ")");
+	str_copy(pData->m_aVersionStr, CLIENT_NAME " " CLIENT_RELEASE_VERSION " (" CONF_PLATFORM_STRING "; " CONF_ARCH_STRING ")");
 	pData->m_Start = time_get();
 	os_version_str(pData->m_aOsVersion, sizeof(pData->m_aOsVersion));
 	secure_random_fill(&pData->m_Random, sizeof(pData->m_Random));
@@ -4871,7 +4866,7 @@ int main(int argc, const char **argv)
 			"%s", // GPU info
 			pMsg,
 			CONF_PLATFORM_STRING, CONF_ARCH_ENDIAN_STRING,
-			GAME_NAME, GAME_RELEASE_VERSION, GIT_SHORTREV_HASH != nullptr ? GIT_SHORTREV_HASH : "",
+			CLIENT_NAME, CLIENT_RELEASE_VERSION, GIT_SHORTREV_HASH != nullptr ? GIT_SHORTREV_HASH : "",
 			aOsVersionString,
 			aGpuInfo);
 		// Also log all of this information to the assertion log file

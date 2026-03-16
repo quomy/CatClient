@@ -15,7 +15,10 @@
 #include <game/client/component.h>
 #include <game/client/lineinput.h>
 #include <game/client/render.h>
+#include <game/client/ui.h>
 
+#include <memory>
+#include <optional>
 #include <vector>
 
 class CTranslateResponse
@@ -27,13 +30,11 @@ public:
 };
 
 constexpr auto SAVES_FILE = "ddnet-saves.txt";
-
 class CChat : public CComponent
 {
 	static constexpr float CHAT_HEIGHT_FULL = 200.0f;
 	static constexpr float CHAT_HEIGHT_MIN = 50.0f;
 	static constexpr float CHAT_FONTSIZE_WIDTH_RATIO = 2.5f;
-
 	enum
 	{
 		MAX_LINES = 64,
@@ -56,6 +57,7 @@ class CChat : public CComponent
 		bool m_Whisper;
 		int m_NameColor;
 		char m_aName[64];
+		char m_aWhisperName[64];
 		char m_aText[MAX_LINE_LENGTH];
 		bool m_Friend;
 		bool m_Highlighted;
@@ -67,6 +69,12 @@ class CChat : public CComponent
 		std::shared_ptr<CManagedTeeRenderInfo> m_pManagedTeeRenderInfo;
 
 		float m_TextYOffset;
+		float m_TextHeight;
+		float m_NameOffsetX;
+		float m_NameWidth;
+		float m_NameHeight;
+		float m_PrefixWidth;
+		float m_ContentWidth;
 
 		int m_TimesRepeated;
 
@@ -106,6 +114,9 @@ class CChat : public CComponent
 	bool m_CompletionUsed;
 	int m_CompletionChosen;
 	char m_aCompletionBuffer[MAX_LINE_LENGTH];
+	bool m_MouseIsPress;
+	vec2 m_MousePress;
+	vec2 m_MouseRelease;
 	int m_PlaceholderOffset;
 	int m_PlaceholderLength;
 	static char ms_aDisplayText[MAX_LINE_LENGTH];
@@ -153,8 +164,29 @@ class CChat : public CComponent
 	bool m_IsInputCensored;
 	char m_aCurrentInputText[MAX_LINE_LENGTH];
 	bool m_EditingNewLine;
+	float m_InputAnimationProgress;
+	int m_AnimatedMode;
+	char m_aAnimatedInputText[MAX_LINE_LENGTH];
+	int64_t m_LastInputAnimationTime;
+	int64_t m_LastTypingAnimationTime;
+	float m_TypingAnimationStartWidth;
+	float m_TypingAnimationTargetWidth;
 
 	bool m_ServerSupportsCommandInfo;
+
+	class CNameContextPopup : public SPopupMenuId
+	{
+	public:
+		static constexpr float POPUP_WIDTH = 150.0f;
+		static constexpr float POPUP_HEIGHT = 54.0f;
+
+		CChat *m_pChat = nullptr;
+		CButtonContainer m_CopyButton;
+		CButtonContainer m_WhisperButton;
+		char m_aPlayerName[64] = "";
+
+		static CUi::EPopupMenuFunctionResult Render(void *pContext, CUIRect View, bool Active);
+	} m_NameContextPopup;
 
 	static void ConSay(IConsole::IResult *pResult, void *pUserData);
 	static void ConSayTeam(IConsole::IResult *pResult, void *pUserData);
@@ -169,6 +201,9 @@ class CChat : public CComponent
 
 	bool LineShouldHighlight(const char *pLine, const char *pName);
 	void StoreSave(const char *pText);
+	void PrepareWhisperCommand(const char *pPlayerName);
+	void OpenNameContextMenu(const char *pPlayerName);
+	void CloseNameContextMenu();
 
 	friend class CBindChat;
 	friend class CTranslate;
@@ -195,6 +230,7 @@ public:
 	void OnPrepareLines(float y);
 	void Reset();
 	void OnRelease() override;
+	void OnShutdown() override;
 	void OnMessage(int MsgType, void *pRawMsg) override;
 	bool OnInput(const IInput::CEvent &Event) override;
 	void OnInit() override;

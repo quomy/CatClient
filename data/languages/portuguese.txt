@@ -622,7 +622,7 @@ New random timeout code
 Suicides
 == Suicídios
 
-Loading DDNet Client
+Loading CatClient Client
 == A carregar o cliente DDNet
 
 Default zoom

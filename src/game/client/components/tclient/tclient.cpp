@@ -22,7 +22,8 @@
 #include <game/localization.h>
 #include <game/version.h>
 
-static constexpr const char *TCLIENT_INFO_URL = "https://update.tclient.app/info.json";
+static constexpr const char *TCLIENT_INFO_URL = "https://api.github.com/repos/quomy/CatClient/releases/latest";
+static constexpr const char *CATCLIENT_RELEASES_URL = "https://github.com/quomy/CatClient/releases";
 
 CTClient::CTClient()
 {
@@ -550,7 +551,7 @@ void CTClient::OnRender()
 {
 	if(m_pTClientInfoTask)
 	{
-		if(m_pTClientInfoTask->State() == EHttpState::DONE)
+		if(m_pTClientInfoTask->Done())
 		{
 			FinishTClientInfo();
 			ResetTClientInfoTask();
@@ -562,7 +563,7 @@ void CTClient::OnRender()
 
 bool CTClient::NeedUpdate()
 {
-	return str_comp(m_aVersionStr, "0") != 0;
+	return m_FetchedTClientInfo && !m_UpdateCheckFailed && !m_NoPublishedRelease && str_comp(m_aVersionStr, "0") != 0;
 }
 
 void CTClient::ResetTClientInfoTask()
@@ -570,7 +571,7 @@ void CTClient::ResetTClientInfoTask()
 	if(m_pTClientInfoTask)
 	{
 		m_pTClientInfoTask->Abort();
-		m_pTClientInfoTask = NULL;
+		m_pTClientInfoTask = nullptr;
 	}
 }
 
@@ -578,9 +579,15 @@ void CTClient::FetchTClientInfo()
 {
 	if(m_pTClientInfoTask && !m_pTClientInfoTask->Done())
 		return;
-	char aUrl[256];
-	str_copy(aUrl, TCLIENT_INFO_URL);
-	m_pTClientInfoTask = HttpGet(aUrl);
+	m_FetchedTClientInfo = false;
+	m_UpdateCheckFailed = false;
+	m_NoPublishedRelease = false;
+	str_copy(m_aVersionStr, "0");
+	str_copy(m_aReleaseUrl, CATCLIENT_RELEASES_URL);
+	m_pTClientInfoTask = HttpGet(TCLIENT_INFO_URL);
+	m_pTClientInfoTask->Header("Accept: application/vnd.github+json");
+	m_pTClientInfoTask->Header("X-GitHub-Api-Version: 2022-11-28");
+	m_pTClientInfoTask->FailOnErrorStatus(false);
 	m_pTClientInfoTask->Timeout(CTimeout{10000, 0, 500, 10});
 	m_pTClientInfoTask->IpResolve(IPRESOLVE::V4);
 	Http()->Run(m_pTClientInfoTask);
@@ -589,50 +596,129 @@ void CTClient::FetchTClientInfo()
 typedef std::tuple<int, int, int> TVersion;
 static const TVersion gs_InvalidTCVersion = std::make_tuple(-1, -1, -1);
 
-static TVersion ToTCVersion(char *pStr)
+static bool IsVersionDigit(char c)
 {
-	int aVersion[3] = {0, 0, 0};
-	const char *p = strtok(pStr, ".");
+	return c >= '0' && c <= '9';
+}
 
-	for(int i = 0; i < 3 && p; ++i)
+static TVersion ToTCVersion(const char *pStr)
+{
+	if(pStr == nullptr)
 	{
-		if(!str_isallnum(p))
-			return gs_InvalidTCVersion;
-
-		aVersion[i] = str_toint(p);
-		p = strtok(NULL, ".");
+		return gs_InvalidTCVersion;
 	}
 
-	if(p)
+	int aVersion[3] = {0, 0, 0};
+	const char *p = pStr;
+	while(*p != '\0' && !IsVersionDigit(*p))
+	{
+		++p;
+	}
+
+	if(*p == '\0')
+	{
 		return gs_InvalidTCVersion;
+	}
+
+	for(int i = 0; i < 3; ++i)
+	{
+		if(!IsVersionDigit(*p))
+		{
+			return i == 0 ? gs_InvalidTCVersion : std::make_tuple(aVersion[0], aVersion[1], aVersion[2]);
+		}
+
+		int Value = 0;
+		while(IsVersionDigit(*p))
+		{
+			Value = Value * 10 + (*p - '0');
+			++p;
+		}
+		aVersion[i] = Value;
+
+		if(*p != '.')
+		{
+			break;
+		}
+
+		++p;
+	}
 
 	return std::make_tuple(aVersion[0], aVersion[1], aVersion[2]);
 }
 
 void CTClient::FinishTClientInfo()
 {
-	json_value *pJson = m_pTClientInfoTask->ResultJson();
-	if(!pJson)
+	m_FetchedTClientInfo = true;
+	m_UpdateCheckFailed = false;
+	m_NoPublishedRelease = false;
+	str_copy(m_aVersionStr, "0");
+	str_copy(m_aReleaseUrl, CATCLIENT_RELEASES_URL);
+
+	if(m_pTClientInfoTask == nullptr)
+	{
+		m_UpdateCheckFailed = true;
 		return;
+	}
+
+	if(m_pTClientInfoTask->State() != EHttpState::DONE)
+	{
+		m_UpdateCheckFailed = true;
+		return;
+	}
+
+	if(m_pTClientInfoTask->StatusCode() == 404)
+	{
+		m_NoPublishedRelease = true;
+		return;
+	}
+
+	if(m_pTClientInfoTask->StatusCode() >= 400)
+	{
+		m_UpdateCheckFailed = true;
+		return;
+	}
+
+	json_value *pJson = m_pTClientInfoTask->ResultJson();
+	if(!pJson || pJson->type != json_object)
+	{
+		if(pJson)
+		{
+			json_value_free(pJson);
+		}
+		m_UpdateCheckFailed = true;
+		return;
+	}
 	const json_value &Json = *pJson;
-	const json_value &CurrentVersion = Json["version"];
+	const json_value &ReleaseUrl = Json["html_url"];
+	if(ReleaseUrl.type == json_string)
+	{
+		str_copy(m_aReleaseUrl, ReleaseUrl, sizeof(m_aReleaseUrl));
+	}
+
+	const json_value &CurrentVersion = Json["tag_name"];
 
 	if(CurrentVersion.type == json_string)
 	{
-		char aNewVersionStr[64];
-		str_copy(aNewVersionStr, CurrentVersion);
-		char aCurVersionStr[64];
-		str_copy(aCurVersionStr, TCLIENT_VERSION);
-		if(ToTCVersion(aNewVersionStr) > ToTCVersion(aCurVersionStr))
+		const TVersion NewVersion = ToTCVersion(CurrentVersion);
+		const TVersion CurrentClientVersion = ToTCVersion(CLIENT_RELEASE_VERSION);
+		if((NewVersion != gs_InvalidTCVersion && CurrentClientVersion != gs_InvalidTCVersion && NewVersion > CurrentClientVersion) ||
+			(NewVersion == gs_InvalidTCVersion && str_comp(CurrentVersion, CLIENT_RELEASE_VERSION) != 0))
 		{
-			str_copy(m_aVersionStr, CurrentVersion);
+			str_copy(m_aVersionStr, CurrentVersion, sizeof(m_aVersionStr));
+			if(!m_UpdatePromptShown)
+			{
+				char aWarning[256];
+				str_format(aWarning, sizeof(aWarning), Localize("CatClient %s is available. Open the start menu and press 'Download update' to get the latest release."), m_aVersionStr);
+				SWarning Warning(Localize("CatClient update"), aWarning);
+				Warning.m_AutoHide = false;
+				Client()->AddWarning(Warning);
+				m_UpdatePromptShown = true;
+			}
 		}
-		else
-		{
-			m_aVersionStr[0] = '0';
-			m_aVersionStr[1] = '\0';
-		}
-		m_FetchedTClientInfo = true;
+	}
+	else
+	{
+		m_UpdateCheckFailed = true;
 	}
 
 	json_value_free(pJson);
