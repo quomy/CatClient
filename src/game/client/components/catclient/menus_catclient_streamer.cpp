@@ -13,6 +13,13 @@
 namespace
 {
 	using namespace CatClientMenu;
+	bool s_ShowBlockedWordsList = false;
+	enum EBlockedWordsAction
+	{
+		BLOCKED_WORDS_ACTION_NONE = 0,
+		BLOCKED_WORDS_ACTION_OPEN,
+		BLOCKED_WORDS_ACTION_HIDE,
+	};
 
 	bool DoStreamerFlagCheckBox(CMenus *pMenus, const void *pId, const char *pLabel, int Flag, int &Flags, CUIRect &Content)
 	{
@@ -44,20 +51,45 @@ namespace
 		DoStreamerFlagCheckBox(pMenus, (void *)(intptr_t)1003, Localize("Hide Friend/Whisper Info"), CCatClient::STREAMER_HIDE_FRIEND_WHISPER, g_Config.m_CcStreamerFlags, Content);
 	}
 
-	void RenderBlockedWordsSection(CMenus *pMenus, CUi *pUi, CCatClient *pCatClient, CUIRect &View)
+	EBlockedWordsAction RenderBlockedWordsSection(CMenus *pMenus, CUi *pUi, CCatClient *pCatClient, CUIRect &View)
 	{
 		static CLineInputBuffered<128> s_WordInput;
 		static CButtonContainer s_AddWordButton;
+		static CButtonContainer s_OpenBlockedWordsButton;
+		static CButtonContainer s_HideBlockedWordsButton;
 		static CScrollRegion s_BlockedWordsScrollRegion;
 		static std::vector<CButtonContainer> s_vDeleteWordButtons;
 
-		CUIRect Section, Content, Label, InputRow, InputBox, AddButton, ListBox;
-		BeginSection(View, Section, Content, 292.0f);
-		Content.HSplitTop(HEADLINE_HEIGHT, &Label, &Content);
+		CUIRect Section, Content, HeaderRow, Label, ToggleButton, InputRow, InputBox, AddButton, ListBox, Description;
+		const float SectionHeight = s_ShowBlockedWordsList ? 292.0f : 96.0f;
+		BeginSection(View, Section, Content, SectionHeight);
+		Content.HSplitTop(HEADLINE_HEIGHT, &HeaderRow, &Content);
+		HeaderRow.VSplitRight(92.0f, &Label, &ToggleButton);
 		char aTitle[64];
 		str_format(aTitle, sizeof(aTitle), "Blocked Words (%d)", pCatClient->StreamerBlockedWordCount());
 		pUi->DoLabel(&Label, aTitle, HEADLINE_FONT_SIZE, TEXTALIGN_ML);
+
+		if(s_ShowBlockedWordsList)
+		{
+			if(pMenus->DoButton_Menu(&s_HideBlockedWordsButton, "Hide", 0, &ToggleButton, BUTTONFLAG_LEFT, nullptr, IGraphics::CORNER_ALL, 5.0f, 0.0f, ColorRGBA(1.0f, 1.0f, 1.0f, 0.18f)))
+			{
+				return BLOCKED_WORDS_ACTION_HIDE;
+			}
+		}
+		else if(pMenus->DoButton_Menu(&s_OpenBlockedWordsButton, "Open", 0, &ToggleButton, BUTTONFLAG_LEFT, nullptr, IGraphics::CORNER_ALL, 5.0f, 0.0f, ColorRGBA(1.0f, 1.0f, 1.0f, 0.18f)))
+		{
+			return BLOCKED_WORDS_ACTION_OPEN;
+		}
+
 		Content.HSplitTop(MARGIN_SMALL, nullptr, &Content);
+		if(!s_ShowBlockedWordsList)
+		{
+			Content.HSplitTop(LINE_SIZE * 2.0f, &Description, &Content);
+			SLabelProperties Props;
+			Props.m_MaxWidth = Description.w;
+			pUi->DoLabel(&Description, "The list is hidden by default for stream safety.", SMALL_FONT_SIZE, TEXTALIGN_ML, Props);
+			return BLOCKED_WORDS_ACTION_NONE;
+		}
 
 		Content.HSplitTop(LINE_SIZE, &InputRow, &Content);
 		InputRow.VSplitRight(LINE_SIZE + 4.0f, &InputBox, &AddButton);
@@ -141,7 +173,14 @@ namespace
 		{
 			pCatClient->RemoveStreamerBlockedWord(RemoveIndex);
 		}
+
+		return BLOCKED_WORDS_ACTION_NONE;
 	}
+}
+
+void CMenus::PopupConfirmOpenBlockedWords()
+{
+	s_ShowBlockedWordsList = true;
 }
 
 void CMenus::RenderSettingsCatClientStreamer(CUIRect MainView)
@@ -154,5 +193,18 @@ void CMenus::RenderSettingsCatClientStreamer(CUIRect MainView)
 	MainView.VSplitMid(&LeftView, &RightView, MARGIN_BETWEEN_VIEWS);
 
 	RenderStreamerSettingsSection(this, Ui(), LeftView);
-	RenderBlockedWordsSection(this, Ui(), &GameClient()->m_CatClient, RightView);
+	const EBlockedWordsAction Action = RenderBlockedWordsSection(this, Ui(), &GameClient()->m_CatClient, RightView);
+	if(Action == BLOCKED_WORDS_ACTION_OPEN)
+	{
+		PopupConfirm(
+			"Open blocked words?",
+			"Are you sure you want to open the blocked words list, and did you hide your screen on stream?",
+			"Open",
+			"Cancel",
+			&CMenus::PopupConfirmOpenBlockedWords);
+	}
+	else if(Action == BLOCKED_WORDS_ACTION_HIDE)
+	{
+		s_ShowBlockedWordsList = false;
+	}
 }

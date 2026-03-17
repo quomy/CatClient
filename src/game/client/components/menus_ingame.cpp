@@ -597,7 +597,12 @@ void CMenus::RenderPlayers(CUIRect MainView)
 		if(g_Config.m_ClShowChatFriends && !CurrentClient.m_Friend)
 			DoButton_Toggle(&s_aPlayerIds[Index][0], 1, &Button, false);
 		else if(DoButton_Toggle(&s_aPlayerIds[Index][0], CurrentClient.m_ChatIgnore, &Button, true))
-			CurrentClient.m_ChatIgnore ^= 1;
+		{
+			if(CurrentClient.m_ChatIgnore)
+				GameClient()->m_CatClient.UnignorePlayer(CurrentClient.m_aName);
+			else
+				GameClient()->m_CatClient.IgnorePlayer(CurrentClient.m_aName);
+		}
 
 		// ignore emoticon button
 		Row.VSplitLeft(30.0f, nullptr, &Row);

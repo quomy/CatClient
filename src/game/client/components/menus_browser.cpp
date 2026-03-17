@@ -756,86 +756,101 @@ void CMenus::PopupConfirmSwitchServer()
 void CMenus::RenderServerbrowserFilters(CUIRect View)
 {
 	const float RowHeight = 18.0f;
-	const float FontSize = (RowHeight - 4.0f) * CUi::ms_FontmodHeight; // based on DoButton_CheckBox
+	const float FontSize = (RowHeight - 4.0f) * CUi::ms_FontmodHeight;
 
 	View.Margin(5.0f, &View);
 
 	CUIRect Button, ResetButton;
 	View.HSplitBottom(RowHeight, &View, &ResetButton);
-	View.HSplitBottom(3.0f, &View, nullptr);
+	View.HSplitBottom(4.0f, &View, nullptr);
+
+	static CButtonContainer s_aQuickButtons[8];
+	static CButtonContainer s_CountryFilterButton;
+	static CButtonContainer s_StrictTypeButton;
+	static CButtonContainer s_MapFinishButton;
+	static CButtonContainer s_UnfinishedMapButton;
+
+	auto DoSectionLabel = [&](const char *pText) {
+		CUIRect Label;
+		View.HSplitTop(14.0f, &Label, &View);
+		Ui()->DoLabel(&Label, Localize(pText), FontSize - 1.0f, TEXTALIGN_ML);
+		View.HSplitTop(3.0f, nullptr, &View);
+	};
+
+	auto DoToggleButton = [&](CButtonContainer *pButton, const char *pText, int *pValue, CUIRect *pRect, int Corners = IGraphics::CORNER_ALL) {
+		if(DoButton_Menu(pButton, Localize(pText), *pValue, pRect, BUTTONFLAG_LEFT, nullptr, Corners, 4.0f))
+		{
+			*pValue ^= 1;
+		}
+	};
+
+	auto DoToggleRow = [&](int ButtonOffset, const char *pLeftText, int *pLeftValue, const char *pRightText, int *pRightValue) {
+		CUIRect Row, Left, Right;
+		View.HSplitTop(RowHeight, &Row, &View);
+		Row.VSplitMid(&Left, &Right, 6.0f);
+		DoToggleButton(&s_aQuickButtons[ButtonOffset], pLeftText, pLeftValue, &Left, IGraphics::CORNER_L);
+		DoToggleButton(&s_aQuickButtons[ButtonOffset + 1], pRightText, pRightValue, &Right, IGraphics::CORNER_R);
+		View.HSplitTop(3.0f, nullptr, &View);
+	};
 
 	View.HSplitTop(RowHeight, &Button, &View);
-	if(DoButton_CheckBox(&g_Config.m_BrFilterEmpty, Localize("Has people playing"), g_Config.m_BrFilterEmpty, &Button))
-		g_Config.m_BrFilterEmpty ^= 1;
-
-	View.HSplitTop(RowHeight, &Button, &View);
-	if(DoButton_CheckBox(&g_Config.m_BrFilterSpectators, Localize("Count players only"), g_Config.m_BrFilterSpectators, &Button))
-		g_Config.m_BrFilterSpectators ^= 1;
-
-	View.HSplitTop(RowHeight, &Button, &View);
-	if(DoButton_CheckBox(&g_Config.m_BrFilterFull, Localize("Server not full"), g_Config.m_BrFilterFull, &Button))
-		g_Config.m_BrFilterFull ^= 1;
-
-	View.HSplitTop(RowHeight, &Button, &View);
-	if(DoButton_CheckBox(&g_Config.m_BrFilterFriends, Localize("Show friends only"), g_Config.m_BrFilterFriends, &Button))
-		g_Config.m_BrFilterFriends ^= 1;
-
-	View.HSplitTop(RowHeight, &Button, &View);
-	if(DoButton_CheckBox(&g_Config.m_CcBrFilterCatClient, Localize("Show CatClient only"), g_Config.m_CcBrFilterCatClient, &Button))
-		g_Config.m_CcBrFilterCatClient ^= 1;
-
-	View.HSplitTop(RowHeight, &Button, &View);
+	Button.Draw(ColorRGBA(0.0f, 0.0f, 0.0f, 0.14f), IGraphics::CORNER_ALL, 4.0f);
 	{
-		CUIRect Icon, Label;
-		Button.VSplitLeft(RowHeight, &Icon, &Label);
-		Icon.Margin(2.0f, &Icon);
+		CUIRect Content, Icon, Label;
+		Button.Margin(3.0f, &Content);
+		Content.VSplitLeft(RowHeight - 2.0f, &Icon, &Label);
+		Icon.Margin(1.0f, &Icon);
 		if(GameClient()->m_CatClient.HasCatIconTexture())
 		{
 			GameClient()->m_CatClient.RenderCatIcon(Icon, 0.95f);
 		}
 
 		char aBuf[64];
-		str_format(aBuf, sizeof(aBuf), Localize("CatClient servers online: %d"), GameClient()->m_CatClient.KnownCatServerCount());
+		str_format(aBuf, sizeof(aBuf), Localize("CatClient servers: %d"), GameClient()->m_CatClient.KnownCatServerCount());
 		Ui()->DoLabel(&Label, aBuf, FontSize - 1.0f, TEXTALIGN_ML);
 	}
 
-	View.HSplitTop(RowHeight, &Button, &View);
-	if(DoButton_CheckBox(&g_Config.m_BrFilterPw, Localize("No password"), g_Config.m_BrFilterPw, &Button))
-		g_Config.m_BrFilterPw ^= 1;
-
-	View.HSplitTop(RowHeight, &Button, &View);
-	if(DoButton_CheckBox(&g_Config.m_BrFilterLogin, Localize("No login required"), g_Config.m_BrFilterLogin, &Button))
-		g_Config.m_BrFilterLogin ^= 1;
-
-	View.HSplitTop(RowHeight, &Button, &View);
-	if(DoButton_CheckBox(&g_Config.m_BrFilterGametypeStrict, Localize("Strict gametype filter"), g_Config.m_BrFilterGametypeStrict, &Button))
-		g_Config.m_BrFilterGametypeStrict ^= 1;
-
-	View.HSplitTop(3.0f, nullptr, &View);
-	View.HSplitTop(RowHeight, &Button, &View);
-	Ui()->DoLabel(&Button, Localize("Game types:"), FontSize, TEXTALIGN_ML);
-	Button.VSplitRight(60.0f, nullptr, &Button);
-	static CLineInput s_GametypeInput(g_Config.m_BrFilterGametype, sizeof(g_Config.m_BrFilterGametype));
-	if(Ui()->DoEditBox(&s_GametypeInput, &Button, FontSize))
-		Client()->ServerBrowserUpdate();
-
-	// server address
 	View.HSplitTop(6.0f, nullptr, &View);
-	View.HSplitTop(RowHeight, &Button, &View);
-	View.HSplitTop(6.0f, nullptr, &View);
-	Ui()->DoLabel(&Button, Localize("Server address:"), FontSize, TEXTALIGN_ML);
-	Button.VSplitRight(60.0f, nullptr, &Button);
-	static CLineInput s_FilterServerAddressInput(g_Config.m_BrFilterServerAddress, sizeof(g_Config.m_BrFilterServerAddress));
-	if(Ui()->DoEditBox(&s_FilterServerAddressInput, &Button, FontSize))
-		Client()->ServerBrowserUpdate();
+	DoSectionLabel("Quick filters");
+	DoToggleRow(0, "Has players", &g_Config.m_BrFilterEmpty, "Players only", &g_Config.m_BrFilterSpectators);
+	DoToggleRow(2, "Not full", &g_Config.m_BrFilterFull, "Friends only", &g_Config.m_BrFilterFriends);
+	DoToggleRow(4, "CatClient only", &g_Config.m_CcBrFilterCatClient, "No password", &g_Config.m_BrFilterPw);
+	DoToggleRow(6, "No login", &g_Config.m_BrFilterLogin, "Hide joining", &g_Config.m_BrFilterConnectingPlayers);
+
+	DoSectionLabel("Match");
+	{
+		CUIRect Label, Field;
+		View.HSplitTop(RowHeight, &Button, &View);
+		Button.VSplitLeft(46.0f, &Label, &Field);
+		Ui()->DoLabel(&Label, Localize("Type"), FontSize, TEXTALIGN_ML);
+		static CLineInput s_GametypeInput(g_Config.m_BrFilterGametype, sizeof(g_Config.m_BrFilterGametype));
+		if(Ui()->DoEditBox(&s_GametypeInput, &Field, FontSize))
+		{
+			Client()->ServerBrowserUpdate();
+		}
+		View.HSplitTop(3.0f, nullptr, &View);
+	}
+
+	{
+		CUIRect Label, Field;
+		View.HSplitTop(RowHeight, &Button, &View);
+		Button.VSplitLeft(46.0f, &Label, &Field);
+		Ui()->DoLabel(&Label, Localize("Address"), FontSize, TEXTALIGN_ML);
+		static CLineInput s_FilterServerAddressInput(g_Config.m_BrFilterServerAddress, sizeof(g_Config.m_BrFilterServerAddress));
+		if(Ui()->DoEditBox(&s_FilterServerAddressInput, &Field, FontSize))
+		{
+			Client()->ServerBrowserUpdate();
+		}
+		View.HSplitTop(3.0f, nullptr, &View);
+	}
 
 	// player country
+	DoSectionLabel("Advanced");
 	{
 		CUIRect Flag;
 		View.HSplitTop(RowHeight, &Button, &View);
-		Button.VSplitRight(60.0f, &Button, &Flag);
-		if(DoButton_CheckBox(&g_Config.m_BrFilterCountry, Localize("Player country:"), g_Config.m_BrFilterCountry, &Button))
-			g_Config.m_BrFilterCountry ^= 1;
+		Button.VSplitRight(34.0f, &Button, &Flag);
+		DoToggleButton(&s_CountryFilterButton, "Country", &g_Config.m_BrFilterCountry, &Button);
 
 		const float OldWidth = Flag.w;
 		Flag.w = Flag.h * 2.0f;
@@ -851,28 +866,30 @@ void CMenus::RenderServerbrowserFilters(CUIRect View)
 			s_PopupCountryContext.m_New = true;
 			Ui()->DoPopupMenu(&s_PopupCountryId, Flag.x, Flag.y + Flag.h, 490, 210, &s_PopupCountryContext, PopupCountrySelection);
 		}
+		View.HSplitTop(3.0f, nullptr, &View);
 	}
 
 	View.HSplitTop(RowHeight, &Button, &View);
-	if(DoButton_CheckBox(&g_Config.m_BrFilterConnectingPlayers, Localize("Filter connecting players"), g_Config.m_BrFilterConnectingPlayers, &Button))
-		g_Config.m_BrFilterConnectingPlayers ^= 1;
+	DoToggleButton(&s_StrictTypeButton, "Strict type", &g_Config.m_BrFilterGametypeStrict, &Button);
+	View.HSplitTop(3.0f, nullptr, &View);
 
 	// map finish filters
 	if(ServerBrowser()->CommunityCache().AnyRanksAvailable())
 	{
 		View.HSplitTop(RowHeight, &Button, &View);
-		if(DoButton_CheckBox(&g_Config.m_BrIndicateFinished, Localize("Indicate map finish"), g_Config.m_BrIndicateFinished, &Button))
+		if(DoButton_Menu(&s_MapFinishButton, Localize("Map finish"), g_Config.m_BrIndicateFinished, &Button, BUTTONFLAG_LEFT, nullptr, IGraphics::CORNER_ALL, 4.0f))
 		{
 			g_Config.m_BrIndicateFinished ^= 1;
 			if(g_Config.m_BrIndicateFinished)
 				ServerBrowser()->Refresh(ServerBrowser()->GetCurrentType());
 		}
+		View.HSplitTop(3.0f, nullptr, &View);
 
 		if(g_Config.m_BrIndicateFinished)
 		{
 			View.HSplitTop(RowHeight, &Button, &View);
-			if(DoButton_CheckBox(&g_Config.m_BrFilterUnfinishedMap, Localize("Unfinished map"), g_Config.m_BrFilterUnfinishedMap, &Button))
-				g_Config.m_BrFilterUnfinishedMap ^= 1;
+			DoToggleButton(&s_UnfinishedMapButton, "Unfinished map", &g_Config.m_BrFilterUnfinishedMap, &Button);
+			View.HSplitTop(3.0f, nullptr, &View);
 		}
 		else
 		{
@@ -887,7 +904,7 @@ void CMenus::RenderServerbrowserFilters(CUIRect View)
 		const ColorRGBA ColorInactive = ColorRGBA(0.0f, 0.0f, 0.0f, 0.15f);
 
 		CUIRect TabContents, CountriesTab, TypesTab;
-		View.HSplitTop(6.0f, nullptr, &View);
+		View.HSplitTop(4.0f, nullptr, &View);
 		View.HSplitTop(19.0f, &Button, &View);
 		View.HSplitTop(minimum(4.0f * 22.0f + CScrollRegion::HEIGHT_MAGIC_FIX, View.h), &TabContents, &View);
 		Button.VSplitMid(&CountriesTab, &TypesTab);

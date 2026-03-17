@@ -3,7 +3,9 @@
 
 #include "catclient_nametags.h"
 
+#include <engine/console.h>
 #include <engine/graphics.h>
+#include <engine/shared/http.h>
 
 #include <game/client/component.h>
 #include <game/client/ui_rect.h>
@@ -20,12 +22,19 @@ class CCatClient : public CComponent
 	int m_AntiKillTeam = 0;
 	std::chrono::nanoseconds m_AntiKillStart = std::chrono::nanoseconds::zero();
 	CCatClientNameTags m_NameTags;
+	std::shared_ptr<CHttpRequest> m_pCursorDownloadTask;
 
 	IGraphics::CTextureHandle m_CursorTexture;
 	bool m_HasCustomCursor = false;
 	bool m_StreamerWordsLoaded = false;
+	std::vector<std::string> m_vIgnoredPlayers;
 	std::vector<std::string> m_vStreamerBlockedWords;
 
+	static void ConfigSaveCallback(class IConfigManager *pConfigManager, void *pUserData);
+	static void ConIgnorePlayer(class IConsole::IResult *pResult, void *pUserData);
+	static void ConUnignorePlayer(class IConsole::IResult *pResult, void *pUserData);
+
+	void AbortTask(std::shared_ptr<CHttpRequest> &pTask);
 	void ResetAutoTeamLock();
 	void ResetAntiKill();
 	bool IsLocalTeamLocked() const;
@@ -35,8 +44,13 @@ class CCatClient : public CComponent
 	bool IsLikelyLocalHammerHit(vec2 Pos) const;
 	void UpdateAspectRatioOverride();
 	void UpdateAntiKillState();
+	void UpdateIgnoredPlayers();
+	bool LoadAutomaticCursorAsset();
+	void StartAutomaticCursorDownload();
+	void FinishAutomaticCursorDownload();
 	void EnsureStreamerWordsLoaded();
 	void SaveStreamerWords() const;
+	bool SetPlayerIgnoredInternal(const char *pPlayerName, bool Ignored, bool SaveConfig);
 
 public:
 	enum EMuteSoundFlags
@@ -76,6 +90,7 @@ public:
 	};
 
 	int Sizeof() const override { return sizeof(*this); }
+	void OnConsoleInit() override;
 	void OnInit() override;
 	void OnUpdate() override;
 	void OnReset() override;
@@ -104,6 +119,11 @@ public:
 	bool HasCatIconTexture() const;
 	const IGraphics::CTextureHandle &CatIconTexture() const;
 	void RenderCatIcon(const CUIRect &Rect, float Alpha = 1.0f) const;
+	bool IsPlayerIgnored(const char *pPlayerName) const;
+	bool IsPlayerIgnored(int ClientId) const;
+	bool IgnorePlayer(const char *pPlayerName);
+	bool UnignorePlayer(const char *pPlayerName);
+	bool InvitePlayer(int ClientId);
 	bool ShouldBlockKill();
 	bool ShouldMuteSound(int SoundId, int OwnerId, const vec2 *pSoundPos = nullptr) const;
 };

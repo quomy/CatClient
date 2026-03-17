@@ -953,6 +953,7 @@ private:
 
 	const CWarType *m_pRemoveWarType = nullptr;
 	void PopupConfirmRemoveWarType();
+	void PopupConfirmOpenBlockedWords();
 	void RenderDevSkin(vec2 RenderPos, float Size, const char *pSkinName, const char *pBackupSkin, bool CustomColors, int FeetColor, int BodyColor, int Emote, bool Rainbow, bool Cute,
 		ColorRGBA ColorFeet = ColorRGBA(0, 0, 0, 0), ColorRGBA ColorBody = ColorRGBA(0, 0, 0, 0));
 	void RenderFontIcon(CUIRect Rect, const char *pText, float Size, int Align);

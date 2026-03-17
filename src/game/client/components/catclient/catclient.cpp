@@ -4,6 +4,7 @@
 #include <base/time.h>
 
 #include <engine/client.h>
+#include <engine/config.h>
 #include <engine/console.h>
 #include <engine/graphics.h>
 #include <engine/shared/config.h>
@@ -18,6 +19,32 @@
 #include <algorithm>
 #include <chrono>
 
+namespace
+{
+constexpr const char *CATCLIENT_AUTO_CURSOR_URL = "https://data.teeworlds.xyz/api/skins/dcfe12f4-fdbd-41d4-b287-a5af431ebf28?image=true";
+constexpr const char *CATCLIENT_AUTO_CURSOR_PATH = "assets/cursors/catproject_auto.png";
+constexpr CTimeout AUTO_CURSOR_REQUEST_TIMEOUT{10000, 0, 0, 0};
+
+void EscapeConfigParam(char *pDst, const char *pSrc, size_t Size)
+{
+	str_escape(&pDst, pSrc, pDst + Size);
+}
+}
+
+void CCatClient::AbortTask(std::shared_ptr<CHttpRequest> &pTask)
+{
+	if(!pTask)
+	{
+		return;
+	}
+
+	if(!pTask->Done())
+	{
+		pTask->Abort();
+	}
+	pTask = nullptr;
+}
+
 void CCatClient::ResetAutoTeamLock()
 {
 	m_AutoTeamLockTeam = TEAM_FLOCK;
@@ -29,6 +56,29 @@ void CCatClient::ResetAntiKill()
 {
 	m_AntiKillTeam = TEAM_FLOCK;
 	m_AntiKillStart = std::chrono::nanoseconds::zero();
+}
+
+void CCatClient::ConfigSaveCallback(IConfigManager *pConfigManager, void *pUserData)
+{
+	CCatClient *pThis = static_cast<CCatClient *>(pUserData);
+	char aBuf[IConsole::CMDLINE_LENGTH];
+	for(const std::string &IgnoredPlayer : pThis->m_vIgnoredPlayers)
+	{
+		char aEscapedName[MAX_NAME_LENGTH * 2];
+		EscapeConfigParam(aEscapedName, IgnoredPlayer.c_str(), sizeof(aEscapedName));
+		str_format(aBuf, sizeof(aBuf), "catclient_ignore_player \"%s\"", aEscapedName);
+		pConfigManager->WriteLine(aBuf, ConfigDomain::CATCLIENT);
+	}
+}
+
+void CCatClient::ConIgnorePlayer(IConsole::IResult *pResult, void *pUserData)
+{
+	static_cast<CCatClient *>(pUserData)->SetPlayerIgnoredInternal(pResult->GetString(0), true, false);
+}
+
+void CCatClient::ConUnignorePlayer(IConsole::IResult *pResult, void *pUserData)
+{
+	static_cast<CCatClient *>(pUserData)->SetPlayerIgnoredInternal(pResult->GetString(0), false, false);
 }
 
 bool CCatClient::IsLocalTeamLocked() const
@@ -164,17 +214,92 @@ void CCatClient::UpdateAntiKillState()
 	}
 }
 
+void CCatClient::UpdateIgnoredPlayers()
+{
+	for(int ClientId = 0; ClientId < MAX_CLIENTS; ++ClientId)
+	{
+		auto &Client = GameClient()->m_aClients[ClientId];
+		Client.m_ChatIgnore = Client.m_Active && IsPlayerIgnored(Client.m_aName);
+	}
+}
+
+bool CCatClient::LoadAutomaticCursorAsset()
+{
+	if(!Storage()->FileExists(CATCLIENT_AUTO_CURSOR_PATH, IStorage::TYPE_SAVE))
+	{
+		return false;
+	}
+
+	m_CursorTexture = Graphics()->LoadTexture(CATCLIENT_AUTO_CURSOR_PATH, IStorage::TYPE_SAVE);
+	if(m_CursorTexture.IsNullTexture())
+	{
+		return false;
+	}
+
+	m_HasCustomCursor = true;
+	return true;
+}
+
+void CCatClient::StartAutomaticCursorDownload()
+{
+	if(m_pCursorDownloadTask)
+	{
+		return;
+	}
+
+	m_pCursorDownloadTask = HttpGetBoth(CATCLIENT_AUTO_CURSOR_URL, Storage(), CATCLIENT_AUTO_CURSOR_PATH, IStorage::TYPE_SAVE);
+	m_pCursorDownloadTask->Timeout(AUTO_CURSOR_REQUEST_TIMEOUT);
+	m_pCursorDownloadTask->IpResolve(IPRESOLVE::V4);
+	m_pCursorDownloadTask->MaxResponseSize(256 * 1024);
+	m_pCursorDownloadTask->LogProgress(HTTPLOG::NONE);
+	m_pCursorDownloadTask->FailOnErrorStatus(false);
+	m_pCursorDownloadTask->SkipByFileTime(false);
+	Http()->Run(m_pCursorDownloadTask);
+}
+
+void CCatClient::FinishAutomaticCursorDownload()
+{
+	if(!m_pCursorDownloadTask || m_pCursorDownloadTask->State() != EHttpState::DONE)
+	{
+		return;
+	}
+
+	if(m_pCursorDownloadTask->StatusCode() < 400 && str_comp(g_Config.m_ClAssetCursor, "default") == 0)
+	{
+		LoadCursorAsset(g_Config.m_ClAssetCursor);
+	}
+}
+
+void CCatClient::OnConsoleInit()
+{
+	if(ConfigManager() != nullptr)
+	{
+		ConfigManager()->RegisterCallback(ConfigSaveCallback, this, ConfigDomain::CATCLIENT);
+	}
+
+	Console()->Register("catclient_ignore_player", "s[player_name]", CFGFLAG_CLIENT, ConIgnorePlayer, this, "Add a player name to the CatClient ignore list");
+	Console()->Register("catclient_unignore_player", "s[player_name]", CFGFLAG_CLIENT, ConUnignorePlayer, this, "Remove a player name from the CatClient ignore list");
+}
+
 void CCatClient::OnInit()
 {
 	ResetAutoTeamLock();
 	ResetAntiKill();
 	m_NameTags.Init(GameClient());
 	LoadCursorAsset(g_Config.m_ClAssetCursor);
+	StartAutomaticCursorDownload();
 	UpdateAspectRatioOverride();
 }
 
 void CCatClient::OnUpdate()
 {
+	if(m_pCursorDownloadTask && m_pCursorDownloadTask->Done())
+	{
+		FinishAutomaticCursorDownload();
+		m_pCursorDownloadTask = nullptr;
+	}
+
+	UpdateIgnoredPlayers();
 	UpdateAspectRatioOverride();
 	UpdateAntiKillState();
 	m_NameTags.Update();
@@ -251,6 +376,7 @@ void CCatClient::OnShutdown()
 {
 	Graphics()->ClearScreenAspectOverride();
 	m_NameTags.Shutdown();
+	AbortTask(m_pCursorDownloadTask);
 
 	if(m_HasCustomCursor)
 	{
@@ -261,6 +387,7 @@ void CCatClient::OnShutdown()
 
 void CCatClient::OnNewSnapshot()
 {
+	UpdateIgnoredPlayers();
 	m_NameTags.Update();
 }
 
@@ -274,6 +401,7 @@ void CCatClient::LoadCursorAsset(const char *pPath)
 
 	if(str_comp(pPath, "default") == 0)
 	{
+		LoadAutomaticCursorAsset();
 		return;
 	}
 
@@ -299,6 +427,103 @@ const IGraphics::CTextureHandle &CCatClient::CursorTexture() const
 		return m_CursorTexture;
 	}
 	return g_pData->m_aImages[IMAGE_CURSOR].m_Id;
+}
+
+bool CCatClient::SetPlayerIgnoredInternal(const char *pPlayerName, bool Ignored, bool SaveConfig)
+{
+	if(pPlayerName == nullptr || pPlayerName[0] == '\0')
+	{
+		return false;
+	}
+
+	const auto It = std::find_if(m_vIgnoredPlayers.begin(), m_vIgnoredPlayers.end(), [pPlayerName](const std::string &IgnoredPlayer) {
+		return str_comp_nocase(IgnoredPlayer.c_str(), pPlayerName) == 0;
+	});
+
+	if(Ignored)
+	{
+		if(It != m_vIgnoredPlayers.end())
+		{
+			return false;
+		}
+
+		m_vIgnoredPlayers.emplace_back(pPlayerName);
+		std::sort(m_vIgnoredPlayers.begin(), m_vIgnoredPlayers.end(), [](const std::string &Left, const std::string &Right) {
+			return str_comp_nocase(Left.c_str(), Right.c_str()) < 0;
+		});
+	}
+	else
+	{
+		if(It == m_vIgnoredPlayers.end())
+		{
+			return false;
+		}
+
+		m_vIgnoredPlayers.erase(It);
+	}
+
+	UpdateIgnoredPlayers();
+	if(SaveConfig && ConfigManager() != nullptr)
+	{
+		ConfigManager()->Save();
+	}
+	return true;
+}
+
+bool CCatClient::IsPlayerIgnored(const char *pPlayerName) const
+{
+	if(pPlayerName == nullptr || pPlayerName[0] == '\0')
+	{
+		return false;
+	}
+
+	return std::any_of(m_vIgnoredPlayers.begin(), m_vIgnoredPlayers.end(), [pPlayerName](const std::string &IgnoredPlayer) {
+		return str_comp_nocase(IgnoredPlayer.c_str(), pPlayerName) == 0;
+	});
+}
+
+bool CCatClient::IsPlayerIgnored(int ClientId) const
+{
+	return ClientId >= 0 && ClientId < MAX_CLIENTS && IsPlayerIgnored(GameClient()->m_aClients[ClientId].m_aName);
+}
+
+bool CCatClient::IgnorePlayer(const char *pPlayerName)
+{
+	return SetPlayerIgnoredInternal(pPlayerName, true, true);
+}
+
+bool CCatClient::UnignorePlayer(const char *pPlayerName)
+{
+	return SetPlayerIgnoredInternal(pPlayerName, false, true);
+}
+
+bool CCatClient::InvitePlayer(int ClientId)
+{
+	if(ClientId < 0 || ClientId >= MAX_CLIENTS || !GameClient()->m_aClients[ClientId].m_Active)
+	{
+		return false;
+	}
+
+	const int LocalClientId = GameClient()->m_Snap.m_LocalClientId;
+	if(LocalClientId < 0)
+	{
+		return false;
+	}
+
+	const int LocalTeam = GameClient()->m_Teams.Team(LocalClientId);
+	if(LocalTeam <= TEAM_FLOCK || LocalTeam >= TEAM_SUPER || GameClient()->m_Teams.Team(ClientId) == LocalTeam)
+	{
+		return false;
+	}
+
+	char aCommand[2 * MAX_NAME_LENGTH + 32];
+	char *pDst = aCommand;
+	str_copy(aCommand, "say /invite \"", sizeof(aCommand));
+	pDst = aCommand + str_length(aCommand);
+	str_escape(&pDst, GameClient()->m_aClients[ClientId].m_aName, aCommand + sizeof(aCommand));
+	str_append(aCommand, "\"", sizeof(aCommand));
+	Console()->ExecuteLine(aCommand, IConsole::CLIENT_ID_UNSPECIFIED);
+	return true;
 }
 
 bool CCatClient::HasCatTag(int ClientId) const

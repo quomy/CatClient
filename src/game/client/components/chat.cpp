@@ -877,7 +877,6 @@ void CChat::AddLine(int ClientId, int Team, const char *pLine)
 	if(pLine == nullptr || *pLine == 0 ||
 		(ClientId == SERVER_MSG && !g_Config.m_ClShowChatSystem) ||
 		(ClientId >= 0 && (GameClient()->m_aClients[ClientId].m_aName[0] == '\0' ||
-					  GameClient()->m_aClients[ClientId].m_ChatIgnore ||
 					  (GameClient()->m_Snap.m_LocalClientId != ClientId && g_Config.m_ClShowChatFriends && !GameClient()->m_aClients[ClientId].m_Friend) ||
 					  (GameClient()->m_Snap.m_LocalClientId != ClientId && g_Config.m_ClShowChatTeamMembersOnly && GameClient()->IsOtherTeam(ClientId) && GameClient()->m_Teams.Team(GameClient()->m_Snap.m_LocalClientId) != TEAM_FLOCK) ||
 					  (GameClient()->m_Snap.m_LocalClientId != ClientId && GameClient()->m_aClients[ClientId].m_Foe))))
@@ -931,7 +930,11 @@ void CChat::AddLine(int ClientId, int Team, const char *pLine)
 		str_format(aBuf, sizeof(aBuf), "%s%s%s", Line.m_aName, Line.m_ClientId >= 0 ? ": " : "", Line.m_aText);
 
 		ColorRGBA ChatLogColor = ColorRGBA(1.0f, 1.0f, 1.0f, 1.0f);
-		if(Line.m_Highlighted)
+		if(Line.m_CustomColor)
+		{
+			ChatLogColor = *Line.m_CustomColor;
+		}
+		else if(Line.m_Highlighted)
 		{
 			ChatLogColor = color_cast<ColorRGBA>(ColorHSLA(g_Config.m_ClMessageHighlightColor));
 		}
@@ -968,6 +971,11 @@ void CChat::AddLine(int ClientId, int Team, const char *pLine)
 	std::optional<ColorRGBA> CustomColor = std::nullopt;
 	if(ClientId == CLIENT_MSG)
 		CustomColor = color_cast<ColorRGBA>(ColorHSLA(g_Config.m_ClMessageClientColor));
+	const bool IgnoredPlayer = ClientId >= 0 && GameClient()->m_aClients[ClientId].m_ChatIgnore;
+	if(IgnoredPlayer)
+	{
+		CustomColor = ColorRGBA(0.6f, 0.6f, 0.6f, 1.0f);
+	}
 
 	CLine &PreviousLine = m_aLines[m_CurrentLine];
 
@@ -1024,6 +1032,7 @@ void CChat::AddLine(int ClientId, int Team, const char *pLine)
 		// since m_aLocalIds isn't valid there
 		Highlighted |= GameClient()->m_Snap.m_LocalClientId >= 0 && LineShouldHighlight(pMutableLine, GameClient()->m_aClients[GameClient()->m_Snap.m_LocalClientId].m_aName);
 	}
+	Highlighted = Highlighted && !IgnoredPlayer;
 	CurrentLine.m_Highlighted = Highlighted;
 
 	str_copy(CurrentLine.m_aText, pMutableLine);
@@ -1081,8 +1090,8 @@ void CChat::AddLine(int ClientId, int Team, const char *pLine)
 					str_append(CurrentLine.m_aName, aSanitizedName);
 				}
 				CurrentLine.m_NameColor = TEAM_RED;
-				CurrentLine.m_Highlighted = true;
-				Highlighted = true;
+				CurrentLine.m_Highlighted = !IgnoredPlayer;
+				Highlighted = !IgnoredPlayer;
 			}
 			else
 			{
