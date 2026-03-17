@@ -19,6 +19,7 @@ namespace FontIcon
 	inline const char *const BOOKMARK = "\uF02E";
 	inline const char *const BORDER_ALL = "\uF84C";
 	inline const char *const CAMERA = "\uF030";
+	inline const char *const CHECK = "\uF00C";
 	inline const char *const CHEVRON_DOWN = "\uF078";
 	inline const char *const CHEVRON_LEFT = "\uF053";
 	inline const char *const CHEVRON_RIGHT = "\uF054";
