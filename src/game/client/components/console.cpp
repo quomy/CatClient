@@ -31,6 +31,59 @@
 static constexpr float FONT_SIZE = 10.0f;
 static constexpr float LINE_SPACING = 1.0f;
 
+enum EConsoleLogFilterFlags
+{
+	CONSOLE_LOG_FILTER_ERROR = 1 << 0,
+	CONSOLE_LOG_FILTER_WARNING = 1 << 1,
+	CONSOLE_LOG_FILTER_INFO = 1 << 2,
+
+	CONSOLE_LOG_FILTER_ALL = CONSOLE_LOG_FILTER_ERROR | CONSOLE_LOG_FILTER_WARNING | CONSOLE_LOG_FILTER_INFO,
+};
+
+static int ConsoleFilterMaskForLevel(LEVEL Level)
+{
+	switch(Level)
+	{
+	case LEVEL_ERROR:
+		return CONSOLE_LOG_FILTER_ERROR;
+	case LEVEL_WARN:
+		return CONSOLE_LOG_FILTER_WARNING;
+	case LEVEL_INFO:
+	case LEVEL_DEBUG:
+	case LEVEL_TRACE:
+	default:
+		return CONSOLE_LOG_FILTER_INFO;
+	}
+}
+
+static ColorRGBA ConsoleLevelAccentColor(LEVEL Level)
+{
+	switch(Level)
+	{
+	case LEVEL_ERROR:
+		return ColorRGBA(0.95f, 0.36f, 0.34f, 1.0f);
+	case LEVEL_WARN:
+		return ColorRGBA(1.0f, 0.72f, 0.28f, 1.0f);
+	case LEVEL_INFO:
+	case LEVEL_DEBUG:
+	case LEVEL_TRACE:
+	default:
+		return ColorRGBA(0.42f, 0.78f, 1.0f, 1.0f);
+	}
+}
+
+static void RenderConsoleFilterButton(ITextRender *pTextRender, CUi *pUi, const CUIRect &Rect, const char *pLabel, const ColorRGBA &AccentColor, bool Active, bool Hovered)
+{
+	const ColorRGBA FillColor = Active ? ColorRGBA(AccentColor.r, AccentColor.g, AccentColor.b, Hovered ? 0.42f : 0.30f) :
+					     Hovered ? ColorRGBA(1.0f, 1.0f, 1.0f, 0.18f) :
+						       ColorRGBA(0.0f, 0.0f, 0.0f, 0.18f);
+	Rect.Draw(FillColor, IGraphics::CORNER_ALL, 5.0f);
+
+	pTextRender->TextColor(Active ? ColorRGBA(1.0f, 1.0f, 1.0f, 1.0f) : ColorRGBA(1.0f, 1.0f, 1.0f, 0.78f));
+	pUi->DoLabel(&Rect, pLabel, 9.0f, TEXTALIGN_MC);
+	pTextRender->TextColor(pTextRender->DefaultTextColor());
+}
+
 class CConsoleLogger : public ILogger
 {
 	CGameConsole *m_pConsole;
@@ -63,7 +116,7 @@ void CConsoleLogger::Log(const CLogMessage *pMessage)
 	const CLockScope LockScope(m_ConsoleMutex);
 	if(m_pConsole)
 	{
-		m_pConsole->m_LocalConsole.PrintLine(pMessage->m_aLine, pMessage->m_LineLength, Color);
+		m_pConsole->m_LocalConsole.PrintLine(pMessage->m_aLine, pMessage->m_LineLength, Color, pMessage->m_Level);
 	}
 }
 
@@ -230,6 +283,7 @@ CGameConsole::CInstance::CInstance(int Type)
 	m_CompletionArgumentPosition = 0;
 	m_CompletionDirty = true;
 	m_QueueResetAnimation = false;
+	m_FilterMask = CONSOLE_LOG_FILTER_ALL;
 	Reset();
 
 	m_aUser[0] = '\0';
@@ -241,12 +295,13 @@ CGameConsole::CInstance::CInstance(int Type)
 	m_Backlog.SetPopCallback([this](CBacklogEntry *pEntry) {
 		if(pEntry->m_LineCount != -1)
 		{
-			m_NewLineCounter -= pEntry->m_LineCount;
+			const int VisibleLines = VisibleLineCount(pEntry);
+			m_NewLineCounter -= VisibleLines;
 			for(auto &SearchMatch : m_vSearchMatches)
 			{
-				SearchMatch.m_StartLine += pEntry->m_LineCount;
-				SearchMatch.m_EndLine += pEntry->m_LineCount;
-				SearchMatch.m_EntryLine += pEntry->m_LineCount;
+				SearchMatch.m_StartLine += VisibleLines;
+				SearchMatch.m_EndLine += VisibleLines;
+				SearchMatch.m_EntryLine += VisibleLines;
 			}
 		}
 	});
@@ -308,7 +363,7 @@ void CGameConsole::CInstance::PumpBacklogPending()
 		if(pEntry->m_LineCount == -1)
 		{
 			UpdateEntryTextAttributes(pEntry);
-			m_NewLineCounter += pEntry->m_LineCount;
+			m_NewLineCounter += VisibleLineCount(pEntry);
 		}
 	}
 }
@@ -764,7 +819,7 @@ bool CGameConsole::CInstance::OnInput(const IInput::CEvent &Event)
 	return Handled;
 }
 
-void CGameConsole::CInstance::PrintLine(const char *pLine, int Len, ColorRGBA PrintColor)
+void CGameConsole::CInstance::PrintLine(const char *pLine, int Len, ColorRGBA PrintColor, LEVEL Level)
 {
 	// We must ensure that no log messages are printed while owning
 	// m_BacklogPendingLock or this will result in a dead lock.
@@ -772,6 +827,7 @@ void CGameConsole::CInstance::PrintLine(const char *pLine, int Len, ColorRGBA Pr
 	CBacklogEntry *pEntry = m_BacklogPending.Allocate(sizeof(CBacklogEntry) + Len);
 	pEntry->m_YOffset = -1.0f;
 	pEntry->m_PrintColor = PrintColor;
+	pEntry->m_Level = Level;
 	pEntry->m_Length = Len;
 	pEntry->m_LineCount = -1;
 	str_copy(pEntry->m_aText, pLine, Len + 1);
@@ -786,7 +842,7 @@ int CGameConsole::CInstance::GetLinesToScroll(int Direction, int LinesToScroll)
 	{
 		if(pEntry->m_LineCount == -1)
 			UpdateEntryTextAttributes(pEntry);
-		Line += pEntry->m_LineCount;
+		Line += VisibleLineCount(pEntry);
 		pEntry = m_Backlog.Prev(pEntry);
 	}
 
@@ -795,7 +851,7 @@ int CGameConsole::CInstance::GetLinesToScroll(int Direction, int LinesToScroll)
 	{
 		if(pEntry->m_LineCount == -1)
 			UpdateEntryTextAttributes(pEntry);
-		Amount += pEntry->m_LineCount;
+		Amount += VisibleLineCount(pEntry);
 		pEntry = Direction == -1 ? m_Backlog.Prev(pEntry) : m_Backlog.Next(pEntry);
 	}
 
@@ -827,12 +883,40 @@ void CGameConsole::CInstance::UpdateEntryTextAttributes(CBacklogEntry *pEntry) c
 	CTextCursor Cursor;
 	Cursor.m_FontSize = FONT_SIZE;
 	Cursor.m_Flags = 0;
-	Cursor.m_LineWidth = m_pGameConsole->Ui()->Screen()->w - 10;
+	Cursor.m_LineWidth = m_pGameConsole->Ui()->Screen()->w - 10.0f;
 	Cursor.m_MaxLines = 10;
 	Cursor.m_LineSpacing = LINE_SPACING;
 	m_pGameConsole->TextRender()->TextEx(&Cursor, pEntry->m_aText, -1);
 	pEntry->m_YOffset = Cursor.Height();
 	pEntry->m_LineCount = Cursor.m_LineCount;
+}
+
+bool CGameConsole::CInstance::MatchesLogFilter(const CBacklogEntry *pEntry) const
+{
+	return (m_FilterMask & ConsoleFilterMaskForLevel(pEntry->m_Level)) != 0;
+}
+
+int CGameConsole::CInstance::VisibleLineCount(const CBacklogEntry *pEntry) const
+{
+	return MatchesLogFilter(pEntry) ? pEntry->m_LineCount : 0;
+}
+
+void CGameConsole::CInstance::ClampBacklogPosition()
+{
+	int TotalVisibleLines = 0;
+	for(CBacklogEntry *pEntry = m_Backlog.First(); pEntry; pEntry = m_Backlog.Next(pEntry))
+	{
+		if(pEntry->m_LineCount == -1)
+			UpdateEntryTextAttributes(pEntry);
+		TotalVisibleLines += VisibleLineCount(pEntry);
+	}
+
+	const int MaxBacklogLine = maximum(0, TotalVisibleLines - 1);
+	m_BacklogCurLine = minimum(m_BacklogCurLine, MaxBacklogLine);
+	if(m_BacklogLastActiveLine < 0)
+		m_BacklogLastActiveLine = 0;
+	else
+		m_BacklogLastActiveLine = minimum(m_BacklogLastActiveLine, MaxBacklogLine);
 }
 
 bool CGameConsole::CInstance::IsInputHidden() const
@@ -901,13 +985,21 @@ void CGameConsole::CInstance::UpdateSearch()
 	CBacklogEntry *pEntry = m_Backlog.Last();
 	int EntryLine = 0, LineToScrollStart = 0, LineToScrollEnd = 0;
 
-	for(; pEntry; EntryLine += pEntry->m_LineCount, pEntry = m_Backlog.Prev(pEntry))
+	for(; pEntry; pEntry = m_Backlog.Prev(pEntry))
 	{
-		const char *pSearchPos = str_utf8_find_nocase(pEntry->m_aText, pSearchText);
-		if(!pSearchPos)
+		if(pEntry->m_LineCount == -1)
+			UpdateEntryTextAttributes(pEntry);
+
+		const int EntryLineCount = VisibleLineCount(pEntry);
+		if(EntryLineCount == 0)
 			continue;
 
-		int EntryLineCount = pEntry->m_LineCount;
+		const char *pSearchPos = str_utf8_find_nocase(pEntry->m_aText, pSearchText);
+		if(!pSearchPos)
+		{
+			EntryLine += EntryLineCount;
+			continue;
+		}
 
 		// Find all occurrences of the search string and save their positions
 		while(pSearchPos)
@@ -956,6 +1048,8 @@ void CGameConsole::CInstance::UpdateSearch()
 
 			pSearchPos = str_utf8_find_nocase(pEntry->m_aText + Pos + SearchLength, pSearchText);
 		}
+
+		EntryLine += EntryLineCount;
 	}
 
 	if(!m_vSearchMatches.empty() && SearchChanged)
@@ -1238,7 +1332,7 @@ void CGameConsole::OnRender()
 		Prompt(aPrompt);
 		TextRender()->TextEx(&PromptCursor, aPrompt);
 
-		// check if mouse is pressed
+		// check if mouse or touch is pressed
 		const vec2 WindowSize = vec2(Graphics()->WindowWidth(), Graphics()->WindowHeight());
 		const vec2 ScreenSize = vec2(Screen.w, Screen.h);
 		Ui()->UpdateTouchState(m_TouchState);
@@ -1252,19 +1346,66 @@ void CGameConsole::OnRender()
 				return Input()->NativeMousePos() / WindowSize * ScreenSize;
 			}
 		};
-		if(!pConsole->m_MouseIsPress && (m_TouchState.m_PrimaryPressed || Input()->NativeMousePressed(1)))
+
+		const bool PointerPressed = m_TouchState.m_PrimaryPressed || Input()->NativeMousePressed(1);
+		const bool PointerWasPressed = pConsole->m_MouseIsPress;
+		const vec2 PointerPos = GetMousePosition();
+		const bool PointerJustReleased = PointerWasPressed && !PointerPressed;
+
+		if(!PointerWasPressed && PointerPressed)
 		{
-			pConsole->m_MouseIsPress = true;
-			pConsole->m_MousePress = GetMousePosition();
+			pConsole->m_MousePress = PointerPos;
 		}
-		if(pConsole->m_MouseIsPress && !m_TouchState.m_PrimaryPressed && !Input()->NativeMousePressed(1))
+		if(PointerPressed || PointerJustReleased)
 		{
-			pConsole->m_MouseIsPress = false;
+			pConsole->m_MouseRelease = PointerPos;
 		}
-		if(pConsole->m_MouseIsPress)
+		pConsole->m_MouseIsPress = PointerPressed;
+
+		const float FilterButtonHeight = 16.0f;
+		const float FilterButtonGap = 4.0f;
+		const float FilterButtonWidth = 64.0f;
+		const float FilterButtonTop = FONT_SIZE / 2.0f + FONT_SIZE * 1.35f;
+		CUIRect FilterArea = {Screen.w - 10.0f - (FilterButtonWidth * 3.0f + FilterButtonGap * 2.0f), FilterButtonTop, FilterButtonWidth * 3.0f + FilterButtonGap * 2.0f, FilterButtonHeight};
+		CUIRect ErrorButton = FilterArea;
+		CUIRect WarningButton;
+		CUIRect InfoButton;
+		FilterArea.VSplitLeft(FilterButtonWidth, &ErrorButton, &FilterArea);
+		FilterArea.VSplitLeft(FilterButtonGap, nullptr, &FilterArea);
+		FilterArea.VSplitLeft(FilterButtonWidth, &WarningButton, &FilterArea);
+		FilterArea.VSplitLeft(FilterButtonGap, nullptr, &FilterArea);
+		FilterArea.VSplitLeft(FilterButtonWidth, &InfoButton, nullptr);
+
+		auto ToggleLogFilter = [&](int Flag) {
+			const int ActiveFilters =
+				((pConsole->m_FilterMask & CONSOLE_LOG_FILTER_ERROR) != 0) +
+				((pConsole->m_FilterMask & CONSOLE_LOG_FILTER_WARNING) != 0) +
+				((pConsole->m_FilterMask & CONSOLE_LOG_FILTER_INFO) != 0);
+			if((pConsole->m_FilterMask & Flag) != 0 && ActiveFilters <= 1)
+				return;
+
+			pConsole->m_FilterMask ^= Flag;
+			pConsole->ClampBacklogPosition();
+			pConsole->m_BacklogLastActiveLine = pConsole->m_BacklogCurLine;
+			pConsole->m_HasSelection = false;
+			pConsole->UpdateSearch();
+		};
+
+		if(PointerJustReleased)
 		{
-			pConsole->m_MouseRelease = GetMousePosition();
+			if(ErrorButton.Inside(pConsole->m_MousePress) && ErrorButton.Inside(PointerPos))
+				ToggleLogFilter(CONSOLE_LOG_FILTER_ERROR);
+			else if(WarningButton.Inside(pConsole->m_MousePress) && WarningButton.Inside(PointerPos))
+				ToggleLogFilter(CONSOLE_LOG_FILTER_WARNING);
+			else if(InfoButton.Inside(pConsole->m_MousePress) && InfoButton.Inside(PointerPos))
+				ToggleLogFilter(CONSOLE_LOG_FILTER_INFO);
 		}
+
+		const bool PointerStartedInFilters =
+			ErrorButton.Inside(pConsole->m_MousePress) ||
+			WarningButton.Inside(pConsole->m_MousePress) ||
+			InfoButton.Inside(pConsole->m_MousePress);
+
 		const float ScaledLineHeight = LineHeight / ScreenSize.y;
 		if(absolute(m_TouchState.m_ScrollAmount.y) >= ScaledLineHeight)
 		{
@@ -1444,23 +1585,29 @@ void CGameConsole::OnRender()
 
 		const float XScale = Graphics()->ScreenWidth() / Screen.w;
 		const float YScale = Graphics()->ScreenHeight() / Screen.h;
-		const float CalcOffsetY = LineHeight * std::floor((y - RowHeight) / LineHeight);
-		const float ClipStartY = (y - CalcOffsetY) * YScale;
-		Graphics()->ClipEnable(0, ClipStartY, Screen.w * XScale, (y + 2.0f) * YScale - ClipStartY);
+		const float LogTopY = maximum(RowHeight, FilterButtonTop + FilterButtonHeight + 4.0f);
+		const float ClipStartY = LogTopY * YScale;
+		Graphics()->ClipEnable(0, ClipStartY, Screen.w * XScale, maximum(0.0f, (y + 2.0f) * YScale - ClipStartY));
 
 		while(pEntry)
 		{
 			if(pEntry->m_LineCount == -1)
 				pConsole->UpdateEntryTextAttributes(pEntry);
 
-			LineNum += pEntry->m_LineCount;
-			if(LineNum < pConsole->m_BacklogLastActiveLine)
+			const int VisibleLines = pConsole->VisibleLineCount(pEntry);
+			if(VisibleLines <= 0)
 			{
-				SkippedLines += pEntry->m_LineCount;
 				pEntry = pConsole->m_Backlog.Prev(pEntry);
 				continue;
 			}
-			TextRender()->TextColor(pEntry->m_PrintColor);
+
+			LineNum += VisibleLines;
+			if(LineNum < pConsole->m_BacklogLastActiveLine)
+			{
+				SkippedLines += VisibleLines;
+				pEntry = pConsole->m_Backlog.Prev(pEntry);
+				continue;
+			}
 
 			if(First)
 			{
@@ -1479,13 +1626,15 @@ void CGameConsole::OnRender()
 			}
 
 			// stop rendering when lines reach the top
-			const bool Outside = y - OffsetY <= RowHeight;
-			const bool CanRenderOneLine = y - LocalOffsetY > RowHeight;
+			const bool Outside = y - OffsetY <= LogTopY;
+			const bool CanRenderOneLine = y - LocalOffsetY > LogTopY;
 			if(Outside && !CanRenderOneLine)
 				break;
 
 			const int LinesNotRendered = pEntry->m_LineCount - minimum((int)std::floor((y - LocalOffsetY) / RowHeight), pEntry->m_LineCount);
 			pConsole->m_LinesRendered -= LinesNotRendered;
+
+			TextRender()->TextColor(pEntry->m_PrintColor);
 
 			CTextCursor EntryCursor;
 			EntryCursor.SetPosition(vec2(0.0f, y - OffsetY));
@@ -1493,7 +1642,7 @@ void CGameConsole::OnRender()
 			EntryCursor.m_LineWidth = Screen.w - 10.0f;
 			EntryCursor.m_MaxLines = pEntry->m_LineCount;
 			EntryCursor.m_LineSpacing = LINE_SPACING;
-			EntryCursor.m_CalculateSelectionMode = (m_ConsoleState == CONSOLE_OPEN && pConsole->m_MousePress.y < pConsole->m_BoundingBox.m_Y && (pConsole->m_MouseIsPress || (pConsole->m_CurSelStart != pConsole->m_CurSelEnd) || pConsole->m_HasSelection)) ? TEXT_CURSOR_SELECTION_MODE_CALCULATE : TEXT_CURSOR_SELECTION_MODE_NONE;
+			EntryCursor.m_CalculateSelectionMode = (m_ConsoleState == CONSOLE_OPEN && !PointerStartedInFilters && pConsole->m_MousePress.y < pConsole->m_BoundingBox.m_Y && (pConsole->m_MouseIsPress || (pConsole->m_CurSelStart != pConsole->m_CurSelEnd) || pConsole->m_HasSelection)) ? TEXT_CURSOR_SELECTION_MODE_CALCULATE : TEXT_CURSOR_SELECTION_MODE_NONE;
 			EntryCursor.m_PressMouse = pConsole->m_MousePress;
 			EntryCursor.m_ReleaseMouse = pConsole->m_MouseRelease;
 
@@ -1502,7 +1651,7 @@ void CGameConsole::OnRender()
 			if(pConsole->m_Searching && pConsole->m_CurrentMatchIndex != -1)
 			{
 				std::vector<CInstance::SSearchMatch> vMatches;
-				std::copy_if(pConsole->m_vSearchMatches.begin(), pConsole->m_vSearchMatches.end(), std::back_inserter(vMatches), [&](const CInstance::SSearchMatch &Match) { return Match.m_EntryLine == LineNum + 1 - pEntry->m_LineCount; });
+				std::copy_if(pConsole->m_vSearchMatches.begin(), pConsole->m_vSearchMatches.end(), std::back_inserter(vMatches), [&](const CInstance::SSearchMatch &Match) { return Match.m_EntryLine == LineNum + 1 - VisibleLines; });
 
 				auto CurrentSelectedOccurrence = pConsole->m_vSearchMatches[pConsole->m_CurrentMatchIndex];
 
@@ -1555,7 +1704,7 @@ void CGameConsole::OnRender()
 			}
 
 			if(pConsole->m_NewLineCounter > 0) // Decrease by the entry line count since we can have multiline entries
-				pConsole->m_NewLineCounter -= pEntry->m_LineCount;
+				pConsole->m_NewLineCounter -= VisibleLines;
 
 			pEntry = pConsole->m_Backlog.Prev(pEntry);
 
@@ -1592,16 +1741,17 @@ void CGameConsole::OnRender()
 
 		// render current lines and status (locked, following)
 		char aBuf[128];
-		str_format(aBuf, sizeof(aBuf), Localize("Lines %d - %d (%s)"), pConsole->m_BacklogCurLine + 1, pConsole->m_BacklogCurLine + pConsole->m_LinesRendered, pConsole->m_BacklogCurLine != 0 ? Localize("Locked") : Localize("Following"));
+		if(pConsole->m_LinesRendered > 0)
+			str_format(aBuf, sizeof(aBuf), Localize("Lines %d - %d (%s)"), pConsole->m_BacklogCurLine + 1, pConsole->m_BacklogCurLine + pConsole->m_LinesRendered, pConsole->m_BacklogCurLine != 0 ? Localize("Locked") : Localize("Following"));
+		else if(pConsole->m_FilterMask != CONSOLE_LOG_FILTER_ALL)
+			str_copy(aBuf, Localize("No messages match the selected filters"));
+		else
+			str_copy(aBuf, Localize("No log messages yet"));
 		TextRender()->Text(10.0f, FONT_SIZE / 2.f, FONT_SIZE, aBuf);
 
 		if(m_ConsoleType == CONSOLETYPE_REMOTE && (Client()->ReceivingRconCommands() || Client()->ReceivingMaplist()))
 		{
 			const float Percentage = Client()->ReceivingRconCommands() ? Client()->GotRconCommandsPercentage() : Client()->GotMaplistPercentage();
-			SProgressSpinnerProperties ProgressProps;
-			ProgressProps.m_Progress = Percentage;
-			Ui()->RenderProgressSpinner(vec2(Screen.w / 4.0f + FONT_SIZE / 2.f, FONT_SIZE), FONT_SIZE / 2.f, ProgressProps);
-
 			char aLoading[128];
 			str_copy(aLoading, Client()->ReceivingRconCommands() ? Localize("Loading commands…") : Localize("Loading maps…"));
 			if(Percentage > 0)
@@ -1617,9 +1767,10 @@ void CGameConsole::OnRender()
 		str_copy(aBuf, "v" GAME_VERSION " on " CONF_PLATFORM_STRING " " CONF_ARCH_STRING);
 		TextRender()->Text(Screen.w - TextRender()->TextWidth(FONT_SIZE, aBuf) - 10.0f, FONT_SIZE / 2.f, FONT_SIZE, aBuf);
 
-		// TClient: render client version
-		const char *pClientVersion = CLIENT_NAME " " CLIENT_RELEASE_VERSION;
-		TextRender()->Text(Screen.w - TextRender()->TextWidth(FONT_SIZE, pClientVersion) - 10.0f, FONT_SIZE / 2.0f + FONT_SIZE * 1.5f, FONT_SIZE, pClientVersion);
+		RenderConsoleFilterButton(TextRender(), Ui(), ErrorButton, "Errors", ConsoleLevelAccentColor(LEVEL_ERROR), (pConsole->m_FilterMask & CONSOLE_LOG_FILTER_ERROR) != 0, ErrorButton.Inside(PointerPos));
+		RenderConsoleFilterButton(TextRender(), Ui(), WarningButton, "Warnings", ConsoleLevelAccentColor(LEVEL_WARN), (pConsole->m_FilterMask & CONSOLE_LOG_FILTER_WARNING) != 0, WarningButton.Inside(PointerPos));
+		RenderConsoleFilterButton(TextRender(), Ui(), InfoButton, "Info", ConsoleLevelAccentColor(LEVEL_INFO), (pConsole->m_FilterMask & CONSOLE_LOG_FILTER_INFO) != 0, InfoButton.Inside(PointerPos));
+		TextRender()->TextColor(TextRender()->DefaultTextColor());
 	}
 }
 
@@ -1765,9 +1916,9 @@ void CGameConsole::RequireUsername(bool UsernameReq)
 void CGameConsole::PrintLine(int Type, const char *pLine)
 {
 	if(Type == CONSOLETYPE_LOCAL)
-		m_LocalConsole.PrintLine(pLine, str_length(pLine), TextRender()->DefaultTextColor());
+		m_LocalConsole.PrintLine(pLine, str_length(pLine), TextRender()->DefaultTextColor(), LEVEL_INFO);
 	else if(Type == CONSOLETYPE_REMOTE)
-		m_RemoteConsole.PrintLine(pLine, str_length(pLine), TextRender()->DefaultTextColor());
+		m_RemoteConsole.PrintLine(pLine, str_length(pLine), TextRender()->DefaultTextColor(), LEVEL_INFO);
 }
 
 void CGameConsole::OnConsoleInit()

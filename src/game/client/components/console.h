@@ -33,6 +33,7 @@ class CGameConsole : public CComponent
 			float m_YOffset;
 			int m_LineCount;
 			ColorRGBA m_PrintColor;
+			LEVEL m_Level;
 			size_t m_Length;
 			char m_aText[1];
 		};
@@ -48,6 +49,7 @@ class CGameConsole : public CComponent
 		int m_BacklogCurLine;
 		int m_BacklogLastActiveLine = -1;
 		int m_LinesRendered;
+		int m_FilterMask;
 
 		STextBoundingBox m_BoundingBox = {0.0f, 0.0f, 0.0f, 0.0f};
 		float m_LastInputHeight = 0.0f;
@@ -114,7 +116,7 @@ class CGameConsole : public CComponent
 		void ExecuteLine(const char *pLine);
 
 		bool OnInput(const IInput::CEvent &Event);
-		void PrintLine(const char *pLine, int Len, ColorRGBA PrintColor) REQUIRES(!m_BacklogPendingLock);
+		void PrintLine(const char *pLine, int Len, ColorRGBA PrintColor, LEVEL Level) REQUIRES(!m_BacklogPendingLock);
 		int GetLinesToScroll(int Direction, int LinesToScroll);
 		void ScrollToCenter(int StartLine, int EndLine);
 		void Dump() REQUIRES(!m_BacklogPendingLock);
@@ -137,6 +139,9 @@ class CGameConsole : public CComponent
 		static void PossibleArgumentsCompleteCallback(int Index, const char *pStr, void *pUser);
 
 		void UpdateEntryTextAttributes(CBacklogEntry *pEntry) const;
+		bool MatchesLogFilter(const CBacklogEntry *pEntry) const;
+		int VisibleLineCount(const CBacklogEntry *pEntry) const;
+		void ClampBacklogPosition();
 
 		bool IsInputHidden() const;
 		void UpdateCompletionSuggestions();
