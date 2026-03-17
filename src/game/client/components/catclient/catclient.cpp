@@ -19,16 +19,13 @@
 #include <algorithm>
 #include <chrono>
 
-namespace
-{
-constexpr const char *CATCLIENT_AUTO_CURSOR_URL = "https://data.teeworlds.xyz/api/skins/dcfe12f4-fdbd-41d4-b287-a5af431ebf28?image=true";
-constexpr const char *CATCLIENT_AUTO_CURSOR_PATH = "assets/cursors/catproject_auto.png";
-constexpr CTimeout AUTO_CURSOR_REQUEST_TIMEOUT{10000, 0, 0, 0};
+static constexpr const char *CATCLIENT_AUTO_CURSOR_URL = "https://data.teeworlds.xyz/api/skins/dcfe12f4-fdbd-41d4-b287-a5af431ebf28?image=true";
+static constexpr const char *CATCLIENT_AUTO_CURSOR_PATH = "assets/cursors/catproject_auto.png";
+static constexpr CTimeout AUTO_CURSOR_REQUEST_TIMEOUT{10000, 0, 0, 0};
 
-void EscapeConfigParam(char *pDst, const char *pSrc, size_t Size)
+static void EscapeConfigParam(char *pDst, const char *pSrc, size_t Size)
 {
 	str_escape(&pDst, pSrc, pDst + Size);
-}
 }
 
 void CCatClient::AbortTask(std::shared_ptr<CHttpRequest> &pTask)

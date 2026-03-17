@@ -1,20 +1,14 @@
 #include "catclient_nametags.h"
-
 #include <base/system.h>
 #include <base/time.h>
-
 #include <engine/client.h>
 #include <engine/shared/json.h>
 #include <engine/shared/jsonwriter.h>
 #include <engine/storage.h>
-
 #include <game/client/gameclient.h>
-
 #include <chrono>
 #include <string>
 
-namespace
-{
 static constexpr const char *CATCLIENT_NAME_TAGS_URL = "https://tags.quomy.win/users.json";
 static constexpr const char *CATCLIENT_ICON_URL = "https://tags.quomy.win/catproject.png";
 static constexpr const char *CATCLIENT_ICON_PATH = "catclient/catproject.png";
@@ -26,7 +20,7 @@ static constexpr auto REMOVE_RETRY_INTERVAL = std::chrono::seconds(3);
 static constexpr CTimeout REQUEST_TIMEOUT{5000, 0, 512, 5};
 static constexpr CTimeout REMOVE_TIMEOUT{1500, 0, 512, 3};
 
-void NormalizeServerAddress(const char *pAddress, char *pOutput, size_t OutputSize)
+static void NormalizeServerAddress(const char *pAddress, char *pOutput, size_t OutputSize)
 {
 	pOutput[0] = '\0';
 	if(pAddress == nullptr || pAddress[0] == '\0')
@@ -54,7 +48,6 @@ void NormalizeServerAddress(const char *pAddress, char *pOutput, size_t OutputSi
 	}
 
 	str_copy(pOutput, pNormalized, OutputSize);
-}
 }
 
 void CCatClientNameTags::AbortTask(std::shared_ptr<CHttpRequest> &pTask)

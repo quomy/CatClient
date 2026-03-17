@@ -1,5 +1,9 @@
 cmake_minimum_required(VERSION 3.12...3.27.4)
 
+set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS
+  "${CMAKE_CURRENT_SOURCE_DIR}/src/game/version.h"
+)
+
 set(CMAKE_OSX_DEPLOYMENT_TARGET 10.15 CACHE INTERNAL "Minimum macOS deployment version")
 if(CMAKE_OSX_DEPLOYMENT_TARGET VERSION_LESS 10.15)
   message(WARNING "Building for macOS < 10.15 is not supported")
@@ -8,6 +12,11 @@ endif()
 file(STRINGS src/game/version.h VERSION_LINE
   LIMIT_COUNT 1
   REGEX "^#define GAME_RELEASE_VERSION_INTERNAL "
+)
+
+file(STRINGS src/game/version.h CATCLIENT_VERSION_LINE
+  LIMIT_COUNT 1
+  REGEX "^#define CATCLIENT_VERSION \""
 )
 
 if(VERSION_LINE MATCHES "([0-9]+)\\.([0-9]+)\\.([0-9]+)")
@@ -24,7 +33,11 @@ endif()
 
 #<CatClient>
 
-set(CATCLIENT_VERSION "1.0.0" CACHE STRING "CatClient version")
+if(CATCLIENT_VERSION_LINE MATCHES "^#define CATCLIENT_VERSION \"([^\"]+)\"")
+  set(CATCLIENT_VERSION ${CMAKE_MATCH_1})
+else()
+  message(FATAL_ERROR "Couldn't parse CATCLIENT_VERSION from src/game/version.h")
+endif()
 
 set(DATA_VERSION_FILE "${CMAKE_BINARY_DIR}/data/data_version.txt")
 file(MAKE_DIRECTORY "${CMAKE_BINARY_DIR}/data")
@@ -2370,8 +2383,6 @@ set_src(GAME_SHARED GLOB src/game
   version.h
   voting.h
 )
-set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "src/game/version.h")
-
 #A bit hacky, but these are needed to register all the UUIDs, even for stuff
 #that doesn't link game.
 set(ENGINE_UUID_SHARED
@@ -2546,6 +2557,7 @@ if(CLIENT)
     components/catclient/menus_catclient_firstrun.cpp
     components/catclient/menus_catclient_general.cpp
     components/catclient/menus_catclient_info.cpp
+    components/catclient/menus_catclient_shop.cpp
     components/catclient/menus_catclient_slider.h
     components/catclient/menus_catclient_streamer.cpp
     components/catclient/menus_catclient_visuals.cpp
@@ -4013,7 +4025,6 @@ foreach(target ${TARGETS_OWN})
   if(INFORM_UPDATE)
     target_compile_definitions(${target} PRIVATE CONF_INFORM_UPDATE)
   endif()
-  target_compile_definitions(${target} PRIVATE CATCLIENT_VERSION=\"${CATCLIENT_VERSION}\")
   # if(STEAM)
   #   target_compile_definitions(${target} PRIVATE PLATFORM_SUFFIX=-steam)
   # endif()

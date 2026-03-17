@@ -4378,8 +4378,9 @@ vec2 CGameClient::GetFastInputPos(int ClientId)
 
 	vec2 Pos = mix(m_aClients[ClientId].m_PrevPredicted.m_Pos, m_aClients[ClientId].m_Predicted.m_Pos, PredIntraTick);
 
-	float FastInputIntra = (g_Config.m_TcFastInputAmount % 20) / 20.0f;
-	int FastInputTicks = g_Config.m_TcFastInputAmount / 20;
+	const int FastInputAmount = g_Config.m_TcFastInputAmount;
+	float FastInputIntra = (FastInputAmount % 20) / 20.0f;
+	int FastInputTicks = FastInputAmount / 20;
 
 	float CombinedIntra = PredIntraTick + FastInputIntra;
 
@@ -4439,8 +4440,9 @@ vec2 CGameClient::GetFreezePos(int ClientId)
 	m_SmoothTick = SmoothTick;
 	m_SmoothIntraTick = SmoothIntra;
 
-	float FastInputIntra = (g_Config.m_TcFastInputAmount % 20) / 20.0f;
-	int FastInputTicks = g_Config.m_TcFastInputAmount / 20;
+	const int FastInputAmount = g_Config.m_TcFastInputAmount;
+	float FastInputIntra = (FastInputAmount % 20) / 20.0f;
+	int FastInputTicks = FastInputAmount / 20;
 
 	float CombinedIntra = SmoothIntra + FastInputIntra;
 

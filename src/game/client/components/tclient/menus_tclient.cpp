@@ -547,31 +547,6 @@ void CMenus::RenderSettingsTClientSettings(CUIRect MainView)
 	Column.HSplitTop(MarginExtraSmall, nullptr, &Column);
 	s_SectionBoxes.back().h = Column.y - s_SectionBoxes.back().y;
 
-	// ***** Input ***** //
-	Column.HSplitTop(MarginBetweenSections, nullptr, &Column);
-	s_SectionBoxes.push_back(Column);
-	Column.HSplitTop(HeadlineHeight, &Label, &Column);
-	Ui()->DoLabel(&Label, TCLocalize("Input"), HeadlineFontSize, TEXTALIGN_ML);
-	Column.HSplitTop(MarginSmall, nullptr, &Column);
-
-	DoButton_CheckBoxAutoVMarginAndSet(&g_Config.m_TcFastInput, TCLocalize("Fast Input (reduced visual delay)"), &g_Config.m_TcFastInput, &Column, LineSize);
-
-	Column.HSplitTop(LineSize, &Button, &Column);
-	DoSliderWithScaledValue(&g_Config.m_TcFastInputAmount, &g_Config.m_TcFastInputAmount, &Button, TCLocalize("Amount"), 1, 40, 1, &CUi::ms_LinearScrollbarScale, CUi::SCROLLBAR_OPTION_NOCLAMPVALUE, "ms");
-
-	Column.HSplitTop(MarginSmall, nullptr, &Column);
-	if(g_Config.m_TcFastInput)
-		DoButton_CheckBoxAutoVMarginAndSet(&g_Config.m_TcFastInputOthers, TCLocalize("Fast Input others"), &g_Config.m_TcFastInputOthers, &Column, LineSize);
-	else
-		Column.HSplitTop(LineSize, nullptr, &Column);
-
-	DoButton_CheckBoxAutoVMarginAndSet(&g_Config.m_ClSubTickAiming, TCLocalize("Sub-Tick aiming"), &g_Config.m_ClSubTickAiming, &Column, LineSize);
-
-	// A little extra spacing because these are multi line
-	Column.HSplitTop(MarginSmall, nullptr, &Column);
-
-	s_SectionBoxes.back().h = Column.y - s_SectionBoxes.back().y;
-
 	// ***** Anti Latency Tools ***** //
 	Column.HSplitTop(MarginBetweenSections, nullptr, &Column);
 	s_SectionBoxes.push_back(Column);

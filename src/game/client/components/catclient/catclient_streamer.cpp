@@ -8,10 +8,8 @@
 
 #include <algorithm>
 
-namespace
-{
-	constexpr const char *STREAMER_WORDS_FILE = "nwords.txt";
-	const char *const s_apDefaultStreamerWords[] = {
+static constexpr const char *STREAMER_WORDS_FILE = "nwords.txt";
+static const char *const gs_apDefaultStreamerWords[] = {
 		"пидор",
 		"чурка",
 		"петух",
@@ -40,20 +38,20 @@ namespace
 		"вскройся",
 		"нiгер",
 		"HuGGER",
-	};
-	bool WordExists(const std::vector<std::string> &vWords, const char *pWord)
-	{
-		return std::any_of(vWords.begin(), vWords.end(), [pWord](const std::string &Word) {
-			return str_utf8_comp_nocase(Word.c_str(), pWord) == 0;
-		});
-	}
+};
 
-	void AppendSanitizedChunk(char **ppDst, char *pDstEnd, const char *pChunkStart, const char *pChunkEnd)
+static bool WordExists(const std::vector<std::string> &vWords, const char *pWord)
+{
+	return std::any_of(vWords.begin(), vWords.end(), [pWord](const std::string &Word) {
+		return str_utf8_comp_nocase(Word.c_str(), pWord) == 0;
+	});
+}
+
+static void AppendSanitizedChunk(char **ppDst, char *pDstEnd, const char *pChunkStart, const char *pChunkEnd)
+{
+	while(pChunkStart < pChunkEnd && *ppDst < pDstEnd)
 	{
-		while(pChunkStart < pChunkEnd && *ppDst < pDstEnd)
-		{
-			*(*ppDst)++ = *pChunkStart++;
-		}
+		*(*ppDst)++ = *pChunkStart++;
 	}
 }
 
@@ -110,7 +108,7 @@ void CCatClient::EnsureStreamerWordsLoaded()
 
 	if(m_vStreamerBlockedWords.empty())
 	{
-		for(const char *pWord : s_apDefaultStreamerWords)
+		for(const char *pWord : gs_apDefaultStreamerWords)
 		{
 			m_vStreamerBlockedWords.emplace_back(pWord);
 		}

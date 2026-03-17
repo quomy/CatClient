@@ -6,57 +6,58 @@
 #include <game/client/components/menus.h>
 #include <game/localization.h>
 
-namespace
+static void ExpandAndClampRect(CUIRect &Rect, const CUIRect &Bounds, float Padding)
 {
-	static void ExpandAndClampRect(CUIRect &Rect, const CUIRect &Bounds, float Padding)
-	{
-		Rect.x -= Padding;
-		Rect.y -= Padding;
-		Rect.w += Padding * 2.0f;
-		Rect.h += Padding * 2.0f;
+	Rect.x -= Padding;
+	Rect.y -= Padding;
+	Rect.w += Padding * 2.0f;
+	Rect.h += Padding * 2.0f;
 
-		if(Rect.x < Bounds.x)
-			Rect.x = Bounds.x;
-		if(Rect.y < Bounds.y)
-			Rect.y = Bounds.y;
-		if(Rect.x + Rect.w > Bounds.x + Bounds.w)
-			Rect.w = Bounds.x + Bounds.w - Rect.x;
-		if(Rect.y + Rect.h > Bounds.y + Bounds.h)
-			Rect.h = Bounds.y + Bounds.h - Rect.y;
+	if(Rect.x < Bounds.x)
+		Rect.x = Bounds.x;
+	if(Rect.y < Bounds.y)
+		Rect.y = Bounds.y;
+	if(Rect.x + Rect.w > Bounds.x + Bounds.w)
+		Rect.w = Bounds.x + Bounds.w - Rect.x;
+	if(Rect.y + Rect.h > Bounds.y + Bounds.h)
+		Rect.h = Bounds.y + Bounds.h - Rect.y;
+}
+
+static const char *FirstRunTitle(CMenus::EFirstRunSetupStep Step)
+{
+	switch(Step)
+	{
+	case CMenus::FIRST_RUN_SETUP_UI_SCALE:
+		return Localize("Choose UI Scale");
+	case CMenus::FIRST_RUN_SETUP_ASPECT_RATIO:
+		return Localize("Choose Aspect Ratio");
+	case CMenus::FIRST_RUN_SETUP_FAST_INPUTS:
+		return Localize("Fast Inputs Moved");
+	case CMenus::FIRST_RUN_SETUP_CURSORS:
+		return Localize("Choose Cursor Preset");
+	case CMenus::FIRST_RUN_SETUP_AUDIO:
+		return Localize("Choose Audio Preset");
+	default:
+		return "";
 	}
+}
 
-	static const char *FirstRunTitle(CMenus::EFirstRunSetupStep Step)
+static const char *FirstRunDescription(CMenus::EFirstRunSetupStep Step)
+{
+	switch(Step)
 	{
-		switch(Step)
-		{
-		case CMenus::FIRST_RUN_SETUP_UI_SCALE:
-			return Localize("Choose UI Scale");
-		case CMenus::FIRST_RUN_SETUP_ASPECT_RATIO:
-			return Localize("Choose Aspect Ratio");
-		case CMenus::FIRST_RUN_SETUP_CURSORS:
-			return Localize("Choose Cursor Preset");
-		case CMenus::FIRST_RUN_SETUP_AUDIO:
-			return Localize("Choose Audio Preset");
-		default:
-			return "";
-		}
-	}
-
-	static const char *FirstRunDescription(CMenus::EFirstRunSetupStep Step)
-	{
-		switch(Step)
-		{
-		case CMenus::FIRST_RUN_SETUP_UI_SCALE:
-			return Localize("Set the menu size that feels comfortable. You can keep the default and continue.");
-		case CMenus::FIRST_RUN_SETUP_ASPECT_RATIO:
-			return Localize("Pick the ingame stretch ratio you want to use. The menu itself stays unaffected.");
-		case CMenus::FIRST_RUN_SETUP_CURSORS:
-			return Localize("Choose a custom cursor preset or leave Default to keep the original game cursor.");
-		case CMenus::FIRST_RUN_SETUP_AUDIO:
-			return Localize("Choose an audio preset or leave Default to use sounds from the original game data.");
-		default:
-			return "";
-		}
+	case CMenus::FIRST_RUN_SETUP_UI_SCALE:
+		return Localize("Set the menu size that feels comfortable. You can keep the default and continue.");
+	case CMenus::FIRST_RUN_SETUP_ASPECT_RATIO:
+		return Localize("Pick the ingame stretch ratio you want to use. The menu itself stays unaffected.");
+	case CMenus::FIRST_RUN_SETUP_FAST_INPUTS:
+		return Localize("Fast Inputs moved from TClient into CatClient > General.");
+	case CMenus::FIRST_RUN_SETUP_CURSORS:
+		return Localize("Choose a custom cursor preset or leave Default to keep the original game cursor.");
+	case CMenus::FIRST_RUN_SETUP_AUDIO:
+		return Localize("Choose an audio preset or leave Default to use sounds from the original game data.");
+	default:
+		return "";
 	}
 }
 
@@ -95,6 +96,10 @@ void CMenus::UpdateFirstRunSetupRouting()
 	case FIRST_RUN_SETUP_ASPECT_RATIO:
 		g_Config.m_UiSettingsPage = SETTINGS_CATCLIENT;
 		m_CatClientTab = CATCLIENT_TAB_VISUALS;
+		break;
+	case FIRST_RUN_SETUP_FAST_INPUTS:
+		g_Config.m_UiSettingsPage = SETTINGS_CATCLIENT;
+		m_CatClientTab = CATCLIENT_TAB_GENERAL;
 		break;
 	case FIRST_RUN_SETUP_CURSORS:
 		g_Config.m_UiSettingsPage = SETTINGS_ASSETS;

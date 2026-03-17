@@ -20,7 +20,7 @@ extern const char *GIT_SHORTREV_HASH;
 
 // CatClient
 #ifndef CATCLIENT_VERSION
-#define CATCLIENT_VERSION "1.0.0"
+#define CATCLIENT_VERSION "1.0.1"
 #endif
 
 #ifndef TCLIENT_VERSION

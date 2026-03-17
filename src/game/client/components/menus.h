@@ -155,6 +155,17 @@ protected:
 	static void ConchainAssetCursor(IConsole::IResult *pResult, void *pUserData, IConsole::FCommandCallback pfnCallback, void *pCallbackUserData);
 
 	void ClearCustomItems(int CurTab);
+public:
+	void RefreshCustomAssetsTab(int CurTab)
+	{
+		ClearCustomItems(CurTab);
+	}
+	IStorage *MenuStorage() const { return Storage(); }
+	IHttp *MenuHttp() const { return Http(); }
+	IClient *MenuClient() const { return Client(); }
+	CGameClient *MenuGameClient() const { return GameClient(); }
+	IGraphics *MenuGraphics() const { return Graphics(); }
+protected:
 
 	int m_MenuPage;
 	int m_GamePage;
@@ -715,6 +726,7 @@ public:
 	{
 		CATCLIENT_TAB_GENERAL = 0,
 		CATCLIENT_TAB_VISUALS,
+		CATCLIENT_TAB_SHOP,
 		CATCLIENT_TAB_STREAMER,
 		CATCLIENT_TAB_INFO,
 
@@ -739,6 +751,7 @@ public:
 	{
 		FIRST_RUN_SETUP_UI_SCALE = 0,
 		FIRST_RUN_SETUP_ASPECT_RATIO,
+		FIRST_RUN_SETUP_FAST_INPUTS,
 		FIRST_RUN_SETUP_CURSORS,
 		FIRST_RUN_SETUP_AUDIO,
 
@@ -947,6 +960,7 @@ private:
 	void RenderSettingsCatClient(CUIRect MainView);
 	void RenderSettingsCatClientGeneral(CUIRect MainView);
 	void RenderSettingsCatClientVisuals(CUIRect MainView);
+	void RenderSettingsCatClientShop(CUIRect MainView);
 	void RenderSettingsCatClientStreamer(CUIRect MainView);
 	void RenderSettingsCatClientInfo(CUIRect MainView);
 	void RenderTeeCute(const CAnimState *pAnim, const CTeeRenderInfo *pInfo, int Emote, vec2 Dir, vec2 Pos, bool CuteEyes, float Alpha = 1.0f);
