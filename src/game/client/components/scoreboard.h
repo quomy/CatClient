@@ -88,6 +88,7 @@ public:
 	int Sizeof() const override { return sizeof(*this); }
 	void OnConsoleInit() override;
 	void OnInit() override;
+	void OnShutdown() override;
 	void OnReset() override;
 	void OnRender() override;
 	void OnRelease() override;

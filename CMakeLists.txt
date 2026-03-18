@@ -568,6 +568,7 @@ endif()
 find_package(Ogg)
 find_package(Opus)
 find_package(Opusfile)
+find_package(JPEG)
 find_package(PNG)
 find_package(Python3)
 find_package(Rust)
@@ -2427,6 +2428,10 @@ set(LIBS
 #Targets
 add_library(engine-gfx EXCLUDE_FROM_ALL OBJECT ${ENGINE_GFX})
 target_include_directories(engine-gfx PRIVATE ${PNG_INCLUDE_DIRS})
+target_include_directories(engine-gfx PRIVATE ${JPEG_INCLUDE_DIRS})
+if(JPEG_FOUND)
+  target_compile_definitions(engine-gfx PRIVATE CONF_JPEG)
+endif()
 add_library(engine-shared EXCLUDE_FROM_ALL OBJECT ${ENGINE_EXTERNAL} ${ENGINE_INTERFACE} ${ENGINE_SHARED} ${ENGINE_UUID_SHARED} ${BASE})
 add_library(game-shared EXCLUDE_FROM_ALL OBJECT ${GAME_SHARED} ${GAME_GENERATED_SHARED})
 add_dependencies(engine-shared generate_protocol)
@@ -2854,6 +2859,7 @@ if(CLIENT)
   set(LIBS_CLIENT
     ${FREETYPE_LIBRARIES}
     ${GLEW_LIBRARIES}
+    ${JPEG_LIBRARIES}
     ${PNG_LIBRARIES}
     ${SDL2_LIBRARIES}
     ${WAVPACK_LIBRARIES}
@@ -3235,9 +3241,9 @@ if(TOOLS)
       set(TOOL_LIBS ${LIBS})
       unset(EXTRA_TOOL_SRC)
       if(TOOL MATCHES "^(dilate|map_convert_07|map_optimize|map_extract|map_replace_image)$")
-        list(APPEND TOOL_INCLUDE_DIRS ${PNG_INCLUDE_DIRS})
+        list(APPEND TOOL_INCLUDE_DIRS ${JPEG_INCLUDE_DIRS} ${PNG_INCLUDE_DIRS})
         list(APPEND TOOL_DEPS $<TARGET_OBJECTS:engine-gfx>)
-        list(APPEND TOOL_LIBS ${PNG_LIBRARIES})
+        list(APPEND TOOL_LIBS ${JPEG_LIBRARIES} ${PNG_LIBRARIES})
       endif()
       if(TOOL MATCHES "^config_")
         list(APPEND EXTRA_TOOL_SRC "src/tools/config_common.h")
@@ -3375,7 +3381,7 @@ if((GTEST_FOUND OR DOWNLOAD_GTEST) AND SERVER)
     $<TARGET_OBJECTS:rust-bridge-shared>
     ${DEPS}
   )
-  target_link_libraries(${TARGET_TESTRUNNER} ${PNG_LIBRARIES} ${GTEST_LIBRARIES} ${LIBS_SERVER})
+  target_link_libraries(${TARGET_TESTRUNNER} ${JPEG_LIBRARIES} ${PNG_LIBRARIES} ${GTEST_LIBRARIES} ${LIBS_SERVER})
   target_include_directories(${TARGET_TESTRUNNER} SYSTEM PRIVATE ${GTEST_INCLUDE_DIRS})
 
   list(APPEND TARGETS_OWN ${TARGET_TESTRUNNER})
@@ -3862,7 +3868,49 @@ if(TARGET_OS STREQUAL "windows")
 elseif(TARGET_OS STREQUAL "mac")
   set(PACKAGE_DEFAULT dmg)
 endif()
-add_custom_target(package_default DEPENDS package_${PACKAGE_DEFAULT})
+
+# Copy files to build directory for package_default
+set(BUILD_PACKAGE_DIR ${CMAKE_BINARY_DIR}/${CPACK_PACKAGE_FILE_NAME})
+add_custom_target(copy_to_build_dir
+  COMMAND ${CMAKE_COMMAND} -E remove_directory ${BUILD_PACKAGE_DIR}
+  COMMAND ${CMAKE_COMMAND} -E make_directory ${BUILD_PACKAGE_DIR}
+)
+
+foreach(file ${CPACK_FILES})
+  add_custom_command(TARGET copy_to_build_dir POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy ${PROJECT_SOURCE_DIR}/${file} ${BUILD_PACKAGE_DIR}/
+  )
+endforeach()
+
+foreach(file ${CPACK_GEN_FILES})
+  add_custom_command(TARGET copy_to_build_dir POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy ${PROJECT_BINARY_DIR}/${file} ${BUILD_PACKAGE_DIR}/${file}
+  )
+endforeach()
+
+foreach(dir ${CPACK_DIRS})
+  add_custom_command(TARGET copy_to_build_dir POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_directory ${PROJECT_SOURCE_DIR}/${dir} ${BUILD_PACKAGE_DIR}/${dir}
+  )
+endforeach()
+
+foreach(target ${PORTABLE_PACKAGE_TARGETS})
+  if(TARGET_OS STREQUAL "emscripten")
+    add_custom_command(TARGET copy_to_build_dir POST_BUILD
+      COMMAND ${CMAKE_COMMAND} -E copy ${PROJECT_BINARY_DIR}/$<TARGET_FILE_BASE_NAME:game-client>.data ${BUILD_PACKAGE_DIR}/
+      COMMAND ${CMAKE_COMMAND} -E copy ${PROJECT_BINARY_DIR}/$<TARGET_FILE_BASE_NAME:game-client>.js ${BUILD_PACKAGE_DIR}/
+      COMMAND ${CMAKE_COMMAND} -E copy ${PROJECT_BINARY_DIR}/$<TARGET_FILE_BASE_NAME:game-client>.wasm ${BUILD_PACKAGE_DIR}/
+    )
+  else()
+    add_custom_command(TARGET copy_to_build_dir POST_BUILD
+      COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:${target}> ${BUILD_PACKAGE_DIR}/
+    )
+  endif()
+endforeach()
+
+add_dependencies(copy_to_build_dir ${PORTABLE_PACKAGE_TARGETS})
+
+add_custom_target(package_default DEPENDS package_${PACKAGE_DEFAULT} copy_to_build_dir)
 
 add_custom_target(package_all DEPENDS ${PACKAGE_TARGETS})
 

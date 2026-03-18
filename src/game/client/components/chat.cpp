@@ -413,6 +413,38 @@ bool CChat::OnInput(const IInput::CEvent &Event)
 	if(m_Mode == MODE_NONE)
 		return false;
 
+	if(Event.m_Flags & IInput::FLAG_PRESS && Event.m_Key == KEY_MOUSE_WHEEL_UP)
+	{
+		int VisibleLines = 0;
+		float TotalHeight = 0.0f;
+		bool IsScoreBoardOpen = GameClient()->m_Scoreboard.IsActive() && (Graphics()->ScreenAspect() > 1.7f);
+		int OffsetType = IsScoreBoardOpen ? 1 : 0;
+		
+		for(int i = 0; i < MAX_LINES; i++)
+		{
+			const CLine &Line = m_aLines[((m_CurrentLine - i) + MAX_LINES) % MAX_LINES];
+			if(!Line.m_Initialized)
+				break;
+			TotalHeight += Line.m_aYOffset[OffsetType];
+			VisibleLines++;
+		}
+		
+		if(VisibleLines > 0)
+		{
+			const float MaxScroll = maximum(0.0f, TotalHeight - 150.0f);
+			m_ChatScrollOffset = minimum(m_ChatScrollOffset + 20.0f, MaxScroll);
+			return true;
+		}
+	}
+	else if(Event.m_Flags & IInput::FLAG_PRESS && Event.m_Key == KEY_MOUSE_WHEEL_DOWN)
+	{
+		if(m_ChatScrollOffset > 0.0f)
+		{
+			m_ChatScrollOffset = maximum(0.0f, m_ChatScrollOffset - 20.0f);
+			return true;
+		}
+	}
+
 	char aOldInput[MAX_LINE_LENGTH];
 	str_copy(aOldInput, m_Input.GetString());
 
@@ -750,6 +782,7 @@ void CChat::DisableMode()
 		m_LastInputAnimationTime = time_get_nanoseconds().count();
 		m_TypingAnimationStartWidth = 0.0f;
 		m_TypingAnimationTargetWidth = 0.0f;
+		m_ChatScrollOffset = 0.0f;
 	}
 }
 
@@ -1745,6 +1778,11 @@ void CChat::OnRender()
 	}
 
 	y -= ScaledFontSize;
+	
+	const float InputOffsetY = (1.0f - InputOpenProgress) * 10.0f;
+	const float MessageCutoffY = y + InputOffsetY;
+	
+	y += m_ChatScrollOffset;
 
 	OnPrepareLines(y);
 
@@ -1774,57 +1812,58 @@ void CChat::OnRender()
 
 		y -= Line.m_aYOffset[OffsetType];
 
-			// cut off if msgs waste too much space
-			if(y < HeightLimit)
-				break;
+		if(y < HeightLimit)
+			break;
+		
+		if(m_Mode != MODE_NONE && y > MessageCutoffY)
+			continue;
 
-			if(MouseReleasedNow && !NameContextOpenedThisFrame && Line.m_ClientId >= 0 && Line.m_aWhisperName[0] != '\0' && Line.m_NameWidth > 0.0f)
+		if(MouseReleasedNow && !NameContextOpenedThisFrame && Line.m_ClientId >= 0 && Line.m_aWhisperName[0] != '\0' && Line.m_NameWidth > 0.0f)
+		{
+			const CUIRect NameRect = {x + Line.m_NameOffsetX, y + RealMsgPaddingY / 2.0f, Line.m_NameWidth, maximum(Line.m_NameHeight, FontSize())};
+			if(distance(m_MousePress, m_MouseRelease) <= 4.0f && NameRect.Inside(m_MousePress) && NameRect.Inside(m_MouseRelease))
 			{
-				const CUIRect NameRect = {x + Line.m_NameOffsetX, y + RealMsgPaddingY / 2.0f, Line.m_NameWidth, maximum(Line.m_NameHeight, FontSize())};
-				if(distance(m_MousePress, m_MouseRelease) <= 4.0f && NameRect.Inside(m_MousePress) && NameRect.Inside(m_MouseRelease))
-				{
-					OpenNameContextMenu(Line.m_aWhisperName);
-					NameContextOpenedThisFrame = true;
-				}
-			}
-
-			float Blend = Now > Line.m_Time + 14 * time_freq() && !m_PrevShowChat ? 1.0f - (Now - Line.m_Time - 14 * time_freq()) / (2.0f * time_freq()) : 1.0f;
-
-			// Draw backgrounds for messages in one batch
-			if(!g_Config.m_ClChatOld)
-			{
-				Graphics()->TextureClear();
-				if(Line.m_QuadContainerIndex != -1)
-				{
-					Graphics()->SetColor(color_cast<ColorRGBA>(ColorHSLA(g_Config.m_ClChatBackgroundColor, true)).WithMultipliedAlpha(Blend));
-					Graphics()->RenderQuadContainerEx(Line.m_QuadContainerIndex, 0, -1, 0, ((y + RealMsgPaddingY / 2.0f) - Line.m_TextYOffset));
-				}
-			}
-
-			if(Line.m_TextContainerIndex.Valid())
-			{
-				if(!g_Config.m_ClChatOld && Line.m_pManagedTeeRenderInfo != nullptr)
-				{
-					CTeeRenderInfo &TeeRenderInfo = Line.m_pManagedTeeRenderInfo->TeeRenderInfo();
-					const int TeeSize = MessageTeeSize();
-					TeeRenderInfo.m_Size = TeeSize;
-
-					float RowHeight = FontSize() + RealMsgPaddingY;
-					float OffsetTeeY = TeeSize / 2.0f;
-					float FullHeightMinusTee = RowHeight - TeeSize;
-
-					const CAnimState *pIdleState = CAnimState::GetIdle();
-					vec2 OffsetToMid;
-					CRenderTools::GetRenderTeeOffsetToRenderedTee(pIdleState, &TeeRenderInfo, OffsetToMid);
-					vec2 TeeRenderPos(x + (RealMsgPaddingX + TeeSize) / 2.0f, y + OffsetTeeY + FullHeightMinusTee / 2.0f + OffsetToMid.y);
-					RenderTools()->RenderTee(pIdleState, &TeeRenderInfo, EMOTE_NORMAL, vec2(1, 0.1f), TeeRenderPos, Blend);
-				}
-
-				const ColorRGBA TextColor = TextRender()->DefaultTextColor().WithMultipliedAlpha(Blend);
-				const ColorRGBA TextOutlineColor = TextRender()->DefaultTextOutlineColor().WithMultipliedAlpha(Blend);
-				TextRender()->RenderTextContainer(Line.m_TextContainerIndex, TextColor, TextOutlineColor, 0, (y + RealMsgPaddingY / 2.0f) - Line.m_TextYOffset);
+				OpenNameContextMenu(Line.m_aWhisperName);
+				NameContextOpenedThisFrame = true;
 			}
 		}
+
+		float Blend = Now > Line.m_Time + 14 * time_freq() && !m_PrevShowChat ? 1.0f - (Now - Line.m_Time - 14 * time_freq()) / (2.0f * time_freq()) : 1.0f;
+
+		if(!g_Config.m_ClChatOld)
+		{
+			Graphics()->TextureClear();
+			if(Line.m_QuadContainerIndex != -1)
+			{
+				Graphics()->SetColor(color_cast<ColorRGBA>(ColorHSLA(g_Config.m_ClChatBackgroundColor, true)).WithMultipliedAlpha(Blend));
+				Graphics()->RenderQuadContainerEx(Line.m_QuadContainerIndex, 0, -1, 0, ((y + RealMsgPaddingY / 2.0f) - Line.m_TextYOffset));
+			}
+		}
+
+		if(Line.m_TextContainerIndex.Valid())
+		{
+			if(!g_Config.m_ClChatOld && Line.m_pManagedTeeRenderInfo != nullptr)
+			{
+				CTeeRenderInfo &TeeRenderInfo = Line.m_pManagedTeeRenderInfo->TeeRenderInfo();
+				const int TeeSize = MessageTeeSize();
+				TeeRenderInfo.m_Size = TeeSize;
+
+				float RowHeight = FontSize() + RealMsgPaddingY;
+				float OffsetTeeY = TeeSize / 2.0f;
+				float FullHeightMinusTee = RowHeight - TeeSize;
+
+				const CAnimState *pIdleState = CAnimState::GetIdle();
+				vec2 OffsetToMid;
+				CRenderTools::GetRenderTeeOffsetToRenderedTee(pIdleState, &TeeRenderInfo, OffsetToMid);
+				vec2 TeeRenderPos(x + (RealMsgPaddingX + TeeSize) / 2.0f, y + OffsetTeeY + FullHeightMinusTee / 2.0f + OffsetToMid.y);
+				RenderTools()->RenderTee(pIdleState, &TeeRenderInfo, EMOTE_NORMAL, vec2(1, 0.1f), TeeRenderPos, Blend);
+			}
+
+			const ColorRGBA TextColor = TextRender()->DefaultTextColor().WithMultipliedAlpha(Blend);
+			const ColorRGBA TextOutlineColor = TextRender()->DefaultTextOutlineColor().WithMultipliedAlpha(Blend);
+			TextRender()->RenderTextContainer(Line.m_TextContainerIndex, TextColor, TextOutlineColor, 0, (y + RealMsgPaddingY / 2.0f) - Line.m_TextYOffset);
+		}
+	}
 
 		if(MouseReleasedNow)
 		{

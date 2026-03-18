@@ -517,7 +517,7 @@ Browser
 Ghost
 == Skygge
 
-Loading CatClient Client
+Loading CatClient
 == Laster DDNet-klient
 
 Reconnect in %d sec

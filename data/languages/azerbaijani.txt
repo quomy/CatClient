@@ -514,7 +514,7 @@ Browser
 Ghost
 == Ruh
 
-Loading CatClient Client
+Loading CatClient
 == DDNet Klient Yüklənir
 
 Reconnect in %d sec

@@ -46,7 +46,7 @@ class CHud : public CComponent
 {
 	float m_Width, m_Height;
 
-	int m_HudQuadContainerIndex;
+	int m_HudQuadContainerIndex = -1;
 	SScoreInfo m_aScoreInfo[2];
 	STextContainerIndex m_FPSTextContainerIndex;
 	STextContainerIndex m_DDRaceEffectsTextContainerIndex;
@@ -117,6 +117,7 @@ public:
 	void OnReset() override;
 	void OnRender() override;
 	void OnInit() override;
+	void OnShutdown() override;
 	void OnNewSnapshot() override;
 
 	// DDRace

@@ -23,9 +23,15 @@ class CCatClient : public CComponent
 	std::chrono::nanoseconds m_AntiKillStart = std::chrono::nanoseconds::zero();
 	CCatClientNameTags m_NameTags;
 	std::shared_ptr<CHttpRequest> m_pCursorDownloadTask;
+	std::shared_ptr<CHttpRequest> m_pBackgroundDownloadTask;
 
 	IGraphics::CTextureHandle m_CursorTexture;
 	bool m_HasCustomCursor = false;
+	IGraphics::CTextureHandle m_CustomBackgroundTexture;
+	bool m_HasCustomBackgroundTexture = false;
+	vec2 m_CustomBackgroundImageSize = vec2(0.0f, 0.0f);
+	char m_aLoadedBackgroundImage[128]{};
+	std::chrono::nanoseconds m_LastBackgroundAttempt = std::chrono::nanoseconds::zero();
 	bool m_StreamerWordsLoaded = false;
 	std::vector<std::string> m_vIgnoredPlayers;
 	std::vector<std::string> m_vStreamerBlockedWords;
@@ -48,6 +54,12 @@ class CCatClient : public CComponent
 	bool LoadAutomaticCursorAsset();
 	void StartAutomaticCursorDownload();
 	void FinishAutomaticCursorDownload();
+	void EnsureCustomBackgroundFolder() const;
+	bool LoadCustomBackgroundTexture(const char *pImageName);
+	void UnloadCustomBackgroundTexture();
+	void StartDefaultBackgroundDownload();
+	void FinishDefaultBackgroundDownload();
+	void EnsureSelectedCustomBackgroundLoaded();
 	void EnsureStreamerWordsLoaded();
 	void SaveStreamerWords() const;
 	bool SetPlayerIgnoredInternal(const char *pPlayerName, bool Ignored, bool SaveConfig);
@@ -119,6 +131,11 @@ public:
 	bool HasCatIconTexture() const;
 	const IGraphics::CTextureHandle &CatIconTexture() const;
 	void RenderCatIcon(const CUIRect &Rect, float Alpha = 1.0f) const;
+	bool HasMenuCustomBackground() const;
+	bool HasGameCustomBackground() const;
+	bool IsDefaultBackgroundDownloading() const;
+	void ReloadCustomBackground();
+	void RenderCustomBackground();
 	bool IsPlayerIgnored(const char *pPlayerName) const;
 	bool IsPlayerIgnored(int ClientId) const;
 	bool IgnorePlayer(const char *pPlayerName);

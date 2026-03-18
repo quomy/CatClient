@@ -49,6 +49,7 @@ public:
 
 	static bool LoadPng(CByteBufferReader &Reader, const char *pContextName, CImageInfo &Image, int &PngliteIncompatible);
 	static bool LoadPng(IOHANDLE File, const char *pFilename, CImageInfo &Image, int &PngliteIncompatible);
+	static bool LoadJpg(IOHANDLE File, const char *pFilename, CImageInfo &Image);
 
 	static bool SavePng(CByteBufferWriter &Writer, const CImageInfo &Image);
 	static bool SavePng(IOHANDLE File, const char *pFilename, const CImageInfo &Image);

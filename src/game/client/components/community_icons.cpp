@@ -130,7 +130,7 @@ void CCommunityIcons::Render(const CCommunityIcon *pIcon, CUIRect Rect, bool Act
 
 void CCommunityIcons::Load()
 {
-	m_vCommunityIcons.clear();
+	Shutdown();
 	Storage()->ListDirectory(IStorage::TYPE_ALL, "communityicons", FileScan, this);
 }
 
@@ -138,6 +138,13 @@ void CCommunityIcons::Shutdown()
 {
 	m_CommunityIconLoadJobs.clear();
 	m_CommunityIconDownloadJobs.clear();
+	for(CCommunityIcon &CommunityIcon : m_vCommunityIcons)
+	{
+		Graphics()->UnloadTexture(&CommunityIcon.m_OrgTexture);
+		Graphics()->UnloadTexture(&CommunityIcon.m_GreyTexture);
+	}
+	m_vCommunityIcons.clear();
+	m_CommunityIconsInfoSha256.reset();
 }
 
 void CCommunityIcons::Update()

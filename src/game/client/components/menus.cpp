@@ -363,6 +363,16 @@ void CMenus::DoLaserPreview(const CUIRect *pRect, const ColorHSLA LaserOutlineCo
 	}
 }
 
+void CMenus::UnloadMenuImages()
+{
+	for(CMenuImage &Image : m_vMenuImages)
+	{
+		Graphics()->UnloadTexture(&Image.m_OrgTexture);
+		Graphics()->UnloadTexture(&Image.m_GreyTexture);
+	}
+	m_vMenuImages.clear();
+}
+
 bool CMenus::DoLine_RadioMenu(CUIRect &View, const char *pLabel, std::vector<CButtonContainer> &vButtonContainers, const std::vector<const char *> &vLabels, const std::vector<int> &vValues, int &Value)
 {
 	dbg_assert(vButtonContainers.size() == vValues.size(), "vButtonContainers and vValues must have the same size");
@@ -906,7 +916,7 @@ void CMenus::OnInit()
 	m_IsInit = true;
 
 	// load menu images
-	m_vMenuImages.clear();
+	UnloadMenuImages();
 	Storage()->ListDirectory(IStorage::TYPE_ALL, "menuimages", MenuImageScan, this);
 
 	m_CommunityIcons.Load();
@@ -2433,6 +2443,10 @@ void CMenus::OnReset()
 void CMenus::OnShutdown()
 {
 	m_CommunityIcons.Shutdown();
+	UnloadMenuImages();
+	UnloadCustomItems();
+	Graphics()->UnloadTexture(&m_TextureBlob);
+	Graphics()->DeleteQuadContainer(m_DirectionQuadContainerIndex);
 }
 
 bool CMenus::OnCursorMove(float x, float y, IInput::ECursorType CursorType)
@@ -2689,7 +2703,7 @@ int CMenus::MenuImageScan(const char *pName, int IsDir, int DirType, void *pUser
 	str_truncate(MenuImage.m_aName, sizeof(MenuImage.m_aName), pName, str_length(pName) - str_length(pExtension));
 	pSelf->m_vMenuImages.push_back(MenuImage);
 
-	pSelf->RenderLoading(Localize("Loading CatClient Client"), Localize("Loading menu images"), 0);
+	pSelf->RenderLoading(Localize("Loading CatClient"), Localize("Loading menu images"), 0);
 
 	return 0;
 }

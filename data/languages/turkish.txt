@@ -514,7 +514,7 @@ Browser
 Ghost
 == Hayalet
 
-Loading CatClient Client
+Loading CatClient
 == DDNet İstemcisi Yükleniyor
 
 Reconnect in %d sec

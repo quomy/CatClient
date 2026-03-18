@@ -236,8 +236,17 @@ void CMenus::RenderSettingsPlayer(CUIRect MainView)
 {
 	CUIRect TabBar, PlayerTab, DummyTab, ChangeInfo, QuickSearch;
 	MainView.HSplitTop(20.0f, &TabBar, &MainView);
-	TabBar.VSplitMid(&TabBar, &ChangeInfo, 20.f);
-	TabBar.VSplitMid(&PlayerTab, &DummyTab);
+	
+	CUIRect CenteredTabBar = TabBar;
+	const float TabBarWidth = 230.0f;
+	if(TabBar.w > TabBarWidth)
+	{
+		CenteredTabBar.VMargin((TabBar.w - TabBarWidth) / 2.0f, &CenteredTabBar);
+	}
+	
+	CenteredTabBar.VSplitLeft(TabBarWidth, &CenteredTabBar, &ChangeInfo);
+	ChangeInfo.VSplitLeft(20.f, nullptr, &ChangeInfo);
+	CenteredTabBar.VSplitMid(&PlayerTab, &DummyTab);
 	MainView.HSplitTop(10.0f, nullptr, &MainView);
 
 	static CButtonContainer s_PlayerTabButton;
@@ -280,9 +289,19 @@ void CMenus::RenderSettingsPlayer(CUIRect MainView)
 		s_ClanInput.SetBuffer(g_Config.m_ClDummyClan, sizeof(g_Config.m_ClDummyClan));
 	}
 
-	// player name
+	CUIRect CenteredFields;
+	const float FieldsWidth = 230.0f;
+	if(MainView.w > FieldsWidth)
+	{
+		MainView.VMargin((MainView.w - FieldsWidth) / 2.0f, &CenteredFields);
+	}
+	else
+	{
+		CenteredFields = MainView;
+	}
+
 	CUIRect Button, Label;
-	MainView.HSplitTop(20.0f, &Button, &MainView);
+	CenteredFields.HSplitTop(20.0f, &Button, &CenteredFields);
 	Button.VSplitLeft(80.0f, &Label, &Button);
 	Button.VSplitLeft(150.0f, &Button, nullptr);
 	char aBuf[128];
@@ -293,9 +312,8 @@ void CMenus::RenderSettingsPlayer(CUIRect MainView)
 		SetNeedSendInfo();
 	}
 
-	// player clan
-	MainView.HSplitTop(5.0f, nullptr, &MainView);
-	MainView.HSplitTop(20.0f, &Button, &MainView);
+	CenteredFields.HSplitTop(5.0f, nullptr, &CenteredFields);
+	CenteredFields.HSplitTop(20.0f, &Button, &CenteredFields);
 	Button.VSplitLeft(80.0f, &Label, &Button);
 	Button.VSplitLeft(150.0f, &Button, nullptr);
 	str_format(aBuf, sizeof(aBuf), "%s:", Localize("Clan"));
@@ -305,7 +323,9 @@ void CMenus::RenderSettingsPlayer(CUIRect MainView)
 		SetNeedSendInfo();
 	}
 
-	// country flag selector
+	CenteredFields.HSplitTop(10.0f, nullptr, &CenteredFields);
+	MainView.HSplitTop(CenteredFields.y - MainView.y, nullptr, &MainView);
+
 	static CLineInputBuffered<25> s_FlagFilterInput;
 
 	std::vector<const CCountryFlags::CCountryFlag *> vpFilteredFlags;
@@ -366,10 +386,19 @@ void CMenus::RenderSettingsTee(CUIRect MainView)
 {
 	CUIRect TabBar, PlayerTab, DummyTab, ChangeInfo;
 	MainView.HSplitTop(20.0f, &TabBar, &MainView);
-	TabBar.VSplitMid(&TabBar, &ChangeInfo, 20.f);
-	TabBar.VSplitMid(&PlayerTab, &DummyTab);
+	
+	CUIRect CenteredTabBar = TabBar;
+	CenteredTabBar.VSplitMid(&CenteredTabBar, &ChangeInfo, 20.f);
+	
+	const float TabsWidth = CenteredTabBar.w;
+	CUIRect TabsContainer = TabBar;
+	if(TabBar.w > TabsWidth)
+	{
+		TabsContainer.VMargin((TabBar.w - TabsWidth) / 2.0f, &TabsContainer);
+	}
+	TabsContainer.VSplitLeft(TabsWidth, &TabsContainer, nullptr);
+	TabsContainer.VSplitMid(&PlayerTab, &DummyTab);
 	MainView.HSplitTop(10.0f, nullptr, &MainView);
-
 	static CButtonContainer s_PlayerTabButton;
 	if(DoButton_MenuTab(&s_PlayerTabButton, Localize("Player"), !m_Dummy, &PlayerTab, IGraphics::CORNER_L, nullptr, nullptr, nullptr, nullptr, 4.0f))
 	{
@@ -859,6 +888,36 @@ void CMenus::RenderSettingsTee(CUIRect MainView)
 	if(ShouldRefresh)
 	{
 		GameClient()->RefreshSkins(CSkinDescriptor::FLAG_SIX);
+	}
+}
+
+void CMenus::RenderSettingsTeeUnified(CUIRect MainView)
+{
+	CUIRect SubTabBar, InfoTab, AppearanceTab;
+	MainView.HSplitTop(25.0f, &SubTabBar, &MainView);
+	SubTabBar.VSplitMid(&InfoTab, &AppearanceTab);
+	MainView.HSplitTop(10.0f, nullptr, &MainView);
+	
+	static CButtonContainer s_InfoTabButton;
+	if(DoButton_MenuTab(&s_InfoTabButton, Localize("Info"), m_TeeUnifiedSubTab == 0, &InfoTab, IGraphics::CORNER_L, nullptr, nullptr, nullptr, nullptr, 4.0f))
+	{
+		m_TeeUnifiedSubTab = 0;
+	}
+	
+	static CButtonContainer s_AppearanceTabButton;
+	if(DoButton_MenuTab(&s_AppearanceTabButton, Localize("Appearance"), m_TeeUnifiedSubTab == 1, &AppearanceTab, IGraphics::CORNER_R, nullptr, nullptr, nullptr, nullptr, 4.0f))
+	{
+		m_TeeUnifiedSubTab = 1;
+		m_SkinListScrollToSelected = true;
+	}
+	
+	if(m_TeeUnifiedSubTab == 0)
+	{
+		RenderSettingsPlayer(MainView);
+	}
+	else
+	{
+		RenderSettingsTee(MainView);
 	}
 }
 
@@ -1446,18 +1505,27 @@ namespace
 	void RenderTopSettingsTabs(CMenus *pMenus, CUIRect &View, const char *const *apTabs, CButtonContainer *pTabButtons)
 	{
 		const int NumTabs = (int)CMenus::SETTINGS_LENGTH;
+		
+		std::vector<int> vVisibleTabs;
+		for(int i = 0; i < NumTabs; ++i)
+		{
+			if(i != CMenus::SETTINGS_PLAYER)
+				vVisibleTabs.push_back(i);
+		}
+		const int NumVisibleTabs = vVisibleTabs.size();
+		
 		CUIRect TabBar;
-		const int MaxTabsPerRow = maximum(1, minimum(NumTabs, (int)((View.w + gs_SettingsTopTabsSpacing) / (gs_SettingsTopTabsMinWidth + gs_SettingsTopTabsSpacing))));
-		const int NumRows = maximum(1, (NumTabs + MaxTabsPerRow - 1) / MaxTabsPerRow);
+		const int MaxTabsPerRow = maximum(1, minimum(NumVisibleTabs, (int)((View.w + gs_SettingsTopTabsSpacing) / (gs_SettingsTopTabsMinWidth + gs_SettingsTopTabsSpacing))));
+		const int NumRows = maximum(1, (NumVisibleTabs + MaxTabsPerRow - 1) / MaxTabsPerRow);
 		const float TabBarHeight = NumRows * gs_SettingsTopTabsButtonHeight + maximum(0, NumRows - 1) * gs_SettingsTopTabsSpacing;
 		View.HSplitTop(TabBarHeight, &TabBar, &View);
 
-		for(int Row = 0, Tab = 0; Row < NumRows; ++Row)
+		for(int Row = 0, TabIndex = 0; Row < NumRows; ++Row)
 		{
 			CUIRect RowRect;
 			TabBar.HSplitTop(gs_SettingsTopTabsButtonHeight, &RowRect, &TabBar);
 
-			const int TabsLeft = NumTabs - Tab;
+			const int TabsLeft = NumVisibleTabs - TabIndex;
 			const int RowsLeft = NumRows - Row;
 			const int TabsInRow = (TabsLeft + RowsLeft - 1) / RowsLeft;
 			const float AvailableWidth = RowRect.w - gs_SettingsTopTabsSpacing * (TabsInRow - 1);
@@ -1470,8 +1538,9 @@ namespace
 				CenteredRow.x += minimum(gs_SettingsTopTabsRightOffset, maximum((RowRect.w - RowWidth) / 2.0f, 0.0f));
 			}
 
-			for(int Col = 0; Col < TabsInRow; ++Col, ++Tab)
+			for(int Col = 0; Col < TabsInRow; ++Col, ++TabIndex)
 			{
+				const int Tab = vVisibleTabs[TabIndex];
 				CUIRect Button;
 				if(Col == TabsInRow - 1)
 				{
@@ -1588,13 +1657,23 @@ void CMenus::RenderSettings(CUIRect MainView)
 	else if(g_Config.m_UiSettingsPage == SETTINGS_PLAYER)
 	{
 		GameClient()->m_MenuBackground.ChangePosition(CMenuBackground::POS_SETTINGS_PLAYER);
-		RenderSettingsPlayer(AnimatedMainView);
+		if(UseHorizontalTabs)
+		{
+			g_Config.m_UiSettingsPage = SETTINGS_TEE;
+			m_TeeUnifiedSubTab = 0;
+		}
+		else
+		{
+			RenderSettingsPlayer(AnimatedMainView);
+		}
 	}
 	else if(g_Config.m_UiSettingsPage == SETTINGS_TEE)
 	{
 		GameClient()->m_MenuBackground.ChangePosition(CMenuBackground::POS_SETTINGS_TEE);
 		if(Client()->IsSixup())
 			RenderSettingsTee7(AnimatedMainView);
+		else if(UseHorizontalTabs)
+			RenderSettingsTeeUnified(AnimatedMainView);
 		else
 			RenderSettingsTee(AnimatedMainView);
 	}

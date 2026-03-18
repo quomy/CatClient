@@ -694,6 +694,11 @@ void CItems::OnInit()
 	Graphics()->QuadContainerUpload(m_ItemsQuadContainerIndex);
 }
 
+void CItems::OnShutdown()
+{
+	Graphics()->DeleteQuadContainer(m_ItemsQuadContainerIndex);
+}
+
 void CItems::ReconstructSmokeTrail(const CProjectileData *pCurrent, int DestroyTick)
 {
 	bool LocalPlayerInGame = false;

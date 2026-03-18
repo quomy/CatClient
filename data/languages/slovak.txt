@@ -561,7 +561,7 @@ Connected
 Loading map file from storage
 == Načítanie súboru mapy z úložiska
 
-Loading CatClient Client
+Loading CatClient
 == Načítanie DDNet Klienta
 
 Why are you slowmo replaying to read this?

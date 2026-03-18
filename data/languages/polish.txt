@@ -709,7 +709,7 @@ Suicides
 Show clan above name plates
 == Pokazuj klan nad nazwą gracza
 
-Loading CatClient Client
+Loading CatClient
 == Ładowanie klienta DDNet
 
 HUD

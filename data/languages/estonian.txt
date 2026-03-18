@@ -526,7 +526,7 @@ Browser
 Ghost
 == Kummitus
 
-Loading CatClient Client
+Loading CatClient
 == DDNet Kliendi laadimine
 
 Reconnect in %d sec

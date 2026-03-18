@@ -346,8 +346,26 @@ void CSkins7::OnInit()
 	InitPlaceholderSkinParts();
 
 	Refresh([this]() {
-		GameClient()->m_Menus.RenderLoading(Localize("Loading CatClient Client"), Localize("Loading skin files"), 0);
+		GameClient()->m_Menus.RenderLoading(Localize("Loading CatClient"), Localize("Loading skin files"), 0);
 	});
+}
+
+void CSkins7::OnShutdown()
+{
+	m_vSkins.clear();
+
+	for(int Part = 0; Part < protocol7::NUM_SKINPARTS; Part++)
+	{
+		for(CSkinPart &SkinPart : m_avSkinParts[Part])
+		{
+			Graphics()->UnloadTexture(&SkinPart.m_OriginalTexture);
+			Graphics()->UnloadTexture(&SkinPart.m_ColorableTexture);
+		}
+		m_avSkinParts[Part].clear();
+	}
+
+	Graphics()->UnloadTexture(&m_XmasHatTexture);
+	Graphics()->UnloadTexture(&m_BotTexture);
 }
 
 void CSkins7::InitPlaceholderSkinParts()

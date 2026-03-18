@@ -497,7 +497,7 @@ void CSkins::OnInit()
 
 	// load skins
 	Refresh([this]() {
-		GameClient()->m_Menus.RenderLoading(Localize("Loading CatClient Client"), Localize("Loading skin files"), 0);
+		GameClient()->m_Menus.RenderLoading(Localize("Loading CatClient"), Localize("Loading skin files"), 0);
 	});
 }
 

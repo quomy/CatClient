@@ -98,6 +98,7 @@ void CRenderTools::Init(IGraphics *pGraphics, ITextRender *pTextRender, CGameCli
 	m_pGraphics = pGraphics;
 	m_pTextRender = pTextRender;
 	m_pGameClient = pGameClient;
+	Shutdown();
 	m_TeeQuadContainerIndex = Graphics()->CreateQuadContainer(false);
 	Graphics()->SetColor(1.f, 1.f, 1.f, 1.f);
 
@@ -130,6 +131,14 @@ void CRenderTools::Init(IGraphics *pGraphics, ITextRender *pTextRender, CGameCli
 	Graphics()->QuadContainerAddSprite(m_TeeQuadContainerIndex, -32.f, -16.f, 64.f, 32.f);
 
 	Graphics()->QuadContainerUpload(m_TeeQuadContainerIndex);
+}
+
+void CRenderTools::Shutdown()
+{
+	if(m_pGraphics != nullptr)
+	{
+		Graphics()->DeleteQuadContainer(m_TeeQuadContainerIndex);
+	}
 }
 
 void CRenderTools::RenderCursor(vec2 Center, float Size, float Alpha) const

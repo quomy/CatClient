@@ -32,6 +32,7 @@ static constexpr CTimeout CATCLIENT_SHOP_TIMEOUT{8000, 0, 1024, 8};
 static constexpr int64_t CATCLIENT_SHOP_PAGE_MAX_RESPONSE_SIZE = 2 * 1024 * 1024;
 static constexpr int64_t CATCLIENT_SHOP_IMAGE_MAX_RESPONSE_SIZE = 32 * 1024 * 1024;
 static constexpr int64_t CATCLIENT_SHOP_ARCHIVE_MAX_RESPONSE_SIZE = 128 * 1024 * 1024;
+static constexpr int CATCLIENT_SHOP_PREVIEW_BACKGROUND_COLOR_DEFAULT = 0;
 
 enum
 {
@@ -44,6 +45,15 @@ enum
 	CATCLIENT_SHOP_CURSORS,
 
 	NUM_CATCLIENT_SHOP_TABS,
+};
+
+static constexpr int gs_aVisibleCatClientShopTabs[] = {
+	CATCLIENT_SHOP_ENTITIES,
+	CATCLIENT_SHOP_GAME,
+	CATCLIENT_SHOP_EMOTICONS,
+	CATCLIENT_SHOP_PARTICLES,
+	CATCLIENT_SHOP_HUD,
+	CATCLIENT_SHOP_CURSORS,
 };
 
 struct SCatClientShopTypeInfo
@@ -80,6 +90,7 @@ struct SCatClientShopItem
 	int m_Dislikes = 0;
 	bool m_PreviewFailed = false;
 	IGraphics::CTextureHandle m_PreviewTexture;
+	CButtonContainer m_PreviewButton;
 	CButtonContainer m_InstallButton;
 };
 
@@ -109,9 +120,25 @@ struct SCatClientShopState
 	char m_aPreviewItemId[64]{};
 	char m_aPreviewPath[IO_MAX_PATH_LENGTH]{};
 	char m_aStatus[256]{};
+	char m_aOpenPreviewItemId[64]{};
+	int m_PreviewBackgroundColor = CATCLIENT_SHOP_PREVIEW_BACKGROUND_COLOR_DEFAULT;
+	bool m_PreviewOpen = false;
+	CButtonContainer m_PreviewCloseButton;
 };
 
 static SCatClientShopState gs_CatClientShopState;
+
+static bool CatClientShopIsVisibleTab(int Tab)
+{
+	for(int VisibleTab : gs_aVisibleCatClientShopTabs)
+	{
+		if(VisibleTab == Tab)
+		{
+			return true;
+		}
+	}
+	return false;
+}
 
 static void CatClientShopAbortTask(std::shared_ptr<CHttpRequest> &pTask)
 {
@@ -132,11 +159,26 @@ static void CatClientShopInitState()
 	gs_CatClientShopState.m_Initialized = true;
 	gs_CatClientShopState.m_aPages.fill(1);
 	gs_CatClientShopState.m_TotalPages = 1;
+	if(!CatClientShopIsVisibleTab(gs_CatClientShopState.m_Tab))
+	{
+		gs_CatClientShopState.m_Tab = gs_aVisibleCatClientShopTabs[0];
+	}
 }
 
 static void CatClientShopSetStatus(const char *pText)
 {
 	str_copy(gs_CatClientShopState.m_aStatus, pText, sizeof(gs_CatClientShopState.m_aStatus));
+}
+
+static void CatClientShopCloseTexturePreview()
+{
+	gs_CatClientShopState.m_PreviewOpen = false;
+	gs_CatClientShopState.m_aOpenPreviewItemId[0] = '\0';
+}
+
+static bool CatClientShopHasTexturePreview()
+{
+	return gs_CatClientShopState.m_PreviewOpen && gs_CatClientShopState.m_aOpenPreviewItemId[0] != '\0';
 }
 
 static void CatClientShopClearItems(CMenus *pMenus)
@@ -200,6 +242,7 @@ static void CatClientShopInvalidatePage(CMenus *pMenus)
 {
 	CatClientShopAbortTask(gs_CatClientShopState.m_pFetchTask);
 	CatClientShopAbortPreviewTask();
+	CatClientShopCloseTexturePreview();
 	CatClientShopClearItems(pMenus);
 	gs_CatClientShopState.m_LoadedTab = -1;
 	gs_CatClientShopState.m_LoadedPage = 0;
@@ -209,6 +252,10 @@ static void CatClientShopSetTab(CMenus *pMenus, int Tab)
 {
 	CatClientShopInitState();
 	Tab = std::clamp(Tab, 0, NUM_CATCLIENT_SHOP_TABS - 1);
+	if(!CatClientShopIsVisibleTab(Tab))
+	{
+		Tab = gs_aVisibleCatClientShopTabs[0];
+	}
 	if(gs_CatClientShopState.m_Tab == Tab)
 	{
 		return;
@@ -1181,8 +1228,75 @@ static void CatClientShopFinishInstall(CMenus *pMenus)
 	gs_CatClientShopState.m_InstallUrlIndex = 0;
 }
 
+static void CatClientShopRenderTexturePreview(CMenus *pMenus, const CUIRect &MainView)
+{
+	SCatClientShopItem *pItem = CatClientShopFindItem(gs_CatClientShopState.m_aOpenPreviewItemId);
+	if(pItem == nullptr || !pItem->m_PreviewTexture.IsValid() || pItem->m_PreviewTexture.IsNullTexture())
+	{
+		CatClientShopCloseTexturePreview();
+		return;
+	}
+
+	CUIRect Overlay = MainView;
+	Overlay.Draw(ColorRGBA(0.0f, 0.0f, 0.0f, 0.8f), IGraphics::CORNER_ALL, 0.0f);
+
+	CUIRect Panel;
+	CatClientMenuConstrainWidth(Overlay, Panel, 860.0f);
+	const float VerticalMargin = Overlay.h > 620.0f ? (Overlay.h - 620.0f) / 2.0f : 24.0f;
+	Panel.HMargin(VerticalMargin, &Panel);
+	Panel.Draw(ColorRGBA(0.02f, 0.02f, 0.02f, 0.92f), IGraphics::CORNER_ALL, CATCLIENT_MENU_SECTION_ROUNDING + 2.0f);
+
+	CUIRect Content;
+	Panel.Margin(CATCLIENT_MENU_SECTION_PADDING + 4.0f, &Content);
+
+	CUIRect HeaderRow, SliderRow, PreviewRow;
+	Content.HSplitTop(28.0f, &HeaderRow, &Content);
+	Content.HSplitTop(CATCLIENT_MENU_MARGIN_SMALL, nullptr, &Content);
+	Content.HSplitTop(CATCLIENT_MENU_LINE_SIZE, &SliderRow, &Content);
+	Content.HSplitTop(CATCLIENT_MENU_MARGIN, nullptr, &Content);
+	PreviewRow = Content;
+
+	CUIRect TitleLabel, CloseButton;
+	HeaderRow.VSplitRight(110.0f, &TitleLabel, &CloseButton);
+	pMenus->MenuUi()->DoLabel(&TitleLabel, pItem->m_aName, CATCLIENT_MENU_HEADLINE_FONT_SIZE, TEXTALIGN_ML);
+	if(pMenus->DoButton_Menu(&gs_CatClientShopState.m_PreviewCloseButton, Localize("Close"), 0, &CloseButton, BUTTONFLAG_LEFT, nullptr, IGraphics::CORNER_ALL, 6.0f, 0.0f, ColorRGBA(0.0f, 0.0f, 0.0f, 0.30f)))
+	{
+		CatClientShopCloseTexturePreview();
+		return;
+	}
+
+	pMenus->MenuUi()->DoScrollbarOption(&gs_CatClientShopState.m_PreviewBackgroundColor, &gs_CatClientShopState.m_PreviewBackgroundColor, &SliderRow, Localize("Background color"), 0, 100, &CUi::ms_LinearScrollbarScale, 0u, "%");
+
+	CUIRect PreviewArea = PreviewRow;
+	PreviewArea.Draw(ColorRGBA(1.0f, 1.0f, 1.0f, 0.05f), IGraphics::CORNER_ALL, CATCLIENT_MENU_SECTION_ROUNDING);
+	PreviewArea.Margin(CATCLIENT_MENU_MARGIN, &PreviewArea);
+	PreviewArea.Draw(ColorRGBA(0.0f, 0.0f, 0.0f, 0.18f), IGraphics::CORNER_ALL, CATCLIENT_MENU_SECTION_ROUNDING - 2.0f);
+
+	const float BackgroundColor = gs_CatClientShopState.m_PreviewBackgroundColor / 100.0f;
+	pMenus->MenuGraphics()->DrawRect(
+		PreviewArea.x,
+		PreviewArea.y,
+		PreviewArea.w,
+		PreviewArea.h,
+		ColorRGBA(BackgroundColor, BackgroundColor, BackgroundColor, 1.0f),
+		IGraphics::CORNER_ALL,
+		CATCLIENT_MENU_SECTION_ROUNDING - 2.0f);
+
+	CUIRect TextureRect;
+	PreviewArea.Margin(CATCLIENT_MENU_MARGIN, &TextureRect);
+	pMenus->MenuGraphics()->WrapClamp();
+	pMenus->MenuGraphics()->TextureSet(pItem->m_PreviewTexture);
+	pMenus->MenuGraphics()->QuadsBegin();
+	pMenus->MenuGraphics()->SetColor(1.0f, 1.0f, 1.0f, 1.0f);
+	IGraphics::CQuadItem QuadItem(TextureRect.x, TextureRect.y, TextureRect.w, TextureRect.h);
+	pMenus->MenuGraphics()->QuadsDrawTL(&QuadItem, 1);
+	pMenus->MenuGraphics()->QuadsEnd();
+	pMenus->MenuGraphics()->WrapNormal();
+}
+
 void CMenus::RenderSettingsCatClientShop(CUIRect MainView)
 {
+	const CUIRect FullView = MainView;
 	CatClientShopInitState();
 
 	if(gs_CatClientShopState.m_pFetchTask && gs_CatClientShopState.m_pFetchTask->Done())
@@ -1203,6 +1317,12 @@ void CMenus::RenderSettingsCatClientShop(CUIRect MainView)
 		CatClientShopFinishInstall(this);
 	}
 
+	if(CatClientShopHasTexturePreview())
+	{
+		CatClientShopRenderTexturePreview(this, FullView);
+		return;
+	}
+
 	MainView.HSplitTop(CATCLIENT_MENU_MARGIN_SMALL, nullptr, &MainView);
 	CatClientMenuConstrainWidth(MainView, MainView, 860.0f);
 
@@ -1217,12 +1337,13 @@ void CMenus::RenderSettingsCatClientShop(CUIRect MainView)
 
 	static CButtonContainer s_aShopTabs[NUM_CATCLIENT_SHOP_TABS] = {};
 	CUIRect Tabs;
-	CatClientMenuConstrainWidth(TabsRow, Tabs, CATCLIENT_MENU_TAB_WIDTH * (float)NUM_CATCLIENT_SHOP_TABS);
-	for(int Tab = 0; Tab < NUM_CATCLIENT_SHOP_TABS; ++Tab)
+	CatClientMenuConstrainWidth(TabsRow, Tabs, CATCLIENT_MENU_TAB_WIDTH * (float)(sizeof(gs_aVisibleCatClientShopTabs) / sizeof(gs_aVisibleCatClientShopTabs[0])));
+	for(int VisibleIndex = 0; VisibleIndex < (int)(sizeof(gs_aVisibleCatClientShopTabs) / sizeof(gs_aVisibleCatClientShopTabs[0])); ++VisibleIndex)
 	{
+		const int Tab = gs_aVisibleCatClientShopTabs[VisibleIndex];
 		CUIRect Button;
 		Tabs.VSplitLeft(CATCLIENT_MENU_TAB_WIDTH, &Button, &Tabs);
-		const int Corners = Tab == 0 ? IGraphics::CORNER_L : (Tab == NUM_CATCLIENT_SHOP_TABS - 1 ? IGraphics::CORNER_R : IGraphics::CORNER_NONE);
+		const int Corners = VisibleIndex == 0 ? IGraphics::CORNER_L : (VisibleIndex == (int)(sizeof(gs_aVisibleCatClientShopTabs) / sizeof(gs_aVisibleCatClientShopTabs[0])) - 1 ? IGraphics::CORNER_R : IGraphics::CORNER_NONE);
 		if(DoButton_MenuTab(&s_aShopTabs[Tab], Localize(gs_aCatClientShopTypeInfos[Tab].m_pLabel), gs_CatClientShopState.m_Tab == Tab, &Button, Corners, nullptr, nullptr, nullptr, nullptr, 4.0f))
 		{
 			CatClientShopSetTab(this, Tab);
@@ -1304,10 +1425,25 @@ void CMenus::RenderSettingsCatClientShop(CUIRect MainView)
 		TextRect.VSplitRight(88.0f, &TextRect, &ButtonRect);
 		TextRect.VSplitRight(CATCLIENT_MENU_MARGIN, &TextRect, nullptr);
 
+		const bool CanOpenPreview = !CatClientShopIsArchive(gs_CatClientShopState.m_Tab) && Item.m_PreviewTexture.IsValid() && !Item.m_PreviewTexture.IsNullTexture();
+		const int IconButtonResult = Ui()->DoButtonLogic(&Item.m_PreviewButton, 0, &IconRect, BUTTONFLAG_LEFT);
+		if(IconButtonResult)
+		{
+			if(CanOpenPreview)
+			{
+				gs_CatClientShopState.m_PreviewOpen = true;
+				str_copy(gs_CatClientShopState.m_aOpenPreviewItemId, Item.m_aId, sizeof(gs_CatClientShopState.m_aOpenPreviewItemId));
+			}
+			else if(!CatClientShopIsArchive(gs_CatClientShopState.m_Tab))
+			{
+				CatClientShopSetStatus(Item.m_PreviewFailed ? Localize("Preview unavailable") : Localize("Preview is still loading"));
+			}
+		}
+
 		IconRect.Draw(ColorRGBA(1.0f, 1.0f, 1.0f, 0.06f), IGraphics::CORNER_ALL, 8.0f);
 		CUIRect PreviewRect;
 		IconRect.Margin(5.0f, &PreviewRect);
-		if(!CatClientShopIsArchive(gs_CatClientShopState.m_Tab) && Item.m_PreviewTexture.IsValid() && !Item.m_PreviewTexture.IsNullTexture())
+		if(CanOpenPreview)
 		{
 			Graphics()->WrapClamp();
 			Graphics()->TextureSet(Item.m_PreviewTexture);
@@ -1321,6 +1457,10 @@ void CMenus::RenderSettingsCatClientShop(CUIRect MainView)
 		else
 		{
 			RenderFontIcon(IconRect, gs_aCatClientShopTypeInfos[gs_CatClientShopState.m_Tab].m_pIcon, gs_CatClientShopState.m_Tab == CATCLIENT_SHOP_AUDIO ? 24.0f : 22.0f, TEXTALIGN_MC);
+		}
+		if(CanOpenPreview && Ui()->HotItem() == &Item.m_PreviewButton)
+		{
+			IconRect.Draw(ColorRGBA(1.0f, 1.0f, 1.0f, 0.12f), IGraphics::CORNER_ALL, 8.0f);
 		}
 
 		CUIRect NameLabel, MetaLabel, ExtraLabel;
@@ -1398,4 +1538,9 @@ void CMenus::RenderSettingsCatClientShop(CUIRect MainView)
 	char aHint[256];
 	str_format(aHint, sizeof(aHint), "%s: %s", Localize("Target"), gs_aCatClientShopTypeInfos[gs_CatClientShopState.m_Tab].m_pAssetDirectory);
 	Ui()->DoLabel(&HintLabel, aHint, CATCLIENT_MENU_SMALL_FONT_SIZE, TEXTALIGN_ML);
+
+	if(CatClientShopHasTexturePreview())
+	{
+		CatClientShopRenderTexturePreview(this, FullView);
+	}
 }

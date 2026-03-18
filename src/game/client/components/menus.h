@@ -72,7 +72,7 @@ private:
 	std::optional<std::chrono::nanoseconds> m_SkinList7LastRefreshTime;
 	std::optional<std::chrono::nanoseconds> m_SkinPartsList7LastRefreshTime;
 
-	int m_DirectionQuadContainerIndex;
+	int m_DirectionQuadContainerIndex = -1;
 
 	// menus_settings_assets.cpp
 public:
@@ -155,6 +155,7 @@ protected:
 	static void ConchainAssetCursor(IConsole::IResult *pResult, void *pUserData, IConsole::FCommandCallback pfnCallback, void *pCallbackUserData);
 
 	void ClearCustomItems(int CurTab);
+	void UnloadCustomItems();
 public:
 	void RefreshCustomAssetsTab(int CurTab)
 	{
@@ -165,6 +166,7 @@ public:
 	IClient *MenuClient() const { return Client(); }
 	CGameClient *MenuGameClient() const { return GameClient(); }
 	IGraphics *MenuGraphics() const { return Graphics(); }
+	CUi *MenuUi() const { return Ui(); }
 protected:
 
 	int m_MenuPage;
@@ -215,6 +217,7 @@ protected:
 	std::vector<CMenuImage> m_vMenuImages;
 	static int MenuImageScan(const char *pName, int IsDir, int DirType, void *pUser);
 	const CMenuImage *FindMenuImage(const char *pName);
+	void UnloadMenuImages();
 
 	// loading
 	class CLoadingState
@@ -274,6 +277,7 @@ protected:
 	bool m_NeedSendinfo;
 	bool m_NeedSendDummyinfo;
 	int m_SettingPlayerPage;
+	int m_TeeUnifiedSubTab = 0;
 
 	// 0.7 skins
 	bool m_CustomSkinMenu = false;
@@ -603,6 +607,7 @@ protected:
 	void RenderSettingsGeneral(CUIRect MainView);
 	void RenderSettingsPlayer(CUIRect MainView);
 	void RenderSettingsTee(CUIRect MainView);
+	void RenderSettingsTeeUnified(CUIRect MainView);
 	void RenderSettingsTee7(CUIRect MainView);
 	void RenderSettingsTeeCustom7(CUIRect MainView);
 	void RenderSkinSelection7(CUIRect MainView);

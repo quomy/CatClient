@@ -84,10 +84,11 @@ public:
 	void OnReset() override;
 	void OnRender() override;
 	void OnInit() override;
+	void OnShutdown() override;
 
 private:
-	int m_ParticleQuadContainerIndex;
-	int m_ExtraParticleQuadContainerIndex;
+	int m_ParticleQuadContainerIndex = -1;
+	int m_ExtraParticleQuadContainerIndex = -1;
 
 	enum
 	{

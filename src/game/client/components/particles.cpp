@@ -192,6 +192,12 @@ void CParticles::OnInit()
 	Graphics()->QuadContainerUpload(m_ExtraParticleQuadContainerIndex);
 }
 
+void CParticles::OnShutdown()
+{
+	Graphics()->DeleteQuadContainer(m_ParticleQuadContainerIndex);
+	Graphics()->DeleteQuadContainer(m_ExtraParticleQuadContainerIndex);
+}
+
 bool CParticles::ParticleIsVisibleOnScreen(const vec2 &CurPos, float CurSize)
 {
 	float ScreenX0, ScreenY0, ScreenX1, ScreenY1;

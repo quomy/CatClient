@@ -397,6 +397,26 @@ void CMenus::ClearCustomItems(int CurTab)
 	gs_aInitCustomList[CurTab] = true;
 }
 
+void CMenus::UnloadCustomItems()
+{
+	for(auto &Entity : m_vEntitiesList)
+	{
+		for(auto &Image : Entity.m_aImages)
+		{
+			Graphics()->UnloadTexture(&Image.m_Texture);
+		}
+	}
+	m_vEntitiesList.clear();
+
+	ClearAssetList(m_vGameList, Graphics());
+	ClearAssetList(m_vEmoticonList, Graphics());
+	ClearAssetList(m_vParticlesList, Graphics());
+	ClearAssetList(m_vHudList, Graphics());
+	ClearAssetList(m_vExtrasList, Graphics());
+	ClearAssetList(m_vCursorList, Graphics());
+	m_vAudioList.clear();
+}
+
 template<typename TName, typename TCaller>
 static void InitAssetList(std::vector<TName> &vAssetList, const char *pAssetPath, const char *pAssetName, FS_LISTDIR_CALLBACK pfnCallback, IGraphics *pGraphics, IStorage *pStorage, TCaller Caller)
 {

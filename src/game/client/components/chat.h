@@ -117,6 +117,7 @@ class CChat : public CComponent
 	bool m_MouseIsPress;
 	vec2 m_MousePress;
 	vec2 m_MouseRelease;
+	float m_ChatScrollOffset = 0.0f;
 	int m_PlaceholderOffset;
 	int m_PlaceholderLength;
 	static char ms_aDisplayText[MAX_LINE_LENGTH];

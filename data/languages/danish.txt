@@ -520,7 +520,7 @@ Browser
 Ghost
 == Spøgelse
 
-Loading CatClient Client
+Loading CatClient
 == Indlæser DDNet Klient
 
 Reconnect in %d sec

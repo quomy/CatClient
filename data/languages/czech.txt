@@ -517,7 +517,7 @@ Browser
 Ghost
 == Duch
 
-Loading CatClient Client
+Loading CatClient
 == Načítání DDNet Klienta
 
 Reconnect in %d sec

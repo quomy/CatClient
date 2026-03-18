@@ -93,6 +93,11 @@ void CDamageInd::OnInit()
 	Graphics()->QuadContainerUpload(m_DmgIndQuadContainerIndex);
 }
 
+void CDamageInd::OnShutdown()
+{
+	Graphics()->DeleteQuadContainer(m_DmgIndQuadContainerIndex);
+}
+
 void CDamageInd::OnReset()
 {
 	m_NumItems = 0;

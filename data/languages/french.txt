@@ -793,7 +793,7 @@ FPM
 Enable replays
 == Activer les replays
 
-Loading CatClient Client
+Loading CatClient
 == Chargement du client DDNet
 
 Zoom in

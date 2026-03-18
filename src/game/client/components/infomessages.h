@@ -76,6 +76,7 @@ public:
 	void OnRender() override;
 	void OnMessage(int MsgType, void *pRawMsg) override;
 	void OnInit() override;
+	void OnShutdown() override;
 };
 
 #endif

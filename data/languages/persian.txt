@@ -319,7 +319,7 @@ Browser
 Ghost
 == ﺡﻭﺭ ﺖﻟﺎﺣ
 
-Loading CatClient Client
+Loading CatClient
 == ﺖﻨﯾﺪﯾﺩ ﺖﻨﯾﻼﮐ ﻥﺩﺮﮐ ﻩﺩﺎﻣﺁ ﻝﺎﺣﺭﺩ
 
 Reconnect in %d sec

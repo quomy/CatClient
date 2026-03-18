@@ -25,6 +25,7 @@ public:
 
 	int Sizeof() const override { return sizeof(*this); }
 	void OnInit() override;
+	void OnShutdown() override;
 
 	size_t Num() const;
 	const CCountryFlag &GetByCountryCode(int CountryCode) const;
@@ -42,7 +43,7 @@ private:
 	std::vector<CCountryFlag> m_vCountryFlags;
 	size_t m_aCodeIndexLUT[CODE_RANGE];
 
-	int m_FlagsQuadContainerIndex;
+	int m_FlagsQuadContainerIndex = -1;
 
 	void LoadCountryflagsIndexfile();
 };

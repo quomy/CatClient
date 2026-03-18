@@ -52,6 +52,14 @@ static vec2 CalculateHandPosition(vec2 CenterPos, vec2 Dir, vec2 PostRotOffset)
 	return CenterPos + Dir + Dir * PostRotOffset.x + DirY * PostRotOffset.y;
 }
 
+CPlayers::CPlayers()
+{
+	for(int &WeaponSpriteMuzzleQuadContainerIndex : m_aWeaponSpriteMuzzleQuadContainerIndex)
+	{
+		WeaponSpriteMuzzleQuadContainerIndex = -1;
+	}
+}
+
 void CPlayers::RenderHand(const CTeeRenderInfo *pInfo, vec2 CenterPos, vec2 Dir, float AngleOffset, vec2 PostRotOffset, float Alpha)
 {
 	const vec2 HandPos = CalculateHandPosition(CenterPos, Dir, PostRotOffset);
@@ -1751,4 +1759,16 @@ void CPlayers::OnInit()
 
 	CreateNinjaTeeRenderInfo();
 	CreateSpectatorTeeRenderInfo();
+}
+
+void CPlayers::OnShutdown()
+{
+	Graphics()->DeleteQuadContainer(m_WeaponEmoteQuadContainerIndex);
+	for(int &WeaponSpriteMuzzleQuadContainerIndex : m_aWeaponSpriteMuzzleQuadContainerIndex)
+	{
+		Graphics()->DeleteQuadContainer(WeaponSpriteMuzzleQuadContainerIndex);
+	}
+
+	m_pNinjaTeeRenderInfo.reset();
+	m_pSpectatorTeeRenderInfo.reset();
 }

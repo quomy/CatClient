@@ -213,7 +213,7 @@ class CRenderTools
 	class ITextRender *m_pTextRender;
 	class CGameClient *m_pGameClient;
 
-	int m_TeeQuadContainerIndex;
+	int m_TeeQuadContainerIndex = -1;
 
 	static void GetRenderTeeBodyScale(float BaseSize, float &BodyScale);
 	static void GetRenderTeeFeetScale(float BaseSize, float &FeetScaleWidth, float &FeetScaleHeight);
@@ -229,6 +229,7 @@ public:
 	bool m_LocalTeeRender = false; // TClient
 
 	void Init(class IGraphics *pGraphics, class ITextRender *pTextRender, class CGameClient *pGameClient);
+	void Shutdown();
 
 	void RenderCursor(vec2 Center, float Size, float Alpha = 1.0f) const;
 	void RenderIcon(int ImageId, int SpriteId, const CUIRect *pRect, const ColorRGBA *pColor = nullptr) const;

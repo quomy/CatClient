@@ -302,8 +302,25 @@ void CMenuBackground::OnRender()
 {
 }
 
+void CMenuBackground::OnShutdown()
+{
+	for(CTheme &Theme : m_vThemes)
+	{
+		Graphics()->UnloadTexture(&Theme.m_IconTexture);
+	}
+	m_vThemes.clear();
+}
+
 bool CMenuBackground::Render()
 {
+	if(GameClient()->m_CatClient.HasMenuCustomBackground())
+	{
+		GameClient()->m_CatClient.RenderCustomBackground();
+		Ui()->MapScreen();
+		m_CurrentPosition = -1;
+		return true;
+	}
+
 	if(!m_Loaded)
 		return false;
 

@@ -5351,27 +5351,15 @@ bool CClient::ViewLink(const char *pLink)
 
 bool CClient::ViewFile(const char *pFilename)
 {
-#if defined(CONF_PLATFORM_MACOS)
+#if defined(CONF_PLATFORM_ANDROID)
 	return ViewLinkImpl(pFilename);
 #else
-	// Create a file link so the path can contain forward and
-	// backward slashes. But the file link must be absolute.
-	char aWorkingDir[IO_MAX_PATH_LENGTH];
-	if(fs_is_relative_path(pFilename))
+	if(os_open_file(pFilename))
 	{
-		if(!fs_getcwd(aWorkingDir, sizeof(aWorkingDir)))
-		{
-			log_error("client", "Failed to open file '%s' (failed to get working directory)", pFilename);
-			return false;
-		}
-		str_append(aWorkingDir, "/");
+		return true;
 	}
-	else
-		aWorkingDir[0] = '\0';
-
-	char aFileLink[IO_MAX_PATH_LENGTH];
-	str_format(aFileLink, sizeof(aFileLink), "file://%s%s", aWorkingDir, pFilename);
-	return ViewLinkImpl(aFileLink);
+	log_error("client", "Failed to open file '%s'", pFilename);
+	return false;
 #endif
 }
 

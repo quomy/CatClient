@@ -4,7 +4,7 @@ Connected
 Loading map file from storage
 == Ŝargas mapdosieron el konservejo
 
-Loading CatClient Client
+Loading CatClient
 == Ŝargas DDNet-klienton
 
 Warning

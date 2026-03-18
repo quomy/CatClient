@@ -20,12 +20,13 @@ class CItems : public CComponent
 	void RenderFlag(const CNetObj_Flag *pPrev, const CNetObj_Flag *pCurrent, const CNetObj_GameData *pPrevGameData, const CNetObj_GameData *pCurGameData);
 	void RenderLaser(const CLaserData *pCurrent, bool IsPredicted = false);
 
-	int m_ItemsQuadContainerIndex;
+	int m_ItemsQuadContainerIndex = -1;
 
 public:
 	int Sizeof() const override { return sizeof(*this); }
 	void OnRender() override;
 	void OnInit() override;
+	void OnShutdown() override;
 
 	void ReconstructSmokeTrail(const CProjectileData *pCurrent, int DestroyTick);
 	void RenderLaser(vec2 From, vec2 Pos, ColorRGBA OuterColor, ColorRGBA InnerColor, float TicksBody, float TicksHead, int Type) const;

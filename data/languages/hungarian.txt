@@ -637,7 +637,7 @@ Player country:
 Net
 == Net
 
-Loading CatClient Client
+Loading CatClient
 == DDNet Kliens betöltése
 
 FPM

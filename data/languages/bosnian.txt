@@ -517,7 +517,7 @@ Browser
 Ghost
 == Duh
 
-Loading CatClient Client
+Loading CatClient
 == Učitavanje DDNet Klijenta
 
 Reconnect in %d sec

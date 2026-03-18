@@ -526,7 +526,7 @@ Browser
 Ghost
 == Haamu
 
-Loading CatClient Client
+Loading CatClient
 == Ladataan DDNet-asiakasta
 
 Reconnect in %d sec

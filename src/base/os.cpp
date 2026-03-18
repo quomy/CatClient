@@ -7,6 +7,7 @@
 #include "windows.h"
 
 #include <cstdlib>
+#include <cstring>
 #include <iterator> // std::size
 
 #if defined(CONF_FAMILY_UNIX)
@@ -29,6 +30,115 @@
 #include <cstring> // std::wstring
 #else
 #error NOT IMPLEMENTED
+#endif
+
+#if defined(CONF_FAMILY_UNIX)
+static bool GetAbsoluteOpenPath(const char *pPath, char *pBuffer, size_t BufferSize)
+{
+	if(!fs_is_relative_path(pPath))
+	{
+		str_copy(pBuffer, pPath, BufferSize);
+		return true;
+	}
+
+	if(!fs_getcwd(pBuffer, BufferSize))
+	{
+		return false;
+	}
+
+	str_append(pBuffer, "/", BufferSize);
+	str_append(pBuffer, pPath, BufferSize);
+	return true;
+}
+
+static bool IsExecutableAvailable(const char *pExecutable)
+{
+	if(std::strchr(pExecutable, '/') != nullptr)
+	{
+		return access(pExecutable, X_OK) == 0;
+	}
+
+	const char *pPathEnv = std::getenv("PATH");
+	if(pPathEnv == nullptr || pPathEnv[0] == '\0')
+	{
+		return false;
+	}
+
+	const char *pSegmentStart = pPathEnv;
+	while(true)
+	{
+		const char *pSegmentEnd = std::strchr(pSegmentStart, ':');
+		const size_t SegmentLength = pSegmentEnd != nullptr ? (size_t)(pSegmentEnd - pSegmentStart) : std::strlen(pSegmentStart);
+		if(SegmentLength == 0)
+		{
+			if(access(pExecutable, X_OK) == 0)
+			{
+				return true;
+			}
+		}
+		else if(SegmentLength + 1 + std::strlen(pExecutable) < IO_MAX_PATH_LENGTH)
+		{
+			char aExecutablePath[IO_MAX_PATH_LENGTH];
+			std::memcpy(aExecutablePath, pSegmentStart, SegmentLength);
+			aExecutablePath[SegmentLength] = '/';
+			str_copy(aExecutablePath + SegmentLength + 1, pExecutable, sizeof(aExecutablePath) - SegmentLength - 1);
+			if(access(aExecutablePath, X_OK) == 0)
+			{
+				return true;
+			}
+		}
+
+		if(pSegmentEnd == nullptr)
+		{
+			break;
+		}
+		pSegmentStart = pSegmentEnd + 1;
+	}
+
+	return false;
+}
+
+static int ForkAndExecCommand(const char *pExecutable, const char *const *ppArguments)
+{
+	const int Pid = fork();
+	if(Pid < 0)
+	{
+		return 0;
+	}
+	if(Pid == 0)
+	{
+		execvp(pExecutable, const_cast<char *const *>(ppArguments));
+		_exit(1);
+	}
+	return 1;
+}
+
+static int TryOpenWithExecutable(const char *pExecutable, const char *pArgument1 = nullptr, const char *pArgument2 = nullptr, const char *pArgument3 = nullptr)
+{
+	if(!IsExecutableAvailable(pExecutable))
+	{
+		return 0;
+	}
+
+	const char *apArguments[5];
+	int NumArguments = 0;
+	apArguments[NumArguments++] = pExecutable;
+	if(pArgument1 != nullptr)
+	{
+		apArguments[NumArguments++] = pArgument1;
+	}
+	if(pArgument2 != nullptr)
+	{
+		apArguments[NumArguments++] = pArgument2;
+	}
+	if(pArgument3 != nullptr)
+	{
+		apArguments[NumArguments++] = pArgument3;
+	}
+	apArguments[NumArguments] = nullptr;
+
+	return ForkAndExecCommand(pExecutable, apArguments);
+}
 #endif
 
 void cmdline_fix(int *argc, const char ***argv)
@@ -108,12 +218,18 @@ int os_open_link(const char *link)
 #elif defined(CONF_PLATFORM_LINUX)
 	const int pid = fork();
 	if(pid == 0)
+	{
 		execlp("xdg-open", "xdg-open", link, nullptr);
+		_exit(1);
+	}
 	return pid > 0;
 #elif defined(CONF_FAMILY_UNIX)
 	const int pid = fork();
 	if(pid == 0)
+	{
 		execlp("open", "open", link, nullptr);
+		_exit(1);
+	}
 	return pid > 0;
 #endif
 }
@@ -122,21 +238,43 @@ int os_open_file(const char *path)
 {
 #if defined(CONF_PLATFORM_MACOS)
 	return os_open_link(path);
-#else
-	// Create a file link so the path can contain forward and
-	// backward slashes. But the file link must be absolute.
-	char buf[512];
-	char workingDir[IO_MAX_PATH_LENGTH];
-	if(fs_is_relative_path(path))
+#elif defined(CONF_PLATFORM_LINUX)
+	char aAbsolutePath[IO_MAX_PATH_LENGTH];
+	if(!GetAbsoluteOpenPath(path, aAbsolutePath, sizeof(aAbsolutePath)))
 	{
-		if(!fs_getcwd(workingDir, sizeof(workingDir)))
-			return 0;
-		str_append(workingDir, "/");
+		return 0;
 	}
-	else
-		workingDir[0] = '\0';
-	str_format(buf, sizeof(buf), "file://%s%s", workingDir, path);
-	return os_open_link(buf);
+
+	if(fs_is_dir(aAbsolutePath))
+	{
+		if(TryOpenWithExecutable("nautilus", aAbsolutePath) ||
+			TryOpenWithExecutable("nemo", aAbsolutePath) ||
+			TryOpenWithExecutable("thunar", aAbsolutePath) ||
+			TryOpenWithExecutable("dolphin", aAbsolutePath) ||
+			TryOpenWithExecutable("pcmanfm", aAbsolutePath) ||
+			TryOpenWithExecutable("pcmanfm-qt", aAbsolutePath) ||
+			TryOpenWithExecutable("caja", aAbsolutePath) ||
+			TryOpenWithExecutable("konqueror", aAbsolutePath) ||
+			TryOpenWithExecutable("exo-open", "--launch", "FileManager", aAbsolutePath) ||
+			TryOpenWithExecutable("kioclient5", "exec", aAbsolutePath) ||
+			TryOpenWithExecutable("kioclient", "exec", aAbsolutePath) ||
+			TryOpenWithExecutable("gio", "open", aAbsolutePath) ||
+			TryOpenWithExecutable("gvfs-open", aAbsolutePath))
+		{
+			return 1;
+		}
+	}
+
+	return os_open_link(aAbsolutePath);
+#elif defined(CONF_FAMILY_WINDOWS)
+	return os_open_link(path);
+#else
+	char aAbsolutePath[IO_MAX_PATH_LENGTH];
+	if(!GetAbsoluteOpenPath(path, aAbsolutePath, sizeof(aAbsolutePath)))
+	{
+		return 0;
+	}
+	return os_open_link(aAbsolutePath);
 #endif
 }
 #endif // !defined(CONF_PLATFORM_ANDROID)

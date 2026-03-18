@@ -517,7 +517,7 @@ Browser
 Ghost
 == Spook
 
-Loading CatClient Client
+Loading CatClient
 == DDNet Client laden
 
 Reconnect in %d sec

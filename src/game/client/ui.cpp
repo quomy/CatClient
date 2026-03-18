@@ -125,6 +125,9 @@ CUi::CUi()
 
 CUi::~CUi()
 {
+	OnElementsReset();
+	m_vpUIElements.clear();
+
 	for(CUIElement *&pEl : m_vpOwnUIElements)
 	{
 		delete pEl;

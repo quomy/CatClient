@@ -141,6 +141,12 @@ void CHud::OnInit()
 	Graphics()->QuadContainerUpload(m_HudQuadContainerIndex);
 }
 
+void CHud::OnShutdown()
+{
+	ResetHudContainers();
+	Graphics()->DeleteQuadContainer(m_HudQuadContainerIndex);
+}
+
 void CHud::RenderGameTimer()
 {
 	float Half = m_Width / 2.0f;

@@ -590,7 +590,7 @@ Loading demo file from storage
 Some fonts could not be loaded. Check the local console for details.
 == 
 
-Loading CatClient Client
+Loading CatClient
 == 
 
 Initializing components

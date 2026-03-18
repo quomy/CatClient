@@ -649,7 +649,7 @@ Suicides
 Net
 == Net
 
-Loading CatClient Client
+Loading CatClient
 == Carregant el client DDNet
 
 FPM

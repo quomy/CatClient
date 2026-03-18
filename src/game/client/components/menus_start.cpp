@@ -69,38 +69,20 @@ void CMenusStart::RenderStartMenu(CUIRect MainView)
 		const float TotalWidth = ButtonWidth * 3.0f + Gap * 2.0f;
 		const float StartX = MainView.x + MainView.w / 2.0f - TotalWidth / 2.0f;
 		const float StartY = MainView.y + 185.0f;
-		CUIRect Row1 = {StartX, StartY, TotalWidth, ButtonHeight};
-		CUIRect Row2 = {StartX, StartY + ButtonHeight + Gap, TotalWidth, ButtonHeight};
-		CUIRect Row, RowButton;
+		CUIRect Row = {StartX, StartY, TotalWidth, ButtonHeight};
+		CUIRect RowButton;
 
-		Row = Row1;
 		Row.VSplitLeft(ButtonWidth, &RowButton, &Row);
-		if(DoMenuButton(&s_PlayButton, Localize("Play", "Start menu"), RowButton, nullptr, ColorRGBA(0.0f, 0.0f, 0.0f, 0.25f)) || Ui()->ConsumeHotkey(CUi::HOTKEY_ENTER) || CheckHotKey(KEY_P))
+		if(DoMenuButton(&s_PlayButton, Localize("PLAY", "Start menu"), RowButton, nullptr, ColorRGBA(0.0f, 0.0f, 0.0f, 0.25f)) || Ui()->ConsumeHotkey(CUi::HOTKEY_ENTER) || CheckHotKey(KEY_P))
 			NewPage = g_Config.m_UiPage >= CMenus::PAGE_INTERNET && g_Config.m_UiPage <= CMenus::PAGE_FAVORITE_COMMUNITY_5 ? g_Config.m_UiPage : CMenus::PAGE_INTERNET;
 		Row.VSplitLeft(Gap, nullptr, &Row);
 		Row.VSplitLeft(ButtonWidth, &RowButton, &Row);
-		if(DoMenuButton(&s_DemoButton, Localize("Demos"), RowButton, nullptr, ColorRGBA(0.0f, 0.0f, 0.0f, 0.25f)) || CheckHotKey(KEY_D))
-			NewPage = CMenus::PAGE_DEMOS;
-		Row.VSplitLeft(Gap, nullptr, &Row);
-		Row.VSplitLeft(ButtonWidth, &RowButton, &Row);
-		if(DoMenuButton(&s_MapEditorButton, Localize("Editor"), RowButton, nullptr, GameClient()->Editor()->HasUnsavedData() ? ColorRGBA(0.0f, 1.0f, 0.0f, 0.25f) : ColorRGBA(0.0f, 0.0f, 0.0f, 0.25f)) || CheckHotKey(KEY_E))
-		{
-			g_Config.m_ClEditor = 1;
-			Input()->MouseModeRelative();
-		}
-
-		Row = Row2;
-		Row.VSplitLeft(ButtonWidth, &RowButton, &Row);
-		if(DoMenuButton(&s_LocalServerButton, LocalServerRunning ? Localize("Stop server") : Localize("Run server"), RowButton, nullptr, LocalServerRunning ? ColorRGBA(0.0f, 1.0f, 0.0f, 0.25f) : ColorRGBA(0.0f, 0.0f, 0.0f, 0.25f)) || (CheckHotKey(KEY_R) && Input()->KeyPress(KEY_R)))
-			OpenLocalServer();
-		Row.VSplitLeft(Gap, nullptr, &Row);
-		Row.VSplitLeft(ButtonWidth, &RowButton, &Row);
-		if(DoMenuButton(&s_SettingsButton, Localize("Settings"), RowButton, nullptr, ColorRGBA(0.0f, 0.0f, 0.0f, 0.25f)) || CheckHotKey(KEY_S))
+		if(DoMenuButton(&s_SettingsButton, Localize("SETTINGS"), RowButton, nullptr, ColorRGBA(0.0f, 0.0f, 0.0f, 0.25f)) || CheckHotKey(KEY_S))
 			NewPage = CMenus::PAGE_SETTINGS;
 		Row.VSplitLeft(Gap, nullptr, &Row);
 		Row.VSplitLeft(ButtonWidth, &RowButton, &Row);
 		bool UsedEscape = false;
-		if(DoMenuButton(&s_QuitButton, Localize("Quit"), RowButton, nullptr, ColorRGBA(0.0f, 0.0f, 0.0f, 0.25f)) || (UsedEscape = Ui()->ConsumeHotkey(CUi::HOTKEY_ESCAPE)) || CheckHotKey(KEY_Q))
+		if(DoMenuButton(&s_QuitButton, Localize("QUIT"), RowButton, nullptr, ColorRGBA(0.0f, 0.0f, 0.0f, 0.25f)) || (UsedEscape = Ui()->ConsumeHotkey(CUi::HOTKEY_ESCAPE)) || CheckHotKey(KEY_Q))
 		{
 			if(UsedEscape || GameClient()->m_Menus.ShouldConfirmQuit())
 				GameClient()->m_Menus.ShowQuitPopup();
@@ -108,7 +90,7 @@ void CMenusStart::RenderStartMenu(CUIRect MainView)
 				Client()->Quit();
 		}
 
-		ActionBottomY = Row2.y + Row2.h;
+		ActionBottomY = StartY + ButtonHeight;
 	}
 	else
 	{

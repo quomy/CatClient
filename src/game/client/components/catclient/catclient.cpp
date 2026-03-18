@@ -1,5 +1,6 @@
 #include "catclient.h"
 
+#include <engine/gfx/image_loader.h>
 #include <base/system.h>
 #include <base/time.h>
 
@@ -22,6 +23,11 @@
 static constexpr const char *CATCLIENT_AUTO_CURSOR_URL = "https://data.teeworlds.xyz/api/skins/dcfe12f4-fdbd-41d4-b287-a5af431ebf28?image=true";
 static constexpr const char *CATCLIENT_AUTO_CURSOR_PATH = "assets/cursors/catproject_auto.png";
 static constexpr CTimeout AUTO_CURSOR_REQUEST_TIMEOUT{10000, 0, 0, 0};
+static constexpr const char *CATCLIENT_DEFAULT_BACKGROUND_URL = "https://tags.quomy.win/firstbg.jpg";
+static constexpr const char *CATCLIENT_DEFAULT_BACKGROUND_NAME = "firstbg.jpg";
+static constexpr const char *CATCLIENT_DEFAULT_BACKGROUND_PATH = "catclient/backgrounds/firstbg.jpg";
+static constexpr CTimeout DEFAULT_BACKGROUND_REQUEST_TIMEOUT{10000, 0, 0, 0};
+static constexpr auto DEFAULT_BACKGROUND_RETRY_INTERVAL = std::chrono::seconds(30);
 
 static void EscapeConfigParam(char *pDst, const char *pSrc, size_t Size)
 {
@@ -267,6 +273,133 @@ void CCatClient::FinishAutomaticCursorDownload()
 	}
 }
 
+void CCatClient::EnsureCustomBackgroundFolder() const
+{
+	Storage()->CreateFolder("catclient", IStorage::TYPE_SAVE);
+	Storage()->CreateFolder("catclient/backgrounds", IStorage::TYPE_SAVE);
+}
+
+bool CCatClient::LoadCustomBackgroundTexture(const char *pImageName)
+{
+	if(pImageName == nullptr || pImageName[0] == '\0')
+	{
+		return false;
+	}
+
+	char aPath[IO_MAX_PATH_LENGTH];
+	str_format(aPath, sizeof(aPath), "catclient/backgrounds/%s", pImageName);
+
+	IOHANDLE File = Storage()->OpenFile(aPath, IOFLAG_READ, IStorage::TYPE_SAVE);
+	if(!File)
+	{
+		return false;
+	}
+
+	CImageInfo Image;
+	bool Loaded = false;
+	if(str_endswith_nocase(aPath, ".png"))
+	{
+		int PngliteIncompatible = 0;
+		Loaded = CImageLoader::LoadPng(File, aPath, Image, PngliteIncompatible);
+	}
+	else if(str_endswith_nocase(aPath, ".jpg") || str_endswith_nocase(aPath, ".jpeg"))
+	{
+		Loaded = CImageLoader::LoadJpg(File, aPath, Image);
+	}
+	else
+	{
+		int PngliteIncompatible = 0;
+		Loaded = CImageLoader::LoadPng(File, aPath, Image, PngliteIncompatible);
+		if(!Loaded)
+		{
+			File = Storage()->OpenFile(aPath, IOFLAG_READ, IStorage::TYPE_SAVE);
+			Loaded = CImageLoader::LoadJpg(File, aPath, Image);
+		}
+	}
+
+	if(!Loaded)
+	{
+		return false;
+	}
+
+	UnloadCustomBackgroundTexture();
+	m_CustomBackgroundImageSize = vec2((float)Image.m_Width, (float)Image.m_Height);
+	m_CustomBackgroundTexture = Graphics()->LoadTextureRawMove(Image, 0, aPath);
+	if(m_CustomBackgroundTexture.IsNullTexture())
+	{
+		m_CustomBackgroundImageSize = vec2(0.0f, 0.0f);
+		return false;
+	}
+
+	m_HasCustomBackgroundTexture = true;
+	return true;
+}
+
+void CCatClient::UnloadCustomBackgroundTexture()
+{
+	if(m_HasCustomBackgroundTexture)
+	{
+		Graphics()->UnloadTexture(&m_CustomBackgroundTexture);
+		m_HasCustomBackgroundTexture = false;
+	}
+	m_CustomBackgroundTexture = IGraphics::CTextureHandle();
+	m_CustomBackgroundImageSize = vec2(0.0f, 0.0f);
+}
+
+void CCatClient::StartDefaultBackgroundDownload()
+{
+	if(m_pBackgroundDownloadTask)
+	{
+		return;
+	}
+
+	EnsureCustomBackgroundFolder();
+	m_pBackgroundDownloadTask = HttpGetBoth(CATCLIENT_DEFAULT_BACKGROUND_URL, Storage(), CATCLIENT_DEFAULT_BACKGROUND_PATH, IStorage::TYPE_SAVE);
+	m_pBackgroundDownloadTask->Timeout(DEFAULT_BACKGROUND_REQUEST_TIMEOUT);
+	m_pBackgroundDownloadTask->IpResolve(IPRESOLVE::V4);
+	m_pBackgroundDownloadTask->MaxResponseSize(16 * 1024 * 1024);
+	m_pBackgroundDownloadTask->LogProgress(HTTPLOG::NONE);
+	m_pBackgroundDownloadTask->FailOnErrorStatus(false);
+	m_LastBackgroundAttempt = time_get_nanoseconds();
+	Http()->Run(m_pBackgroundDownloadTask);
+}
+
+void CCatClient::FinishDefaultBackgroundDownload()
+{
+	if(!m_pBackgroundDownloadTask || m_pBackgroundDownloadTask->State() != EHttpState::DONE)
+	{
+		return;
+	}
+
+	if(m_pBackgroundDownloadTask->StatusCode() < 400)
+	{
+		ReloadCustomBackground();
+	}
+}
+
+void CCatClient::EnsureSelectedCustomBackgroundLoaded()
+{
+	const bool NeedTexture = g_Config.m_CcCustomBackgroundMainMenu != 0 || g_Config.m_CcCustomBackgroundGame != 0;
+	if(!NeedTexture)
+	{
+		UnloadCustomBackgroundTexture();
+		m_aLoadedBackgroundImage[0] = '\0';
+		return;
+	}
+
+	const char *pSelectedImage = g_Config.m_CcCustomBackgroundImage[0] != '\0' ? g_Config.m_CcCustomBackgroundImage : CATCLIENT_DEFAULT_BACKGROUND_NAME;
+	if(str_comp(m_aLoadedBackgroundImage, pSelectedImage) == 0)
+	{
+		return;
+	}
+
+	str_copy(m_aLoadedBackgroundImage, pSelectedImage, sizeof(m_aLoadedBackgroundImage));
+	if(!LoadCustomBackgroundTexture(pSelectedImage))
+	{
+		UnloadCustomBackgroundTexture();
+	}
+}
+
 void CCatClient::OnConsoleInit()
 {
 	if(ConfigManager() != nullptr)
@@ -284,7 +417,13 @@ void CCatClient::OnInit()
 	ResetAntiKill();
 	m_NameTags.Init(GameClient());
 	LoadCursorAsset(g_Config.m_ClAssetCursor);
+	EnsureCustomBackgroundFolder();
+	EnsureSelectedCustomBackgroundLoaded();
 	StartAutomaticCursorDownload();
+	if(!Storage()->FileExists(CATCLIENT_DEFAULT_BACKGROUND_PATH, IStorage::TYPE_SAVE))
+	{
+		StartDefaultBackgroundDownload();
+	}
 	UpdateAspectRatioOverride();
 }
 
@@ -295,10 +434,25 @@ void CCatClient::OnUpdate()
 		FinishAutomaticCursorDownload();
 		m_pCursorDownloadTask = nullptr;
 	}
+	if(m_pBackgroundDownloadTask && m_pBackgroundDownloadTask->Done())
+	{
+		FinishDefaultBackgroundDownload();
+		m_pBackgroundDownloadTask = nullptr;
+	}
+
+	if(!Storage()->FileExists(CATCLIENT_DEFAULT_BACKGROUND_PATH, IStorage::TYPE_SAVE) && !m_pBackgroundDownloadTask)
+	{
+		const auto Now = time_get_nanoseconds();
+		if(m_LastBackgroundAttempt == std::chrono::nanoseconds::zero() || Now - m_LastBackgroundAttempt >= DEFAULT_BACKGROUND_RETRY_INTERVAL)
+		{
+			StartDefaultBackgroundDownload();
+		}
+	}
 
 	UpdateIgnoredPlayers();
 	UpdateAspectRatioOverride();
 	UpdateAntiKillState();
+	EnsureSelectedCustomBackgroundLoaded();
 	m_NameTags.Update();
 }
 
@@ -311,6 +465,14 @@ void CCatClient::OnReset()
 
 void CCatClient::OnRender()
 {
+	if(Client()->State() == IClient::STATE_ONLINE || Client()->State() == IClient::STATE_DEMOPLAYBACK)
+	{
+		if(HasGameCustomBackground())
+		{
+			RenderCustomBackground();
+		}
+	}
+
 	if(!g_Config.m_CcAutoTeamLock ||
 		Client()->State() != IClient::STATE_ONLINE ||
 		GameClient()->m_Snap.m_LocalClientId < 0 ||
@@ -374,12 +536,15 @@ void CCatClient::OnShutdown()
 	Graphics()->ClearScreenAspectOverride();
 	m_NameTags.Shutdown();
 	AbortTask(m_pCursorDownloadTask);
+	AbortTask(m_pBackgroundDownloadTask);
 
 	if(m_HasCustomCursor)
 	{
 		Graphics()->UnloadTexture(&m_CursorTexture);
 		m_HasCustomCursor = false;
 	}
+	UnloadCustomBackgroundTexture();
+	m_aLoadedBackgroundImage[0] = '\0';
 }
 
 void CCatClient::OnNewSnapshot()
@@ -565,6 +730,52 @@ void CCatClient::RenderCatIcon(const CUIRect &Rect, float Alpha) const
 	const IGraphics::CQuadItem QuadItem(Icon.x, Icon.y, Icon.w, Icon.h);
 	Graphics()->QuadsDrawTL(&QuadItem, 1);
 	Graphics()->QuadsEnd();
+	Graphics()->WrapNormal();
+}
+
+bool CCatClient::HasMenuCustomBackground() const
+{
+	return g_Config.m_CcCustomBackgroundMainMenu != 0 && m_HasCustomBackgroundTexture;
+}
+
+bool CCatClient::HasGameCustomBackground() const
+{
+	return g_Config.m_CcCustomBackgroundGame != 0 && m_HasCustomBackgroundTexture;
+}
+
+bool CCatClient::IsDefaultBackgroundDownloading() const
+{
+	return m_pBackgroundDownloadTask != nullptr;
+}
+
+void CCatClient::ReloadCustomBackground()
+{
+	UnloadCustomBackgroundTexture();
+	m_aLoadedBackgroundImage[0] = '\0';
+	EnsureSelectedCustomBackgroundLoaded();
+}
+
+void CCatClient::RenderCustomBackground()
+{
+	if(!m_HasCustomBackgroundTexture)
+	{
+		return;
+	}
+
+	const float ScreenHeight = 300.0f;
+	const float ScreenWidth = ScreenHeight * ((float)Graphics()->WindowWidth() / (float)maximum(Graphics()->WindowHeight(), 1));
+	Graphics()->MapScreen(0.0f, 0.0f, ScreenWidth, ScreenHeight);
+
+	Graphics()->BlendNormal();
+	Graphics()->WrapClamp();
+	Graphics()->TextureSet(m_CustomBackgroundTexture);
+	Graphics()->QuadsBegin();
+	Graphics()->SetColor(1.0f, 1.0f, 1.0f, 1.0f);
+	Graphics()->QuadsSetSubset(0.0f, 0.0f, 1.0f, 1.0f);
+	const IGraphics::CQuadItem Quad(0.0f, 0.0f, ScreenWidth, ScreenHeight);
+	Graphics()->QuadsDrawTL(&Quad, 1);
+	Graphics()->QuadsEnd();
+	Graphics()->TextureClear();
 	Graphics()->WrapNormal();
 }
 

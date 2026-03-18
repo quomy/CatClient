@@ -883,6 +883,11 @@ int CInput::Update()
 void CInput::ProcessSystemMessage(SDL_SysWMmsg *pMsg)
 {
 #if defined(CONF_FAMILY_WINDOWS)
+	if(pMsg == nullptr)
+	{
+		return;
+	}
+
 	// Todo SDL: remove this after SDL2 supports IME candidates
 	if(pMsg->subsystem == SDL_SYSWM_WINDOWS && pMsg->msg.win.msg == WM_IME_NOTIFY)
 	{
@@ -893,6 +898,13 @@ void CInput::ProcessSystemMessage(SDL_SysWMmsg *pMsg)
 		{
 			HWND WindowHandle = pMsg->msg.win.hwnd;
 			HIMC ImeContext = ImmGetContext(WindowHandle);
+			m_vCandidates.clear();
+			if(ImeContext == nullptr)
+			{
+				m_CandidateSelectedIndex = -1;
+				break;
+			}
+
 			DWORD Size = ImmGetCandidateListW(ImeContext, 0, nullptr, 0);
 			LPCANDIDATELIST pCandidateList = nullptr;
 			if(Size > 0)
@@ -900,7 +912,6 @@ void CInput::ProcessSystemMessage(SDL_SysWMmsg *pMsg)
 				pCandidateList = (LPCANDIDATELIST)malloc(Size);
 				Size = ImmGetCandidateListW(ImeContext, 0, pCandidateList, Size);
 			}
-			m_vCandidates.clear();
 			if(pCandidateList && Size > 0)
 			{
 				m_vCandidates.reserve(std::min(pCandidateList->dwCount - pCandidateList->dwPageStart, pCandidateList->dwPageSize));

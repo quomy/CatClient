@@ -84,6 +84,12 @@ void CInfoMessages::OnInit()
 	Graphics()->QuadContainerUpload(m_SpriteQuadContainerIndex);
 }
 
+void CInfoMessages::OnShutdown()
+{
+	OnReset();
+	Graphics()->DeleteQuadContainer(m_SpriteQuadContainerIndex);
+}
+
 CInfoMessages::CInfoMsg CInfoMessages::CreateInfoMsg(EType Type)
 {
 	CInfoMsg InfoMsg;

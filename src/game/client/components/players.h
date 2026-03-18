@@ -40,7 +40,7 @@ class CPlayers : public CComponent
 		int ClientId);
 	bool IsPlayerInfoAvailable(int ClientId) const;
 
-	int m_WeaponEmoteQuadContainerIndex;
+	int m_WeaponEmoteQuadContainerIndex = -1;
 	int m_aWeaponSpriteMuzzleQuadContainerIndex[NUM_WEAPONS];
 
 	void CreateNinjaTeeRenderInfo();
@@ -50,6 +50,7 @@ class CPlayers : public CComponent
 	std::shared_ptr<CManagedTeeRenderInfo> m_pSpectatorTeeRenderInfo;
 
 public:
+	CPlayers();
 	float GetPlayerTargetAngle(
 		const CNetObj_Character *pPrevChar,
 		const CNetObj_Character *pPlayerChar,
@@ -58,6 +59,7 @@ public:
 
 	int Sizeof() const override { return sizeof(*this); }
 	void OnInit() override;
+	void OnShutdown() override;
 	void OnRender() override;
 
 	const std::shared_ptr<CManagedTeeRenderInfo> &NinjaTeeRenderInfo() const { return m_pNinjaTeeRenderInfo; }

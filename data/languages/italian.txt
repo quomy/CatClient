@@ -547,7 +547,7 @@ Browser
 Ghost
 == Ghost
 
-Loading CatClient Client
+Loading CatClient
 == Caricando Client DDNet
 
 Reconnect in %d sec

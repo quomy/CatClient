@@ -523,7 +523,7 @@ Browser
 Ghost
 == ゴースト
 
-Loading CatClient Client
+Loading CatClient
 == DDNet Client 読み込み中
 
 Reconnect in %d sec

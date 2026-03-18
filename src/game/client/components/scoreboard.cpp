@@ -105,6 +105,11 @@ void CScoreboard::OnInit()
 	m_DeadTeeTexture = Graphics()->LoadTexture("deadtee.png", IStorage::TYPE_ALL);
 }
 
+void CScoreboard::OnShutdown()
+{
+	Graphics()->UnloadTexture(&m_DeadTeeTexture);
+}
+
 void CScoreboard::OnReset()
 {
 	m_Active = false;

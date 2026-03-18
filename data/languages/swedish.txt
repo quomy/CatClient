@@ -862,7 +862,7 @@ Enable regular chat sound
 Gameplay
 == Spelet
 
-Loading CatClient Client
+Loading CatClient
 == Laddar DDNet Klienten
 
 Show HUD

@@ -109,6 +109,16 @@ void CCountryFlags::OnInit()
 	Graphics()->QuadContainerUpload(m_FlagsQuadContainerIndex);
 }
 
+void CCountryFlags::OnShutdown()
+{
+	for(CCountryFlag &CountryFlag : m_vCountryFlags)
+	{
+		Graphics()->UnloadTexture(&CountryFlag.m_Texture);
+	}
+	m_vCountryFlags.clear();
+	Graphics()->DeleteQuadContainer(m_FlagsQuadContainerIndex);
+}
+
 size_t CCountryFlags::Num() const
 {
 	return m_vCountryFlags.size();

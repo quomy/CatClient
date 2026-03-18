@@ -1,0 +1,45 @@
+{
+  "version": 3,
+  "cmakeMinimumRequired": {
+    "major": 3,
+    "minor": 21,
+    "patch": 0
+  },
+  "configurePresets": [
+    {
+      "name": "make-release-base",
+      "hidden": true,
+      "generator": "Unix Makefiles",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release"
+      }
+    },
+    {
+      "name": "linux-make-release",
+      "displayName": "Linux Make Release",
+      "inherits": "make-release-base",
+      "binaryDir": "${sourceDir}/build-linux-make-release"
+    },
+    {
+      "name": "win64-make-release",
+      "displayName": "Win64 Make Release",
+      "inherits": "make-release-base",
+      "binaryDir": "${sourceDir}/build-win64-make-release",
+      "cacheVariables": {
+        "CMAKE_DISABLE_FIND_PACKAGE_GTest": "TRUE",
+        "DOWNLOAD_GTEST": "OFF",
+        "CMAKE_TOOLCHAIN_FILE": "${sourceDir}/cmake/toolchains/mingw64.toolchain"
+      }
+    }
+  ],
+  "buildPresets": [
+    {
+      "name": "linux-make-release",
+      "configurePreset": "linux-make-release"
+    },
+    {
+      "name": "win64-make-release",
+      "configurePreset": "win64-make-release"
+    }
+  ]
+}

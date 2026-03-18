@@ -101,6 +101,7 @@ public:
 	void OnInit() override;
 	void OnMapLoad() override;
 	void OnRender() override;
+	void OnShutdown() override;
 
 	void LoadMenuBackground(bool HasDayHint = true, bool HasNightHint = true);
 

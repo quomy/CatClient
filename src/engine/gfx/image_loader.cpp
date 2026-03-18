@@ -3,6 +3,9 @@
 #include <base/log.h>
 #include <base/system.h>
 
+#if defined(CONF_JPEG)
+#include <jpeglib.h>
+#endif
 #include <png.h>
 
 #include <csetjmp>
@@ -307,6 +310,106 @@ bool CImageLoader::LoadPng(IOHANDLE File, const char *pFilename, CImageInfo &Ima
 	}
 
 	return true;
+}
+
+#if defined(CONF_JPEG)
+class CJpegErrorStruct
+{
+public:
+	jpeg_error_mgr m_ErrorManager{};
+	std::jmp_buf m_JmpBuf{};
+	const char *m_pContextName = nullptr;
+	char m_aMessage[JMSG_LENGTH_MAX]{};
+};
+
+[[noreturn]] static void JpegErrorExit(j_common_ptr pCommonInfo)
+{
+	CJpegErrorStruct *pError = reinterpret_cast<CJpegErrorStruct *>(pCommonInfo->err);
+	(*pCommonInfo->err->format_message)(pCommonInfo, pError->m_aMessage);
+	log_error("jpeg", "error for file \"%s\": %s", pError->m_pContextName, pError->m_aMessage);
+	std::longjmp(pError->m_JmpBuf, 1);
+}
+#endif
+
+bool CImageLoader::LoadJpg(IOHANDLE File, const char *pFilename, CImageInfo &Image)
+{
+	if(!File)
+	{
+		log_error("jpeg", "failed to open file for reading. filename='%s'", pFilename);
+		return false;
+	}
+
+	void *pFileData = nullptr;
+	unsigned FileDataSize = 0;
+	const bool ReadSuccess = io_read_all(File, &pFileData, &FileDataSize);
+	io_close(File);
+	if(!ReadSuccess || pFileData == nullptr || FileDataSize == 0)
+	{
+		log_error("jpeg", "failed to read file. filename='%s'", pFilename);
+		free(pFileData);
+		return false;
+	}
+
+#if !defined(CONF_JPEG)
+	free(pFileData);
+	log_error("jpeg", "jpeg support is not available in this build. filename='%s'", pFilename);
+	return false;
+#else
+	CJpegErrorStruct Error;
+	Error.m_pContextName = pFilename;
+
+	jpeg_decompress_struct DecompressInfo{};
+	DecompressInfo.err = jpeg_std_error(&Error.m_ErrorManager);
+	Error.m_ErrorManager.error_exit = JpegErrorExit;
+
+	if(setjmp(Error.m_JmpBuf))
+	{
+		jpeg_destroy_decompress(&DecompressInfo);
+		free(pFileData);
+		Image.Free();
+		return false;
+	}
+
+	jpeg_create_decompress(&DecompressInfo);
+	jpeg_mem_src(&DecompressInfo, static_cast<unsigned char *>(pFileData), FileDataSize);
+
+	if(jpeg_read_header(&DecompressInfo, TRUE) != JPEG_HEADER_OK)
+	{
+		jpeg_destroy_decompress(&DecompressInfo);
+		free(pFileData);
+		log_error("jpeg", "failed to read jpeg header. filename='%s'", pFilename);
+		return false;
+	}
+
+	DecompressInfo.out_color_space = JCS_RGB;
+	jpeg_start_decompress(&DecompressInfo);
+
+	Image.Free();
+	Image.m_Width = DecompressInfo.output_width;
+	Image.m_Height = DecompressInfo.output_height;
+	Image.m_Format = CImageInfo::FORMAT_RGB;
+	Image.m_pData = static_cast<uint8_t *>(malloc(Image.DataSize()));
+	if(Image.m_pData == nullptr)
+	{
+		jpeg_finish_decompress(&DecompressInfo);
+		jpeg_destroy_decompress(&DecompressInfo);
+		free(pFileData);
+		log_error("jpeg", "out of memory while loading '%s'", pFilename);
+		return false;
+	}
+
+	const size_t RowSize = Image.m_Width * Image.PixelSize();
+	while(DecompressInfo.output_scanline < DecompressInfo.output_height)
+	{
+		JSAMPROW pRow = &Image.m_pData[DecompressInfo.output_scanline * RowSize];
+		jpeg_read_scanlines(&DecompressInfo, &pRow, 1);
+	}
+
+	jpeg_finish_decompress(&DecompressInfo);
+	jpeg_destroy_decompress(&DecompressInfo);
+	free(pFileData);
+	return true;
+#endif
 }
 
 static void PngWriteDataCallback(png_structp pPngStruct, png_bytep pOutBytes, png_size_t ByteCountToWrite)

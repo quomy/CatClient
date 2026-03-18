@@ -1012,7 +1012,7 @@ Loading assets
 Loading commands…
 == Завантаження команд…
 
-Loading CatClient Client
+Loading CatClient
 == Завантаження клієнта DDNet
 
 Loading demo file from storage

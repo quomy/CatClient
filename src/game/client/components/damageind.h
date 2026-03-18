@@ -26,7 +26,7 @@ class CDamageInd : public CComponent
 	CItem m_aItems[MAX_ITEMS];
 	int m_NumItems;
 
-	int m_DmgIndQuadContainerIndex;
+	int m_DmgIndQuadContainerIndex = -1;
 
 public:
 	CDamageInd();
@@ -36,5 +36,6 @@ public:
 	void OnReset() override;
 	void OnRender() override;
 	void OnInit() override;
+	void OnShutdown() override;
 };
 #endif

@@ -520,7 +520,7 @@ Browser
 Ghost
 == Fantasma
 
-Loading CatClient Client
+Loading CatClient
 == Cargando el cliente DDNet
 
 Reconnect in %d sec

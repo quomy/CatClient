@@ -73,6 +73,7 @@ public:
 
 	int Sizeof() const override { return sizeof(*this); }
 	void OnInit() override;
+	void OnShutdown() override;
 
 	void Refresh(TSkinLoadedCallback &&SkinLoadedCallback);
 	std::chrono::nanoseconds LastRefreshTime() const { return m_LastRefreshTime; }
