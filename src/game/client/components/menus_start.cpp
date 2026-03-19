@@ -24,6 +24,66 @@
 #include <android/android_main.h>
 #endif
 
+namespace
+{
+#if defined(CONF_AUTOUPDATE)
+void StartOrRetryCatClientUpdate(CGameClient *pGameClient)
+{
+	pGameClient->Updater()->InitiateUpdate();
+}
+
+bool ShouldShowCatClientUpdateButton(CGameClient *pGameClient)
+{
+	const IUpdater::EUpdaterState State = pGameClient->Updater()->GetCurrentState();
+	return (State == IUpdater::CLEAN || State == IUpdater::FAIL) && pGameClient->m_TClient.NeedUpdate();
+}
+
+const char *GetCatClientUpdateButtonText(CGameClient *pGameClient)
+{
+	return pGameClient->Updater()->GetCurrentState() == IUpdater::FAIL ? CCLocalize("Retry update") : CCLocalize("Update now");
+}
+#endif
+
+const char *GetCatClientUpdateBadgeText(CGameClient *pGameClient)
+{
+#if defined(CONF_AUTOUPDATE)
+	switch(pGameClient->Updater()->GetCurrentState())
+	{
+	case IUpdater::GETTING_MANIFEST:
+	case IUpdater::PARSING_UPDATE:
+	case IUpdater::DOWNLOADING:
+	case IUpdater::MOVE_FILES:
+		return CCLocalize("(Updating)");
+	case IUpdater::NEED_RESTART:
+		return CCLocalize("(Restart required)");
+	case IUpdater::FAIL:
+		return CCLocalize("(Update failed)");
+	default:
+		break;
+	}
+#endif
+
+	if(!pGameClient->m_TClient.m_FetchedTClientInfo)
+	{
+		return CCLocalize("(Checking for updates)");
+	}
+	if(pGameClient->m_TClient.NoPublishedRelease())
+	{
+		return CCLocalize("(No published release)");
+	}
+	if(pGameClient->m_TClient.NeedUpdate())
+	{
+		return CCLocalize("(Update available)");
+	}
+	if(pGameClient->m_TClient.UpdateCheckFailed())
+	{
+		return CCLocalize("(Update check unavailable)");
+	}
+	return CCLocalize("(Up to date)");
+}
+
+} // namespace
+
 void CMenusStart::RenderStartMenu(CUIRect MainView)
 {
 	GameClient()->m_MenuBackground.ChangePosition(CMenuBackground::POS_START);
@@ -73,16 +133,16 @@ void CMenusStart::RenderStartMenu(CUIRect MainView)
 		CUIRect RowButton;
 
 		Row.VSplitLeft(ButtonWidth, &RowButton, &Row);
-		if(DoMenuButton(&s_PlayButton, Localize("PLAY", "Start menu"), RowButton, nullptr, ColorRGBA(0.0f, 0.0f, 0.0f, 0.25f)) || Ui()->ConsumeHotkey(CUi::HOTKEY_ENTER) || CheckHotKey(KEY_P))
+		if(DoMenuButton(&s_PlayButton, Localize("Play", "Start menu"), RowButton, nullptr, ColorRGBA(0.0f, 0.0f, 0.0f, 0.25f)) || Ui()->ConsumeHotkey(CUi::HOTKEY_ENTER) || CheckHotKey(KEY_P))
 			NewPage = g_Config.m_UiPage >= CMenus::PAGE_INTERNET && g_Config.m_UiPage <= CMenus::PAGE_FAVORITE_COMMUNITY_5 ? g_Config.m_UiPage : CMenus::PAGE_INTERNET;
 		Row.VSplitLeft(Gap, nullptr, &Row);
 		Row.VSplitLeft(ButtonWidth, &RowButton, &Row);
-		if(DoMenuButton(&s_SettingsButton, Localize("SETTINGS"), RowButton, nullptr, ColorRGBA(0.0f, 0.0f, 0.0f, 0.25f)) || CheckHotKey(KEY_S))
+		if(DoMenuButton(&s_SettingsButton, Localize("Settings"), RowButton, nullptr, ColorRGBA(0.0f, 0.0f, 0.0f, 0.25f)) || CheckHotKey(KEY_S))
 			NewPage = CMenus::PAGE_SETTINGS;
 		Row.VSplitLeft(Gap, nullptr, &Row);
 		Row.VSplitLeft(ButtonWidth, &RowButton, &Row);
 		bool UsedEscape = false;
-		if(DoMenuButton(&s_QuitButton, Localize("QUIT"), RowButton, nullptr, ColorRGBA(0.0f, 0.0f, 0.0f, 0.25f)) || (UsedEscape = Ui()->ConsumeHotkey(CUi::HOTKEY_ESCAPE)) || CheckHotKey(KEY_Q))
+		if(DoMenuButton(&s_QuitButton, Localize("Quit"), RowButton, nullptr, ColorRGBA(0.0f, 0.0f, 0.0f, 0.25f)) || (UsedEscape = Ui()->ConsumeHotkey(CUi::HOTKEY_ESCAPE)) || CheckHotKey(KEY_Q))
 		{
 			if(UsedEscape || GameClient()->m_Menus.ShouldConfirmQuit())
 				GameClient()->m_Menus.ShowQuitPopup();
@@ -139,12 +199,6 @@ void CMenusStart::RenderStartMenu(CUIRect MainView)
 	const float PlayerCardWidth = minimum(380.0f, maximum(260.0f, MainView.w - 80.0f));
 	CUIRect PlayerCard = {MainView.x + MainView.w / 2.0f - PlayerCardWidth / 2.0f, ActionBottomY + 14.0f, PlayerCardWidth, 82.0f};
 	static CButtonContainer s_PlayerTeeButton;
-	static int s_PlayerCardEmote = EMOTE_NORMAL;
-	static double s_PlayerCardEmoteUntil = 0.0;
-	if(s_PlayerCardEmoteUntil <= Client()->GlobalTime())
-	{
-		s_PlayerCardEmote = EMOTE_NORMAL;
-	}
 	PlayerCard.Draw(ColorRGBA(0.0f, 0.0f, 0.0f, 0.18f), IGraphics::CORNER_ALL, Rounding);
 
 	CUIRect PlayerContent;
@@ -155,9 +209,7 @@ void CMenusStart::RenderStartMenu(CUIRect MainView)
 	TeeBox.Draw(ColorRGBA(1.0f, 1.0f, 1.0f, 0.035f), IGraphics::CORNER_ALL, 8.0f);
 	if(Ui()->DoButtonLogic(&s_PlayerTeeButton, 0, &TeeBox, BUTTONFLAG_LEFT))
 	{
-		static const int s_aRandomEmotes[] = {EMOTE_PAIN, EMOTE_HAPPY, EMOTE_SURPRISE, EMOTE_ANGRY, EMOTE_BLINK};
-		s_PlayerCardEmote = s_aRandomEmotes[(int)random_float((float)(sizeof(s_aRandomEmotes) / sizeof(s_aRandomEmotes[0])))];
-		s_PlayerCardEmoteUntil = Client()->GlobalTime() + 1.2;
+		g_Config.m_ClPlayerDefaultEyes = (g_Config.m_ClPlayerDefaultEyes + 1) % NUM_EMOTES;
 	}
 
 	CUIRect PlayerText, PlayerIcon;
@@ -187,7 +239,7 @@ void CMenusStart::RenderStartMenu(CUIRect MainView)
 	{
 		TeeDir = vec2(1.0f, 0.0f);
 	}
-	int TeeEmote = s_PlayerCardEmote;
+	int TeeEmote = maximum(0, minimum(NUM_EMOTES - 1, g_Config.m_ClPlayerDefaultEyes));
 	if(TeeDirLength < 0.4f && TeeEmote == EMOTE_NORMAL)
 	{
 		TeeEmote = EMOTE_HAPPY;
@@ -227,64 +279,47 @@ void CMenusStart::RenderStartMenu(CUIRect MainView)
 	CUIRect UpdateToDateText;
 	MainView.HSplitTop(15.0f, &UpdateToDateText, nullptr);
 	UpdateToDateText.VSplitRight(40.0f, &UpdateToDateText, nullptr);
-	if(!GameClient()->m_TClient.m_FetchedTClientInfo)
-	{
-		Ui()->DoLabel(&UpdateToDateText, Localize("(Checking GitHub release)"), 14.0f, TEXTALIGN_MR);
-	}
-	else if(GameClient()->m_TClient.NoPublishedRelease())
-	{
-		Ui()->DoLabel(&UpdateToDateText, Localize("(No published release)"), 14.0f, TEXTALIGN_MR);
-	}
-	else if(GameClient()->m_TClient.NeedUpdate())
-	{
-		Ui()->DoLabel(&UpdateToDateText, Localize("(Update available)"), 14.0f, TEXTALIGN_MR);
-	}
-	else if(GameClient()->m_TClient.UpdateCheckFailed())
-	{
-		Ui()->DoLabel(&UpdateToDateText, Localize("(Update check unavailable)"), 14.0f, TEXTALIGN_MR);
-	}
-	else
-	{
-		Ui()->DoLabel(&UpdateToDateText, Localize("(On Latest)"), 14.0f, TEXTALIGN_MR);
-	}
+	Ui()->DoLabel(&UpdateToDateText, GetCatClientUpdateBadgeText(GameClient()), 14.0f, TEXTALIGN_MR);
 #endif
-	CUIRect VersionUpdate;
-	MainView.HSplitBottom(20.0f, nullptr, &VersionUpdate);
-	VersionUpdate.VMargin(ContentMargin, &VersionUpdate);
 #if defined(CONF_AUTOUPDATE) || defined(CONF_INFORM_UPDATE)
-	char aBuf[256] = "";
-	const bool NeedUpdate = GameClient()->m_TClient.NeedUpdate();
-	if(NeedUpdate)
+	bool ShowVersionAction = false;
+#if defined(CONF_AUTOUPDATE)
+	ShowVersionAction = GameClient()->Updater()->GetCurrentState() == IUpdater::NEED_RESTART || ShouldShowCatClientUpdateButton(GameClient());
+#else
+	ShowVersionAction = GameClient()->m_TClient.NeedUpdate();
+#endif
+	if(ShowVersionAction)
 	{
-		CUIRect DownloadButton;
-		VersionUpdate.VSplitRight(135.0f, &VersionUpdate, &DownloadButton);
-		VersionUpdate.VSplitRight(10.0f, &VersionUpdate, nullptr);
-
-		static CButtonContainer s_DownloadButton;
-		if(GameClient()->m_Menus.DoButton_Menu(&s_DownloadButton, Localize("Download update"), 0, &DownloadButton, BUTTONFLAG_LEFT, 0, IGraphics::CORNER_ALL, 5.0f, 0.0f, ColorRGBA(0.0f, 0.0f, 0.0f, 0.25f)))
+		CUIRect VersionUpdate;
+		MainView.HSplitBottom(20.0f, nullptr, &VersionUpdate);
+		VersionUpdate.VMargin(ContentMargin, &VersionUpdate);
+#if defined(CONF_AUTOUPDATE)
+		if(GameClient()->Updater()->GetCurrentState() == IUpdater::NEED_RESTART)
 		{
-			Client()->ViewLink(GameClient()->m_TClient.LatestReleaseUrl());
+			CUIRect RestartButton;
+			VersionUpdate.VSplitRight(110.0f, &VersionUpdate, &RestartButton);
+			VersionUpdate.VSplitRight(10.0f, &VersionUpdate, nullptr);
+
+			static CButtonContainer s_RestartAfterUpdateButton;
+			if(GameClient()->m_Menus.DoButton_Menu(&s_RestartAfterUpdateButton, Localize("Restart"), 0, &RestartButton, BUTTONFLAG_LEFT, 0, IGraphics::CORNER_ALL, 5.0f, 0.0f, ColorRGBA(0.0f, 0.0f, 0.0f, 0.25f)))
+			{
+				Client()->Restart();
+			}
 		}
+		else if(ShouldShowCatClientUpdateButton(GameClient()))
+		{
+			CUIRect UpdateButton;
+			VersionUpdate.VSplitRight(120.0f, &VersionUpdate, &UpdateButton);
+			VersionUpdate.VSplitRight(10.0f, &VersionUpdate, nullptr);
 
-		str_format(aBuf, sizeof(aBuf), Localize("CatClient %s is available on GitHub."), GameClient()->m_TClient.m_aVersionStr);
-		TextRender()->TextColor(1.0f, 0.4f, 0.4f, 1.0f);
+			static CButtonContainer s_UpdateButton;
+			if(GameClient()->m_Menus.DoButton_Menu(&s_UpdateButton, GetCatClientUpdateButtonText(GameClient()), 0, &UpdateButton, BUTTONFLAG_LEFT, 0, IGraphics::CORNER_ALL, 5.0f, 0.0f, ColorRGBA(0.0f, 0.0f, 0.0f, 0.25f)))
+			{
+				StartOrRetryCatClientUpdate(GameClient());
+			}
+		}
+#endif
 	}
-	else if(!GameClient()->m_TClient.m_FetchedTClientInfo)
-	{
-		str_copy(aBuf, Localize("Checking CatClient updates…"));
-	}
-	else if(GameClient()->m_TClient.NoPublishedRelease())
-	{
-		str_copy(aBuf, Localize("No CatClient release has been published on GitHub yet."));
-	}
-	else if(GameClient()->m_TClient.UpdateCheckFailed())
-	{
-		str_copy(aBuf, Localize("Couldn't check CatClient updates."));
-		TextRender()->TextColor(1.0f, 0.4f, 0.4f, 1.0f);
-	}
-
-	Ui()->DoLabel(&VersionUpdate, aBuf, 14.0f, TEXTALIGN_ML);
-	TextRender()->TextColor(TextRender()->DefaultTextColor());
 #endif
 
 	if(NewPage != -1)

@@ -149,20 +149,13 @@ is_bundled(FFMPEG_BUNDLED "${AVCODEC_LIBRARY}")
 set(FFMPEG_COPY_FILES)
 if(FFMPEG_BUNDLED)
   if(TARGET_OS STREQUAL "windows")
-    set(FFMPEG_COPY_FILES
-      "${EXTRA_FFMPEG_LIBDIR}/avcodec-61.dll"
-      "${EXTRA_FFMPEG_LIBDIR}/avformat-61.dll"
-      "${EXTRA_FFMPEG_LIBDIR}/avutil-59.dll"
-      "${EXTRA_FFMPEG_LIBDIR}/swresample-5.dll"
-      "${EXTRA_FFMPEG_LIBDIR}/swscale-8.dll"
-    )
+    file(GLOB FFMPEG_COPY_FILES_ABSOLUTE "${EXTRA_FFMPEG_LIBDIR}/*.dll")
   elseif(TARGET_OS STREQUAL "mac")
-    set(FFMPEG_COPY_FILES
-      "${EXTRA_FFMPEG_LIBDIR}/libavcodec.61.dylib"
-      "${EXTRA_FFMPEG_LIBDIR}/libavformat.61.dylib"
-      "${EXTRA_FFMPEG_LIBDIR}/libavutil.59.dylib"
-      "${EXTRA_FFMPEG_LIBDIR}/libswresample.5.dylib"
-      "${EXTRA_FFMPEG_LIBDIR}/libswscale.8.dylib"
-    )
+    file(GLOB FFMPEG_COPY_FILES_ABSOLUTE "${EXTRA_FFMPEG_LIBDIR}/*.dylib")
   endif()
+
+  foreach(FFMPEG_COPY_FILE ${FFMPEG_COPY_FILES_ABSOLUTE})
+    file(RELATIVE_PATH FFMPEG_COPY_FILE_RELATIVE "${PROJECT_SOURCE_DIR}" "${FFMPEG_COPY_FILE}")
+    list(APPEND FFMPEG_COPY_FILES "${FFMPEG_COPY_FILE_RELATIVE}")
+  endforeach()
 endif()

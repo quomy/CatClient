@@ -509,9 +509,6 @@ void CClient::EnterGame(int Conn)
 
 	m_aDidPostConnect[Conn] = false;
 
-	// TClient
-	m_aExecuteOnJoinDone[Conn] = false;
-
 	// now we will wait for two snapshots
 	// to finish the connection
 	SendEnterGame(Conn);
@@ -692,15 +689,6 @@ void CClient::Connect(const char *pAddress, const char *pPassword)
 
 	m_ConnectionId = RandomUuid();
 	ServerInfoRequest();
-
-	// TClient
-	// If user has manually specified password don't run autoexec
-	if(!m_SendPassword)
-	{
-		m_pGameClient->SetConnectInfo(&aConnectAddrs[0]);
-		m_pConsole->ExecuteLine(g_Config.m_TcExecuteOnConnect, IConsole::CLIENT_ID_UNSPECIFIED);
-	}
-	m_pGameClient->SetConnectInfo(nullptr);
 
 	if(m_SendPassword)
 	{
@@ -975,7 +963,7 @@ void CClient::RenderDebug()
 	str_format(aBuffer, sizeof(aBuffer), "Prediction time: %d ms", GetPredictionTime());
 	Graphics()->QuadsText(2, 2 + FontSize, FontSize, aBuffer);
 
-	str_format(aBuffer, sizeof(aBuffer), "FPS: %3d", round_to_int(1.0f / m_FrameTimeAverage));
+	str_format(aBuffer, sizeof(aBuffer), "FPS: %3d", round_to_int(1.0f / DisplayFrameTimeAverage()));
 	Graphics()->QuadsText(20.0f * FontSize, 2, FontSize, aBuffer);
 
 	str_format(aBuffer, sizeof(aBuffer), "Frametime: %4d us", round_to_int(m_FrameTimeAverage * 1000000.0f));
@@ -2256,14 +2244,6 @@ void CClient::ProcessServerPacket(CNetChunk *pPacket, int Conn, bool Dummy)
 					// apply snapshot, cycle pointers
 					m_aReceivedSnapshots[Conn]++;
 
-					// TClient
-					if(!m_aExecuteOnJoinDone[Conn] && m_aReceivedSnapshots[Conn] > g_Config.m_TcExecuteOnJoinDelay)
-					{
-						m_aExecuteOnJoinDone[Conn] = true;
-						if(g_Config.m_TcExecuteOnJoin[0] != '\0')
-							m_pConsole->ExecuteLine(g_Config.m_TcExecuteOnJoin, IConsole::CLIENT_ID_UNSPECIFIED);
-					}
-
 					// we got two snapshots until we see us self as connected
 					if(m_aReceivedSnapshots[Conn] == 2)
 					{
@@ -2902,7 +2882,8 @@ void CClient::Update()
 					SendInput();
 				}
 
-				if(g_Config.m_TcFastInput && GameClient()->CheckNewInput())
+				const bool FastInputEnabled = (g_Config.m_TcFastInputMode == 0 && g_Config.m_TcFastInput != 0) || (g_Config.m_TcFastInputMode == 1 && g_Config.m_TcFastInput != 0 && g_Config.m_TcFastInputSaikoAmount > 0);
+				if(FastInputEnabled && GameClient()->CheckNewInput())
 				{
 					Repredict = true;
 				}
@@ -3060,7 +3041,7 @@ void CClient::Update()
 	else
 		GameClient()->OnUpdate();
 
-	Discord()->Update(g_Config.m_TcDiscordRPC);
+	Discord()->Update(true);
 	Steam()->Update();
 	if(Steam()->GetConnectAddress())
 	{
@@ -3399,6 +3380,16 @@ void CClient::Run()
 				}
 
 				m_FrameTimeAverage = m_FrameTimeAverage * 0.9f + m_RenderFrameTime * 0.1f;
+				if(m_DisplayFrameTimeAverage <= 0.0f)
+				{
+					m_DisplayFrameTimeAverage = m_RenderFrameTime;
+				}
+				else
+				{
+					constexpr float FpsDisplaySmoothingTime = 0.75f;
+					const float DisplayAlpha = std::clamp(m_RenderFrameTime / FpsDisplaySmoothingTime, 0.0f, 1.0f);
+					m_DisplayFrameTimeAverage += (m_RenderFrameTime - m_DisplayFrameTimeAverage) * DisplayAlpha;
+				}
 
 				// keep the overflow time - it's used to make sure the gfx refreshrate is reached
 				int64_t AdditionalTime = g_Config.m_GfxRefreshRate ? ((Now - LastRenderTime) - (time_freq() / (int64_t)g_Config.m_GfxRefreshRate)) : 0;

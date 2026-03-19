@@ -134,9 +134,6 @@ class CClient : public IClient, public CDemoPlayer::IListener
 	bool m_aDidPostConnect[NUM_DUMMIES] = {false, false};
 	bool m_GenerateTimeoutSeed = true;
 
-	// TClient
-	std::array<bool, NUM_DUMMIES> m_aExecuteOnJoinDone = {};
-
 	char m_aCmdConnect[256] = "";
 	char m_aCmdPlayDemo[IO_MAX_PATH_LENGTH] = "";
 	char m_aCmdEditMap[IO_MAX_PATH_LENGTH] = "";

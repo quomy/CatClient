@@ -254,57 +254,6 @@ Indicator in freeze color
 Indicator safe color
 == Цвет игрока в безопасности
 
-Rainbow
-== Радуга
-
-Rainbow Tees
-== Радужные тии
-
-Rainbow weapons
-== Радужное оружие
-
-Rainbow hook
-== Радужный крюк
-
-Rainbow others
-== Радужные другие тии
-
-Rainbow speed
-== Скорость радуги
-
-Pulse
-== Пульс
-
-Black
-== Черный
-
-Random
-== Рандом
-
-Tee Trails
-== Трейл тии
-
-Enable tee trails
-== Включить трейлы
-
-Fade trail alpha
-== Затухание трейла
-
-Taper trail width
-== Сужающаяся ширина трейла
-
-Trail width
-== Ширина трейла
-
-Trail length
-== Длина трейла
-
-Trail alpha
-== Прозрачность трейла
-
-Tee trail color
-== Цвет трейла
-
 Name:
 == Название:
 
@@ -617,9 +566,6 @@ Auto reply to muted players
 Auto reply when tabbed out
 == Авто-ответ когда не в игре
 
-Show other tees' trails
-== Показывать трейл других тии
-
 Solid
 == Статический
 
@@ -843,9 +789,6 @@ Show country flags in nameplates
 == 
 
 Fake CTF flags
-== 
-
-Auto execute
 == 
 
 [Outlines]

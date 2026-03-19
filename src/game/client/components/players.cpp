@@ -25,8 +25,6 @@
 #include <game/gamecore.h>
 #include <game/mapitems.h>
 
-// TClient
-#include <game/client/components/tclient/rainbow.h>
 #include <game/client/prediction/entities/character.h>
 
 static float CalculateHandAngle(vec2 Dir, float AngleOffset)
@@ -96,8 +94,7 @@ void CPlayers::RenderHand6(const CTeeRenderInfo *pInfo, vec2 HandPos, float Hand
 {
 	const CSkin::CSkinTextures *pSkinTextures = pInfo->m_CustomColoredSkin ? &pInfo->m_ColorableRenderSkin : &pInfo->m_OriginalRenderSkin;
 
-	if(!g_Config.m_TcRainbowTees) // TClient
-		Graphics()->SetColor(pInfo->m_ColorBody.WithAlpha(Alpha));
+	Graphics()->SetColor(pInfo->m_ColorBody.WithAlpha(Alpha));
 	Graphics()->QuadsSetRotation(HandAngle);
 	Graphics()->TextureSet(pSkinTextures->m_HandsOutline);
 	Graphics()->RenderQuadContainerAsSprite(m_WeaponEmoteQuadContainerIndex, NUM_WEAPONS * 2, HandPos.x, HandPos.y);
@@ -534,12 +531,6 @@ void CPlayers::RenderHook(
 	int QuadOffset = NUM_WEAPONS * 2 + 2;
 	Graphics()->SetColor(1.0f, 1.0f, 1.0f, Alpha);
 
-	// TClient
-	bool Local = GameClient()->m_Snap.m_LocalClientId == ClientId;
-	bool DontOthers = !g_Config.m_TcRainbowOthers && !Local;
-	if(g_Config.m_TcRainbowHook && !DontOthers)
-		Graphics()->SetColor(GameClient()->m_Rainbow.m_RainbowColor.WithAlpha(Alpha));
-
 	Graphics()->RenderQuadContainerAsSprite(m_WeaponEmoteQuadContainerIndex, QuadOffset, HookPos.x, HookPos.y);
 
 	// render chain
@@ -559,9 +550,6 @@ void CPlayers::RenderHook(
 
 	Graphics()->QuadsSetRotation(0);
 	Graphics()->SetColor(1.0f, 1.0f, 1.0f, 1.0f);
-
-	if(g_Config.m_TcRainbowHook && !DontOthers)
-		Graphics()->SetColor(GameClient()->m_Rainbow.m_RainbowColor.WithAlpha(Alpha));
 
 	RenderHand(&RenderInfo, Position, normalize(HookPos - Pos), -pi / 2, vec2(20, 0), Alpha);
 }
@@ -742,11 +730,6 @@ void CPlayers::RenderPlayer(
 		{
 			Graphics()->SetColor(1.0f, 1.0f, 1.0f, Alpha);
 
-			// TClient
-			const bool DontOthers = !g_Config.m_TcRainbowOthers && !Local;
-			if(g_Config.m_TcRainbowWeapon && !DontOthers)
-				Graphics()->SetColor(GameClient()->m_Rainbow.m_RainbowColor.WithAlpha(Alpha));
-
 			if(g_Config.m_TcRenderWeaponsAsGun && (Player.m_Weapon == WEAPON_SHOTGUN || Player.m_Weapon == WEAPON_GRENADE || Player.m_Weapon == WEAPON_LASER))
 			{
 				if(g_Config.m_TcRenderWeaponsAsGun == 1)
@@ -763,6 +746,7 @@ void CPlayers::RenderPlayer(
 
 			// normal weapons
 			int CurrentWeapon = std::clamp(Player.m_Weapon, 0, NUM_WEAPONS - 1);
+			const bool JetpackGun = ClientId >= 0 && GameClient()->m_aClients[ClientId].m_Jetpack && CurrentWeapon == WEAPON_GUN;
 			Graphics()->TextureSet(GameClient()->m_GameSkin.m_aSpriteWeapons[CurrentWeapon]);
 			int QuadOffset = CurrentWeapon * 2 + (Direction.x < 0.0f ? 1 : 0);
 
@@ -823,9 +807,12 @@ void CPlayers::RenderPlayer(
 				{
 					// TODO: should be an animation
 					Recoil = 0;
-					float a = AttackTicksPassed / 5.0f;
-					if(a < 1)
-						Recoil = std::sin(a * pi);
+					if(!JetpackGun)
+					{
+						float a = AttackTicksPassed / 5.0f;
+						if(a < 1)
+							Recoil = std::sin(a * pi);
+					}
 					WeaponPosition = Position - Direction * (Recoil * 10.0f - 5.0f);
 					if(IsSit)
 						WeaponPosition.y += 3.0f;
@@ -911,9 +898,12 @@ void CPlayers::RenderPlayer(
 			{
 				// TODO: should be an animation
 				Recoil = 0.0f;
-				float a = AttackTicksPassed / 5.0f;
-				if(a < 1.0f)
-					Recoil = std::sin(a * pi);
+				if(!JetpackGun)
+				{
+					float a = AttackTicksPassed / 5.0f;
+					if(a < 1.0f)
+						Recoil = std::sin(a * pi);
+				}
 				WeaponPosition = Position + Direction * g_pData->m_Weapons.m_aId[CurrentWeapon].m_Offsetx - Direction * Recoil * 10.0f;
 				WeaponPosition.y += g_pData->m_Weapons.m_aId[CurrentWeapon].m_Offsety;
 				if(IsSit)
@@ -1522,7 +1512,7 @@ void CPlayers::OnRender()
 
 			Frozen = GameClient()->m_aClients[i].m_Predicted.m_FreezeEnd != 0;
 			// TClient
-			if(g_Config.m_TcFastInput)
+			if(GameClient()->FastInputUsesRegularPredicted())
 				Frozen = GameClient()->m_aClients[i].m_RegularPredicted.m_FreezeEnd != 0;
 		}
 		else

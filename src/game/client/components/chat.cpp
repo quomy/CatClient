@@ -904,9 +904,6 @@ void CChat::StoreSave(const char *pText)
 
 void CChat::AddLine(int ClientId, int Team, const char *pLine)
 {
-	if(GameClient()->m_CatClient.HasStreamerFlag(CCatClient::STREAMER_HIDE_FRIEND_WHISPER) && Team >= TEAM_WHISPER_SEND)
-		return;
-
 	if(pLine == nullptr || *pLine == 0 ||
 		(ClientId == SERVER_MSG && !g_Config.m_ClShowChatSystem) ||
 		(ClientId >= 0 && (GameClient()->m_aClients[ClientId].m_aName[0] == '\0' ||
@@ -1134,7 +1131,7 @@ void CChat::AddLine(int ClientId, int Team, const char *pLine)
 
 		if(LineAuthor.m_Active)
 		{
-			CurrentLine.m_Friend = !GameClient()->m_CatClient.HasStreamerFlag(CCatClient::STREAMER_HIDE_FRIEND_WHISPER) && LineAuthor.m_Friend;
+			CurrentLine.m_Friend = LineAuthor.m_Friend;
 			CurrentLine.m_pManagedTeeRenderInfo = GameClient()->CreateManagedTeeRenderInfo(LineAuthor);
 		}
 	}
@@ -1230,12 +1227,15 @@ void CChat::OnPrepareLines(float y)
 	float Begin = x;
 	float TextBegin = Begin + RealMsgPaddingX / 2.0f;
 	int OffsetType = IsScoreBoardOpen ? 1 : 0;
+	const bool HideFriendWhisperInfo = GameClient()->m_CatClient.HasStreamerFlag(CCatClient::STREAMER_HIDE_FRIEND_WHISPER) && m_Mode == MODE_NONE;
 
 	for(int i = 0; i < MAX_LINES; i++)
 	{
 		CLine &Line = m_aLines[((m_CurrentLine - i) + MAX_LINES) % MAX_LINES];
 		if(!Line.m_Initialized)
 			break;
+		if(HideFriendWhisperInfo && Line.m_Whisper)
+			continue;
 		if(Now > Line.m_Time + 16 * time_freq() && !m_PrevShowChat)
 			break;
 
@@ -1314,7 +1314,7 @@ void CChat::OnPrepareLines(float y)
 			{
 				MeasureCursor.m_X += RealMsgPaddingTee;
 
-				if(Line.m_Friend && g_Config.m_ClMessageFriend)
+				if(Line.m_Friend && g_Config.m_ClMessageFriend && !HideFriendWhisperInfo)
 				{
 					TextRender()->TextEx(&MeasureCursor, "♥ ");
 				}
@@ -1394,7 +1394,7 @@ void CChat::OnPrepareLines(float y)
 		{
 			LineCursor.m_X += RealMsgPaddingTee;
 
-			if(Line.m_Friend && g_Config.m_ClMessageFriend)
+			if(Line.m_Friend && g_Config.m_ClMessageFriend && !HideFriendWhisperInfo)
 			{
 				TextRender()->TextColor(color_cast<ColorRGBA>(ColorHSLA(g_Config.m_ClMessageFriendColor)).WithAlpha(1.0f));
 				TextRender()->CreateOrAppendTextContainer(Line.m_TextContainerIndex, &LineCursor, "♥ ");
@@ -1544,7 +1544,7 @@ void CChat::OnRender()
 	if(Client()->State() != IClient::STATE_ONLINE && Client()->State() != IClient::STATE_DEMOPLAYBACK)
 		return;
 
-	if(GameClient()->m_CatClient.HasStreamerFlag(CCatClient::STREAMER_HIDE_CHAT))
+	if(GameClient()->m_CatClient.HasStreamerFlag(CCatClient::STREAMER_HIDE_CHAT) && m_Mode == MODE_NONE)
 		return;
 
 	// send pending chat messages
@@ -1928,6 +1928,9 @@ void CChat::SendChat(int Team, const char *pLine)
 void CChat::SendChatQueued(const char *pLine)
 {
 	if(!pLine || str_length(pLine) < 1)
+		return;
+
+	if(GameClient()->m_VoiceChat.TryHandleChatCommand(pLine))
 		return;
 
 	bool AddEntry = false;

@@ -255,57 +255,6 @@ Indicator in freeze color
 Indicator safe color
 == 指示器安全颜色
 
-Rainbow
-== 彩虹
-
-Rainbow Tees
-== 彩虹色Tee
-
-Rainbow weapons
-== 彩虹色武器
-
-Rainbow hook
-== 彩虹色钩索
-
-Rainbow others
-== 将彩虹带给每个人！
-
-Rainbow speed
-== 颜色变化速度
-
-Pulse
-== 脉冲
-
-Black
-== 黑色
-
-Random
-== 随机
-
-Tee Trails
-== Tee拖尾
-
-Enable tee trails
-== 启用Tee拖尾
-
-Fade trail alpha
-== 淡化拖尾透明度
-
-Taper trail width
-== 锥形拖尾
-
-Trail width
-== 拖尾宽度
-
-Trail length
-== 拖尾长度
-
-Trail alpha
-== 拖尾透明度
-
-Tee trail color
-== Tee拖尾颜色
-
 Name:
 == 名称:
 
@@ -609,9 +558,6 @@ Auto reply to muted players
 Auto reply when tabbed out
 == 切出游戏窗口时自动回复
 
-Show other tees' trails
-== 显示其他Tee的轨迹
-
 Solid
 == 纯色
 
@@ -620,7 +566,6 @@ Tee
 
 Speed
 == 速度
-
 
  seconds
 ==  秒
@@ -832,9 +777,6 @@ Overwrite clan even if empty
 [translate]
 %s to %s failed: %s
 == %s 翻译到 %s 失败: %s
-
-Auto execute
-== 自动执行
 
 Unhook & hook
 == 墙体轮廓

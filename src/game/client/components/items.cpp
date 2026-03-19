@@ -378,25 +378,57 @@ void CItems::RenderLaser(vec2 From, vec2 Pos, ColorRGBA OuterColor, ColorRGBA In
 		Graphics()->TextureClear();
 		Graphics()->QuadsBegin();
 
-		// do outline
-		Graphics()->SetColor(OuterColor);
-		vec2 Out = vec2(Dir.y, -Dir.x) * (7.0f * Ia);
+		if(g_Config.m_CcEnhancedLaser)
+		{
+			static constexpr float s_GlowIntensity = 85.0f;
+			static constexpr int s_NumLayers = 13;
+			static constexpr float s_aAlphas[s_NumLayers] = {
+				0.02f, 0.03f, 0.04f, 0.05f, 0.06f, 0.08f, 0.10f,
+				0.15f, 0.25f, 0.45f, 0.65f, 0.85f, 1.0f};
+			static constexpr float s_aWidths[s_NumLayers] = {
+				24.0f, 22.0f, 20.0f, 18.0f, 16.0f, 14.0f, 12.0f,
+				10.0f, 8.0f, 6.0f, 4.0f, 3.0f, 2.0f};
 
-		IGraphics::CFreeformItem Freeform(
-			From - Out, From + Out,
-			Pos - Out, Pos + Out);
-		Graphics()->QuadsDrawFreeform(&Freeform, 1);
+			for(int i = 0; i < s_NumLayers; ++i)
+			{
+				const float Alpha = s_aAlphas[i] * (s_GlowIntensity / 100.0f);
+				const float Offset = s_aWidths[i] * Ia * (s_GlowIntensity / 100.0f);
+				const vec2 Out = vec2(Dir.y, -Dir.x) * Offset;
 
-		// do inner
-		Out = vec2(Dir.y, -Dir.x) * (5.0f * Ia);
-		vec2 ExtraOutlinePos = Dir;
-		vec2 ExtraOutlineFrom = Type == LASERTYPE_DOOR ? vec2(0, 0) : Dir;
-		Graphics()->SetColor(InnerColor); // center
+				const ColorRGBA Color = i == s_NumLayers - 1 ? ColorRGBA(1.0f, 1.0f, 1.0f, Alpha) :
+					(i >= s_NumLayers - 2 ? InnerColor.WithMultipliedAlpha(Alpha) : OuterColor.WithMultipliedAlpha(Alpha));
 
-		Freeform = IGraphics::CFreeformItem(
-			From - Out + ExtraOutlineFrom, From + Out + ExtraOutlineFrom,
-			Pos - Out - ExtraOutlinePos, Pos + Out - ExtraOutlinePos);
-		Graphics()->QuadsDrawFreeform(&Freeform, 1);
+				Graphics()->SetColor(Color);
+				IGraphics::CFreeformItem Freeform(
+					From.x - Out.x, From.y - Out.y,
+					From.x + Out.x, From.y + Out.y,
+					Pos.x - Out.x, Pos.y - Out.y,
+					Pos.x + Out.x, Pos.y + Out.y);
+				Graphics()->QuadsDrawFreeform(&Freeform, 1);
+			}
+		}
+		else
+		{
+			// do outline
+			Graphics()->SetColor(OuterColor);
+			vec2 Out = vec2(Dir.y, -Dir.x) * (7.0f * Ia);
+
+			IGraphics::CFreeformItem Freeform(
+				From - Out, From + Out,
+				Pos - Out, Pos + Out);
+			Graphics()->QuadsDrawFreeform(&Freeform, 1);
+
+			// do inner
+			Out = vec2(Dir.y, -Dir.x) * (5.0f * Ia);
+			vec2 ExtraOutlinePos = Dir;
+			vec2 ExtraOutlineFrom = Type == LASERTYPE_DOOR ? vec2(0, 0) : Dir;
+			Graphics()->SetColor(InnerColor); // center
+
+			Freeform = IGraphics::CFreeformItem(
+				From - Out + ExtraOutlineFrom, From + Out + ExtraOutlineFrom,
+				Pos - Out - ExtraOutlinePos, Pos + Out - ExtraOutlinePos);
+			Graphics()->QuadsDrawFreeform(&Freeform, 1);
+		}
 
 		Graphics()->QuadsEnd();
 	}

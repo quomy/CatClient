@@ -206,10 +206,9 @@ public:
 	virtual unsigned GetRenderFlags() const = 0;
 
 	ColorRGBA DefaultTextColor() const { return ColorRGBA(1, 1, 1, 1); }
-	ColorRGBA DefaultTextOutlineColor() const { return ColorRGBA(0, 0, 0, 0.3f); }
+	ColorRGBA DefaultTextOutlineColor() const { return ColorRGBA(0, 0, 0, 0.15f); }
 	ColorRGBA DefaultTextSelectionColor() const { return ColorRGBA(1.0f, 1.0f, 1.0f, 0.5f); }
 
-	//
 	virtual void TextEx(CTextCursor *pCursor, const char *pText, int Length = -1) = 0;
 	virtual bool CreateTextContainer(STextContainerIndex &TextContainerIndex, CTextCursor *pCursor, const char *pText, int Length = -1) = 0;
 	virtual void AppendTextContainer(STextContainerIndex TextContainerIndex, CTextCursor *pCursor, const char *pText, int Length = -1) = 0;

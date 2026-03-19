@@ -65,6 +65,7 @@ CMenus::CMenus()
 
 	m_NeedRestartGraphics = false;
 	m_NeedRestartSound = false;
+	m_NeedRestartUpdate = false;
 	m_NeedSendinfo = false;
 	m_NeedSendDummyinfo = false;
 	m_MenuActive = true;
@@ -2703,7 +2704,7 @@ int CMenus::MenuImageScan(const char *pName, int IsDir, int DirType, void *pUser
 	str_truncate(MenuImage.m_aName, sizeof(MenuImage.m_aName), pName, str_length(pName) - str_length(pExtension));
 	pSelf->m_vMenuImages.push_back(MenuImage);
 
-	pSelf->RenderLoading(Localize("Loading CatClient"), Localize("Loading menu images"), 0);
+	pSelf->RenderLoading(CCLocalize("Loading CatClient"), Localize("Loading menu images"), 0);
 
 	return 0;
 }

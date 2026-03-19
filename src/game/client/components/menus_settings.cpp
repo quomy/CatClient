@@ -4,6 +4,7 @@
 #include "menus.h"
 #include "skins.h"
 
+#include <base/str.h>
 #include <base/log.h>
 #include <base/math.h>
 #include <base/system.h>
@@ -32,12 +33,159 @@
 
 #include <array>
 #include <chrono>
+#include <limits>
 #include <memory>
 #include <numeric>
 #include <string>
 #include <vector>
 
 using namespace std::chrono_literals;
+
+namespace
+{
+#if defined(CONF_AUTOUPDATE)
+bool ShouldShowCatClientUpdateAction(CGameClient *pGameClient)
+{
+	const IUpdater::EUpdaterState State = pGameClient->Updater()->GetCurrentState();
+	return (State == IUpdater::CLEAN || State == IUpdater::FAIL) && pGameClient->m_TClient.NeedUpdate();
+}
+
+const char *GetCatClientUpdateActionText(CGameClient *pGameClient)
+{
+	return pGameClient->Updater()->GetCurrentState() == IUpdater::FAIL ? CCLocalize("Retry update") : CCLocalize("Update now");
+}
+#endif
+
+void FormatCatClientSettingsUpdateStatus(CGameClient *pGameClient, char *pBuf, int BufSize)
+{
+#if defined(CONF_AUTOUPDATE)
+	switch(pGameClient->Updater()->GetCurrentState())
+	{
+	case IUpdater::GETTING_MANIFEST:
+	case IUpdater::PARSING_UPDATE:
+		str_copy(pBuf, CCLocalize("Preparing CatClient update…"), BufSize);
+		return;
+	case IUpdater::DOWNLOADING:
+		str_format(pBuf, BufSize, CCLocalize("Updating CatClient… %d%%"), pGameClient->Updater()->GetCurrentPercent());
+		return;
+	case IUpdater::MOVE_FILES:
+		str_copy(pBuf, CCLocalize("Installing CatClient update…"), BufSize);
+		return;
+	case IUpdater::NEED_RESTART:
+		str_copy(pBuf, CCLocalize("CatClient update is installed. Restart to finish."), BufSize);
+		return;
+	case IUpdater::FAIL:
+		str_copy(pBuf, CCLocalize("CatClient update failed. Please try again."), BufSize);
+		return;
+	default:
+		break;
+	}
+#endif
+
+	if(pGameClient->m_TClient.NeedUpdate())
+	{
+		str_format(pBuf, BufSize, CCLocalize("CatClient %s is available."), pGameClient->m_TClient.m_aVersionStr);
+		return;
+	}
+	if(!pGameClient->m_TClient.m_FetchedTClientInfo)
+	{
+		str_copy(pBuf, CCLocalize("Checking CatClient updates…"), BufSize);
+		return;
+	}
+	if(pGameClient->m_TClient.NoPublishedRelease())
+	{
+		str_copy(pBuf, CCLocalize("No CatClient release has been published yet."), BufSize);
+		return;
+	}
+	if(pGameClient->m_TClient.UpdateCheckFailed())
+	{
+		str_copy(pBuf, CCLocalize("Couldn't check CatClient updates."), BufSize);
+		return;
+	}
+	str_copy(pBuf, CCLocalize("CatClient is up to date."), BufSize);
+}
+
+struct STeeFlagPopupContext
+{
+	CMenus *m_pMenus = nullptr;
+	int *m_pCountry = nullptr;
+	bool m_New = false;
+	CLineInputBuffered<25> m_FilterInput;
+};
+} // namespace
+
+CUi::EPopupMenuFunctionResult CMenus::PopupTeeFlagSelection(void *pContext, CUIRect View, bool Active)
+{
+	auto *pPopupContext = static_cast<STeeFlagPopupContext *>(pContext);
+	if(pPopupContext == nullptr || pPopupContext->m_pMenus == nullptr || pPopupContext->m_pCountry == nullptr)
+	{
+		return CUi::POPUP_CLOSE_CURRENT;
+	}
+
+	CMenus *pMenus = pPopupContext->m_pMenus;
+
+	CUIRect SearchBox;
+	View.HSplitTop(20.0f, &SearchBox, &View);
+	pMenus->Ui()->DoEditBox_Search(&pPopupContext->m_FilterInput, &SearchBox, 14.0f, Active && !pMenus->GameClient()->m_GameConsole.IsActive());
+	View.HSplitTop(6.0f, nullptr, &View);
+
+	std::vector<const CCountryFlags::CCountryFlag *> vpFilteredFlags;
+	vpFilteredFlags.reserve(pMenus->GameClient()->m_CountryFlags.Num());
+	for(size_t i = 0; i < pMenus->GameClient()->m_CountryFlags.Num(); ++i)
+	{
+		const CCountryFlags::CCountryFlag &Entry = pMenus->GameClient()->m_CountryFlags.GetByIndex(i);
+		if(!str_find_nocase(Entry.m_aCountryCodeString, pPopupContext->m_FilterInput.GetString()))
+		{
+			continue;
+		}
+		vpFilteredFlags.push_back(&Entry);
+	}
+
+	if(vpFilteredFlags.empty())
+	{
+		pMenus->Ui()->DoLabel(&View, Localize("No flags match your search"), 12.0f, TEXTALIGN_MC);
+		return CUi::POPUP_KEEP_OPEN;
+	}
+
+	static CListBox s_ListBox;
+	s_ListBox.SetActive(Active);
+	s_ListBox.DoStart(36.0f, vpFilteredFlags.size(), 1, 1, -1, &View, false);
+	if(pPopupContext->m_New)
+	{
+		pPopupContext->m_New = false;
+		s_ListBox.ScrollToSelected();
+	}
+
+	for(size_t i = 0; i < vpFilteredFlags.size(); ++i)
+	{
+		const CCountryFlags::CCountryFlag *pEntry = vpFilteredFlags[i];
+		const CListboxItem Item = s_ListBox.DoNextItem(&pEntry->m_CountryCode, pEntry->m_CountryCode == *pPopupContext->m_pCountry);
+		if(!Item.m_Visible)
+		{
+			continue;
+		}
+
+		CUIRect FlagRect, Label;
+		Item.m_Rect.Margin(5.0f, &FlagRect);
+		FlagRect.VSplitLeft(58.0f, &FlagRect, &Label);
+		FlagRect.HMargin(5.0f, &FlagRect);
+		const float OldWidth = FlagRect.w;
+		FlagRect.w = FlagRect.h * 2.0f;
+		FlagRect.x += (OldWidth - FlagRect.w) / 2.0f;
+		pMenus->GameClient()->m_CountryFlags.Render(pEntry->m_CountryCode, ColorRGBA(1.0f, 1.0f, 1.0f, 1.0f), FlagRect.x, FlagRect.y, FlagRect.w, FlagRect.h);
+		pMenus->Ui()->DoLabel(&Label, pEntry->m_aCountryCodeString, 12.0f, TEXTALIGN_ML);
+	}
+
+	const int NewSelected = s_ListBox.DoEnd();
+	if((s_ListBox.WasItemSelected() || s_ListBox.WasItemActivated()) && NewSelected >= 0)
+	{
+		*pPopupContext->m_pCountry = vpFilteredFlags[NewSelected]->m_CountryCode;
+		pMenus->SetNeedSendInfo();
+		return CUi::POPUP_CLOSE_CURRENT;
+	}
+
+	return CUi::POPUP_KEEP_OPEN;
+}
 
 void CMenus::RenderSettingsGeneral(CUIRect MainView)
 {
@@ -175,7 +323,6 @@ void CMenus::RenderSettingsGeneral(CUIRect MainView)
 
 		// auto demo settings
 		{
-			Right.HSplitTop(40.0f, nullptr, &Right);
 			Right.HSplitTop(20.0f, &Button, &Right);
 			if(DoButton_CheckBox(&g_Config.m_ClAutoDemoRecord, Localize("Automatically record demos"), g_Config.m_ClAutoDemoRecord, &Button))
 				g_Config.m_ClAutoDemoRecord ^= 1;
@@ -437,6 +584,11 @@ void CMenus::RenderSettingsTee(CUIRect MainView)
 	unsigned *pColorBody;
 	unsigned *pColorFeet;
 	int *pEmote;
+	int *pCountry = nullptr;
+	static CLineInput s_NameInput;
+	static CLineInput s_ClanInput;
+	const bool UseUnifiedPlayerInfo = g_Config.m_CcHorizontalSettingsTabs != 0;
+	bool ShowUnifiedCompactColors = false;
 	if(!m_Dummy)
 	{
 		pSkinName = g_Config.m_ClPlayerSkin;
@@ -445,6 +597,14 @@ void CMenus::RenderSettingsTee(CUIRect MainView)
 		pColorBody = &g_Config.m_ClPlayerColorBody;
 		pColorFeet = &g_Config.m_ClPlayerColorFeet;
 		pEmote = &g_Config.m_ClPlayerDefaultEyes;
+		if(UseUnifiedPlayerInfo)
+		{
+			pCountry = &g_Config.m_PlayerCountry;
+			s_NameInput.SetBuffer(g_Config.m_PlayerName, sizeof(g_Config.m_PlayerName));
+			s_NameInput.SetEmptyText(Client()->PlayerName());
+			s_ClanInput.SetBuffer(g_Config.m_PlayerClan, sizeof(g_Config.m_PlayerClan));
+			s_ClanInput.SetEmptyText(Localize("No clan"));
+		}
 	}
 	else
 	{
@@ -454,12 +614,22 @@ void CMenus::RenderSettingsTee(CUIRect MainView)
 		pColorBody = &g_Config.m_ClDummyColorBody;
 		pColorFeet = &g_Config.m_ClDummyColorFeet;
 		pEmote = &g_Config.m_ClDummyDefaultEyes;
+		if(UseUnifiedPlayerInfo)
+		{
+			pCountry = &g_Config.m_ClDummyCountry;
+			s_NameInput.SetBuffer(g_Config.m_ClDummyName, sizeof(g_Config.m_ClDummyName));
+			s_NameInput.SetEmptyText(Client()->DummyName());
+			s_ClanInput.SetBuffer(g_Config.m_ClDummyClan, sizeof(g_Config.m_ClDummyClan));
+			s_ClanInput.SetEmptyText(Localize("No clan"));
+		}
 	}
+
+	ShowUnifiedCompactColors = UseUnifiedPlayerInfo && *pUseCustomColor;
 
 	const float EyeButtonSize = 40.0f;
 	const bool RenderEyesBelow = MainView.w < 750.0f;
 	CUIRect YourSkin, Checkboxes, SkinPrefix, Eyes, Button, Label;
-	MainView.HSplitTop(90.0f, &YourSkin, &MainView);
+	MainView.HSplitTop(UseUnifiedPlayerInfo ? (ShowUnifiedCompactColors ? 148.0f : 90.0f) : 90.0f, &YourSkin, &MainView);
 	if(RenderEyesBelow)
 	{
 		YourSkin.VSplitLeft(MainView.w * 0.45f, &YourSkin, &Checkboxes);
@@ -508,6 +678,13 @@ void CMenus::RenderSettingsTee(CUIRect MainView)
 		g_Config.m_ClFatSkins ^= 1;
 	}
 
+	Checkboxes.HSplitTop(20.0f, &Button, &Checkboxes);
+	if(DoButton_CheckBox(pUseCustomColor, Localize("Custom colors"), *pUseCustomColor, &Button))
+	{
+		*pUseCustomColor = *pUseCustomColor ? 0 : 1;
+		SetNeedSendInfo();
+	}
+
 	// Skin prefix
 	{
 		SkinPrefix.HSplitTop(20.0f, &Label, &SkinPrefix);
@@ -535,22 +712,31 @@ void CMenus::RenderSettingsTee(CUIRect MainView)
 			}
 		}
 	}
-	CUIRect RandomColorsButton;
-
 	// Player skin area
-	CUIRect CustomColorsButton, RandomSkinButton;
 	YourSkin.HSplitTop(20.0f, &Label, &YourSkin);
-	YourSkin.HSplitBottom(20.0f, &YourSkin, &CustomColorsButton);
-
-	CustomColorsButton.VSplitRight(30.0f, &CustomColorsButton, &RandomSkinButton);
-	CustomColorsButton.VSplitRight(3.0f, &CustomColorsButton, 0);
-
-	CustomColorsButton.VSplitRight(110.0f, &CustomColorsButton, &RandomColorsButton);
-
-	CustomColorsButton.VSplitRight(5.0f, &CustomColorsButton, nullptr);
-	YourSkin.VSplitLeft(65.0f, &YourSkin, &Button);
-	Button.VSplitLeft(5.0f, nullptr, &Button);
-	Button.HMargin((Button.h - 20.0f) / 2.0f, &Button);
+	CUIRect TeePreview, InputArea, NameRow, ClanRow, SkinRow, BodyColorRow, FeetColorRow;
+	YourSkin.VSplitLeft(65.0f, &TeePreview, &InputArea);
+	InputArea.VSplitLeft(5.0f, nullptr, &InputArea);
+	if(UseUnifiedPlayerInfo)
+	{
+		InputArea.HSplitTop(20.0f, &NameRow, &InputArea);
+		InputArea.HSplitTop(5.0f, nullptr, &InputArea);
+		InputArea.HSplitTop(20.0f, &ClanRow, &InputArea);
+		InputArea.HSplitTop(5.0f, nullptr, &InputArea);
+		InputArea.HSplitTop(20.0f, &SkinRow, &InputArea);
+		if(ShowUnifiedCompactColors)
+		{
+			InputArea.HSplitTop(5.0f, nullptr, &InputArea);
+				InputArea.HSplitTop(24.0f, &BodyColorRow, &InputArea);
+				InputArea.HSplitTop(4.0f, nullptr, &InputArea);
+				InputArea.HSplitTop(24.0f, &FeetColorRow, &InputArea);
+		}
+	}
+	else
+	{
+		SkinRow = InputArea;
+		SkinRow.HMargin((SkinRow.h - 20.0f) / 2.0f, &SkinRow);
+	}
 
 	char aBuf[128 + IO_MAX_PATH_LENGTH];
 	str_format(aBuf, sizeof(aBuf), "%s:", Localize("Your skin"));
@@ -573,7 +759,7 @@ void CMenus::RenderSettingsTee(CUIRect MainView)
 	{
 		vec2 OffsetToMid;
 		CRenderTools::GetRenderTeeOffsetToRenderedTee(CAnimState::GetIdle(), &OwnSkinInfo, OffsetToMid);
-		const vec2 TeeRenderPos = vec2(YourSkin.x + YourSkin.w / 2.0f, YourSkin.y + YourSkin.h / 2.0f + OffsetToMid.y);
+		const vec2 TeeRenderPos = vec2(TeePreview.x + TeePreview.w / 2.0f, TeePreview.y + TeePreview.h / 2.0f + OffsetToMid.y);
 		RenderTeeCute(CAnimState::GetIdle(), &OwnSkinInfo, *pEmote, vec2(1.0f, 0.0f), TeeRenderPos, true);
 	}
 
@@ -622,62 +808,74 @@ void CMenus::RenderSettingsTee(CUIRect MainView)
 		}
 	};
 	static char s_StatusTooltipId;
-	RenderSkinStatus(YourSkin, pOwnSkinContainer, &s_StatusTooltipId);
+	RenderSkinStatus(TeePreview, pOwnSkinContainer, &s_StatusTooltipId);
+
+	if(UseUnifiedPlayerInfo)
+	{
+		CUIRect NameEdit, FlagButton;
+		NameRow.VSplitRight(36.0f, &NameEdit, &FlagButton);
+		NameEdit.VSplitRight(5.0f, &NameEdit, nullptr);
+		if(Ui()->DoEditBox(&s_NameInput, &NameEdit, 14.0f))
+		{
+			SetNeedSendInfo();
+		}
+
+		static CButtonContainer s_TeeFlagButton;
+		static SPopupMenuId s_TeeFlagPopupId;
+		static STeeFlagPopupContext s_TeeFlagPopupContext;
+		if(DoButton_Menu(&s_TeeFlagButton, "", 0, &FlagButton, BUTTONFLAG_LEFT, nullptr, IGraphics::CORNER_ALL, 5.0f, 0.0f, ColorRGBA(0.0f, 0.0f, 0.0f, 0.25f)))
+		{
+			s_TeeFlagPopupContext.m_pMenus = this;
+			s_TeeFlagPopupContext.m_pCountry = pCountry;
+			s_TeeFlagPopupContext.m_New = true;
+			s_TeeFlagPopupContext.m_FilterInput.Clear();
+
+			const float PopupWidth = 360.0f;
+			const float PopupHeight = 260.0f;
+			const float PopupX = std::clamp(FlagButton.x + FlagButton.w - PopupWidth, 6.0f, Ui()->Screen()->w - PopupWidth - 6.0f);
+			const float PopupY = minimum(FlagButton.y + FlagButton.h, Ui()->Screen()->h - PopupHeight - 6.0f);
+			Ui()->DoPopupMenu(&s_TeeFlagPopupId, PopupX, PopupY, PopupWidth, PopupHeight, &s_TeeFlagPopupContext, PopupTeeFlagSelection);
+		}
+
+		CUIRect FlagRender = FlagButton;
+		FlagRender.Margin(5.0f, &FlagRender);
+		const float OldWidth = FlagRender.w;
+		FlagRender.w = FlagRender.h * 2.0f;
+		FlagRender.x += (OldWidth - FlagRender.w) / 2.0f;
+		GameClient()->m_CountryFlags.Render(*pCountry, ColorRGBA(1.0f, 1.0f, 1.0f, 1.0f), FlagRender.x, FlagRender.y, FlagRender.w, FlagRender.h);
+		GameClient()->m_Tooltips.DoToolTip(&s_TeeFlagButton, &FlagButton, Localize("Choose flag"));
+
+		if(Ui()->DoEditBox(&s_ClanInput, &ClanRow, 14.0f))
+		{
+			SetNeedSendInfo();
+		}
+
+		if(ShowUnifiedCompactColors)
+		{
+			static CLineInput s_BodyColorInput;
+			static CLineInput s_FeetColorInput;
+			static char s_aBodyColorBuf[16];
+			static char s_aFeetColorBuf[16];
+			if(RenderCompactHslaScrollbars(&BodyColorRow, Localize("Body"), pColorBody, ColorHSLA::DARKEST_LGT, &s_BodyColorInput, s_aBodyColorBuf, sizeof(s_aBodyColorBuf)))
+			{
+				SetNeedSendInfo();
+			}
+			if(RenderCompactHslaScrollbars(&FeetColorRow, Localize("Feet"), pColorFeet, ColorHSLA::DARKEST_LGT, &s_FeetColorInput, s_aFeetColorBuf, sizeof(s_aFeetColorBuf)))
+			{
+				SetNeedSendInfo();
+			}
+		}
+	}
 
 	// Skin name
 	static CLineInput s_SkinInput;
 	s_SkinInput.SetBuffer(pSkinName, SkinNameSize);
 	s_SkinInput.SetEmptyText("default");
-	if(Ui()->DoClearableEditBox(&s_SkinInput, &Button, 14.0f))
+	if(Ui()->DoClearableEditBox(&s_SkinInput, &SkinRow, 14.0f))
 	{
 		SetNeedSendInfo();
 		m_SkinListScrollToSelected = true;
 		SkinList.ForceRefresh();
-	}
-
-	// Random skin button
-	static CButtonContainer s_RandomSkinButton;
-	static const char *s_apDice[] = {FontIcon::DICE_ONE, FontIcon::DICE_TWO, FontIcon::DICE_THREE, FontIcon::DICE_FOUR, FontIcon::DICE_FIVE, FontIcon::DICE_SIX};
-	static int s_CurrentDie = rand() % std::size(s_apDice);
-	TextRender()->SetFontPreset(EFontPreset::ICON_FONT);
-	TextRender()->SetRenderFlags(ETextRenderFlags::TEXT_RENDER_FLAG_ONLY_ADVANCE_WIDTH | ETextRenderFlags::TEXT_RENDER_FLAG_NO_X_BEARING | ETextRenderFlags::TEXT_RENDER_FLAG_NO_Y_BEARING | ETextRenderFlags::TEXT_RENDER_FLAG_NO_PIXEL_ALIGNMENT | ETextRenderFlags::TEXT_RENDER_FLAG_NO_OVERSIZE);
-	if(DoButton_Menu(&s_RandomSkinButton, s_apDice[s_CurrentDie], 0, &RandomSkinButton, BUTTONFLAG_LEFT, nullptr, IGraphics::CORNER_ALL, 5.0f, -0.2f))
-	{
-		GameClient()->m_Skins.RandomizeSkin(m_Dummy);
-		SetNeedSendInfo();
-		m_SkinListScrollToSelected = true;
-		s_CurrentDie = rand() % std::size(s_apDice);
-	}
-	TextRender()->SetRenderFlags(0);
-	TextRender()->SetFontPreset(EFontPreset::DEFAULT_FONT);
-	GameClient()->m_Tooltips.DoToolTip(&s_RandomSkinButton, &RandomSkinButton, Localize("Create a random skin"));
-
-	static CButtonContainer s_RandomizeColors;
-	if(*pUseCustomColor)
-	{
-		// RandomColorsButton.VSplitLeft(120.0f, &RandomColorsButton, 0);
-		if(DoButton_Menu(&s_RandomizeColors, "Random Colors", 0, &RandomColorsButton, BUTTONFLAG_LEFT, nullptr, IGraphics::CORNER_ALL, 5.0f, 0.0f, ColorRGBA(0.0f, 0.0f, 0.0f, 0.5f)))
-		{
-			if(m_Dummy)
-			{
-				g_Config.m_ClDummyColorBody = ColorHSLA((std::rand() % 100) / 100.0f, (std::rand() % 100) / 100.0f, (std::rand() % 100) / 100.0f, 1).Pack(false);
-				g_Config.m_ClDummyColorFeet = ColorHSLA((std::rand() % 100) / 100.0f, (std::rand() % 100) / 100.0f, (std::rand() % 100) / 100.0f, 1).Pack(false);
-			}
-			else
-			{
-				g_Config.m_ClPlayerColorBody = ColorHSLA((std::rand() % 100) / 100.0f, (std::rand() % 100) / 100.0f, (std::rand() % 100) / 100.0f, 1).Pack(false);
-				g_Config.m_ClPlayerColorFeet = ColorHSLA((std::rand() % 100) / 100.0f, (std::rand() % 100) / 100.0f, (std::rand() % 100) / 100.0f, 1).Pack(false);
-			}
-			SetNeedSendInfo();
-		}
-	}
-	MainView.HSplitTop(5.0f, 0, &MainView);
-
-	// Custom colors button
-	if(DoButton_CheckBox(pUseCustomColor, Localize("Custom colors"), *pUseCustomColor, &CustomColorsButton))
-	{
-		*pUseCustomColor = *pUseCustomColor ? 0 : 1;
-		SetNeedSendInfo();
 	}
 
 	// Default eyes
@@ -716,21 +914,32 @@ void CMenus::RenderSettingsTee(CUIRect MainView)
 	MainView.HSplitTop(5.0f, nullptr, &MainView);
 	if(*pUseCustomColor)
 	{
-		CUIRect CustomColors;
-		MainView.HSplitTop(95.0f, &CustomColors, &MainView);
-		CUIRect aRects[2];
-		CustomColors.VSplitMid(&aRects[0], &aRects[1], 20.0f);
-
-		unsigned *apColors[] = {pColorBody, pColorFeet};
-		const char *apParts[] = {Localize("Body"), Localize("Feet")};
-
-		for(int i = 0; i < 2; i++)
+		if(!UseUnifiedPlayerInfo)
 		{
-			aRects[i].HSplitTop(20.0f, &Label, &aRects[i]);
-			Ui()->DoLabel(&Label, apParts[i], 14.0f, TEXTALIGN_ML);
-			if(RenderHslaScrollbars(&aRects[i], apColors[i], false, ColorHSLA::DARKEST_LGT))
+			CUIRect CustomColors;
+			MainView.HSplitTop(94.0f, &CustomColors, &MainView);
+			const float SideMargin = maximum(0.0f, (CustomColors.w - 720.0f) / 2.0f);
+			CustomColors.VMargin(SideMargin, &CustomColors);
+
+			CUIRect aCards[2];
+			CustomColors.VSplitMid(&aCards[0], &aCards[1], 12.0f);
+
+			unsigned *apColors[] = {pColorBody, pColorFeet};
+			const char *apParts[] = {Localize("Body"), Localize("Feet")};
+
+			for(int i = 0; i < 2; i++)
 			{
-				SetNeedSendInfo();
+				CUIRect PickerRect = aCards[i];
+				PickerRect.Draw(ColorRGBA(1.0f, 1.0f, 1.0f, 0.05f), IGraphics::CORNER_ALL, 8.0f);
+				PickerRect.Margin(4.0f, &PickerRect);
+				CUIRect PartLabel;
+				PickerRect.HSplitTop(12.0f, &PartLabel, &PickerRect);
+				Ui()->DoLabel(&PartLabel, apParts[i], 11.0f, TEXTALIGN_ML);
+				PickerRect.HSplitTop(2.0f, nullptr, &PickerRect);
+				if(RenderHslaScrollbars(&PickerRect, apColors[i], false, ColorHSLA::DARKEST_LGT))
+				{
+					SetNeedSendInfo();
+				}
 			}
 		}
 	}
@@ -893,32 +1102,7 @@ void CMenus::RenderSettingsTee(CUIRect MainView)
 
 void CMenus::RenderSettingsTeeUnified(CUIRect MainView)
 {
-	CUIRect SubTabBar, InfoTab, AppearanceTab;
-	MainView.HSplitTop(25.0f, &SubTabBar, &MainView);
-	SubTabBar.VSplitMid(&InfoTab, &AppearanceTab);
-	MainView.HSplitTop(10.0f, nullptr, &MainView);
-	
-	static CButtonContainer s_InfoTabButton;
-	if(DoButton_MenuTab(&s_InfoTabButton, Localize("Info"), m_TeeUnifiedSubTab == 0, &InfoTab, IGraphics::CORNER_L, nullptr, nullptr, nullptr, nullptr, 4.0f))
-	{
-		m_TeeUnifiedSubTab = 0;
-	}
-	
-	static CButtonContainer s_AppearanceTabButton;
-	if(DoButton_MenuTab(&s_AppearanceTabButton, Localize("Appearance"), m_TeeUnifiedSubTab == 1, &AppearanceTab, IGraphics::CORNER_R, nullptr, nullptr, nullptr, nullptr, 4.0f))
-	{
-		m_TeeUnifiedSubTab = 1;
-		m_SkinListScrollToSelected = true;
-	}
-	
-	if(m_TeeUnifiedSubTab == 0)
-	{
-		RenderSettingsPlayer(MainView);
-	}
-	else
-	{
-		RenderSettingsTee(MainView);
-	}
+	RenderSettingsTee(MainView);
 }
 
 void CMenus::RenderSettingsGraphics(CUIRect MainView)
@@ -1578,6 +1762,11 @@ void CMenus::RenderSettings(CUIRect MainView)
 	MainView.Draw(ms_ColorTabbarActive, IGraphics::CORNER_B, 10.0f);
 	MainView.Margin(20.0f, &MainView);
 
+#if defined(CONF_AUTOUPDATE)
+	m_NeedRestartUpdate = GameClient()->Updater()->GetCurrentState() == IUpdater::NEED_RESTART;
+#else
+	m_NeedRestartUpdate = false;
+#endif
 	const bool NeedRestart = m_NeedRestartGraphics || m_NeedRestartSound || m_NeedRestartUpdate;
 	if(NeedRestart)
 	{
@@ -1598,7 +1787,7 @@ void CMenus::RenderSettings(CUIRect MainView)
 		Localize("Assets"),
 		TCLocalize("TClient"),
 		Localize("Profiles"),
-		Localize("CatClient")};
+		CCLocalize("CatClient")};
 
 	static CButtonContainer s_aTabButtons[SETTINGS_LENGTH];
 	for(SUIAnimator &Animator : m_aAnimatorsSettingsTab)
@@ -1739,7 +1928,7 @@ void CMenus::RenderSettings(CUIRect MainView)
 		if(m_NeedRestartUpdate)
 		{
 			TextRender()->TextColor(1.0f, 0.4f, 0.4f, 1.0f);
-			Ui()->DoLabel(&RestartWarning, Localize("DDNet Client needs to be restarted to complete update!"), 14.0f, TEXTALIGN_ML);
+			Ui()->DoLabel(&RestartWarning, CCLocalize("CatClient needs to be restarted to finish the update!"), 14.0f, TEXTALIGN_ML);
 			TextRender()->TextColor(1.0f, 1.0f, 1.0f, 1.0f);
 		}
 		else
@@ -2010,6 +2199,236 @@ bool CMenus::RenderHslaScrollbars(CUIRect *pRect, unsigned int *pColor, bool Alp
 	if(OriginalColor != Color)
 	{
 		*pColor = Color.Pack(Alpha);
+	}
+	return PrevPackedColor != *pColor;
+}
+
+bool CMenus::RenderCompactHslaScrollbars(CUIRect *pRect, const char *pLabel, unsigned int *pColor, float DarkestLight, CLineInput *pValueInput, char *pValueBuf, size_t ValueBufSize)
+{
+	const unsigned PrevPackedColor = *pColor;
+	ColorHSLA Color(*pColor, false);
+	const ColorHSLA OriginalColor = Color;
+	const char *apShortLabels[] = {"H", "S", "L"};
+
+	auto &&RenderHueRect = [&](CUIRect *pColorRect) {
+		float CurXOff = pColorRect->x;
+		const float SizeColor = pColorRect->w / 6.0f;
+
+		const IGraphics::CColorVertex aRedToYellow[] = {
+			IGraphics::CColorVertex(0, 1, 0, 0, 1),
+			IGraphics::CColorVertex(1, 1, 1, 0, 1),
+			IGraphics::CColorVertex(2, 1, 0, 0, 1),
+			IGraphics::CColorVertex(3, 1, 1, 0, 1)};
+		Graphics()->SetColorVertex(aRedToYellow, std::size(aRedToYellow));
+		IGraphics::CFreeformItem RedToYellow(
+			CurXOff, pColorRect->y,
+			CurXOff + SizeColor, pColorRect->y,
+			CurXOff, pColorRect->y + pColorRect->h,
+			CurXOff + SizeColor, pColorRect->y + pColorRect->h);
+		Graphics()->QuadsDrawFreeform(&RedToYellow, 1);
+
+		CurXOff += SizeColor;
+		const IGraphics::CColorVertex aYellowToGreen[] = {
+			IGraphics::CColorVertex(0, 1, 1, 0, 1),
+			IGraphics::CColorVertex(1, 0, 1, 0, 1),
+			IGraphics::CColorVertex(2, 1, 1, 0, 1),
+			IGraphics::CColorVertex(3, 0, 1, 0, 1)};
+		Graphics()->SetColorVertex(aYellowToGreen, std::size(aYellowToGreen));
+		IGraphics::CFreeformItem YellowToGreen(
+			CurXOff, pColorRect->y,
+			CurXOff + SizeColor, pColorRect->y,
+			CurXOff, pColorRect->y + pColorRect->h,
+			CurXOff + SizeColor, pColorRect->y + pColorRect->h);
+		Graphics()->QuadsDrawFreeform(&YellowToGreen, 1);
+
+		CurXOff += SizeColor;
+		const IGraphics::CColorVertex aGreenToTurquoise[] = {
+			IGraphics::CColorVertex(0, 0, 1, 0, 1),
+			IGraphics::CColorVertex(1, 0, 1, 1, 1),
+			IGraphics::CColorVertex(2, 0, 1, 0, 1),
+			IGraphics::CColorVertex(3, 0, 1, 1, 1)};
+		Graphics()->SetColorVertex(aGreenToTurquoise, std::size(aGreenToTurquoise));
+		IGraphics::CFreeformItem GreenToTurquoise(
+			CurXOff, pColorRect->y,
+			CurXOff + SizeColor, pColorRect->y,
+			CurXOff, pColorRect->y + pColorRect->h,
+			CurXOff + SizeColor, pColorRect->y + pColorRect->h);
+		Graphics()->QuadsDrawFreeform(&GreenToTurquoise, 1);
+
+		CurXOff += SizeColor;
+		const IGraphics::CColorVertex aTurquoiseToBlue[] = {
+			IGraphics::CColorVertex(0, 0, 1, 1, 1),
+			IGraphics::CColorVertex(1, 0, 0, 1, 1),
+			IGraphics::CColorVertex(2, 0, 1, 1, 1),
+			IGraphics::CColorVertex(3, 0, 0, 1, 1)};
+		Graphics()->SetColorVertex(aTurquoiseToBlue, std::size(aTurquoiseToBlue));
+		IGraphics::CFreeformItem TurquoiseToBlue(
+			CurXOff, pColorRect->y,
+			CurXOff + SizeColor, pColorRect->y,
+			CurXOff, pColorRect->y + pColorRect->h,
+			CurXOff + SizeColor, pColorRect->y + pColorRect->h);
+		Graphics()->QuadsDrawFreeform(&TurquoiseToBlue, 1);
+
+		CurXOff += SizeColor;
+		const IGraphics::CColorVertex aBlueToPurple[] = {
+			IGraphics::CColorVertex(0, 0, 0, 1, 1),
+			IGraphics::CColorVertex(1, 1, 0, 1, 1),
+			IGraphics::CColorVertex(2, 0, 0, 1, 1),
+			IGraphics::CColorVertex(3, 1, 0, 1, 1)};
+		Graphics()->SetColorVertex(aBlueToPurple, std::size(aBlueToPurple));
+		IGraphics::CFreeformItem BlueToPurple(
+			CurXOff, pColorRect->y,
+			CurXOff + SizeColor, pColorRect->y,
+			CurXOff, pColorRect->y + pColorRect->h,
+			CurXOff + SizeColor, pColorRect->y + pColorRect->h);
+		Graphics()->QuadsDrawFreeform(&BlueToPurple, 1);
+
+		CurXOff += SizeColor;
+		const IGraphics::CColorVertex aPurpleToRed[] = {
+			IGraphics::CColorVertex(0, 1, 0, 1, 1),
+			IGraphics::CColorVertex(1, 1, 0, 0, 1),
+			IGraphics::CColorVertex(2, 1, 0, 1, 1),
+			IGraphics::CColorVertex(3, 1, 0, 0, 1)};
+		Graphics()->SetColorVertex(aPurpleToRed, std::size(aPurpleToRed));
+		IGraphics::CFreeformItem PurpleToRed(
+			CurXOff, pColorRect->y,
+			CurXOff + SizeColor, pColorRect->y,
+			CurXOff, pColorRect->y + pColorRect->h,
+			CurXOff + SizeColor, pColorRect->y + pColorRect->h);
+		Graphics()->QuadsDrawFreeform(&PurpleToRed, 1);
+	};
+
+	auto &&RenderSaturationRect = [&](CUIRect *pColorRect) {
+		const ColorRGBA LeftColor = color_cast<ColorRGBA>(ColorHSLA(Color.h, 0.0f, 0.5f, 1.0f));
+		const ColorRGBA RightColor = color_cast<ColorRGBA>(ColorHSLA(Color.h, 1.0f, 0.5f, 1.0f));
+		Graphics()->SetColor4(LeftColor, RightColor, RightColor, LeftColor);
+		IGraphics::CFreeformItem Freeform(
+			pColorRect->x, pColorRect->y,
+			pColorRect->x + pColorRect->w, pColorRect->y,
+			pColorRect->x, pColorRect->y + pColorRect->h,
+			pColorRect->x + pColorRect->w, pColorRect->y + pColorRect->h);
+		Graphics()->QuadsDrawFreeform(&Freeform, 1);
+	};
+
+	auto &&RenderLightingRect = [&](CUIRect *pColorRect) {
+		const ColorRGBA LeftColor = color_cast<ColorRGBA>(ColorHSLA(Color.h, Color.s, DarkestLight, 1.0f));
+		const ColorRGBA RightColor = color_cast<ColorRGBA>(ColorHSLA(Color.h, Color.s, 1.0f, 1.0f));
+		Graphics()->SetColor4(LeftColor, RightColor, RightColor, LeftColor);
+		IGraphics::CFreeformItem Freeform(
+			pColorRect->x, pColorRect->y,
+			pColorRect->x + pColorRect->w, pColorRect->y,
+			pColorRect->x, pColorRect->y + pColorRect->h,
+			pColorRect->x + pColorRect->w, pColorRect->y + pColorRect->h);
+		Graphics()->QuadsDrawFreeform(&Freeform, 1);
+	};
+
+	pRect->Draw(ColorRGBA(1.0f, 1.0f, 1.0f, 0.05f), IGraphics::CORNER_ALL, 6.0f);
+	CUIRect Inner = *pRect;
+	Inner.Margin(4.0f, &Inner);
+
+	CUIRect PartLabel, SlidersArea, ValueEdit;
+	Inner.VSplitLeft(28.0f, &PartLabel, &SlidersArea);
+	SlidersArea.VSplitLeft(4.0f, nullptr, &SlidersArea);
+	if(pValueInput != nullptr && pValueBuf != nullptr && ValueBufSize > 0)
+	{
+		SlidersArea.VSplitRight(60.0f, &SlidersArea, &ValueEdit);
+		SlidersArea.VSplitRight(4.0f, &SlidersArea, nullptr);
+	}
+	Ui()->DoLabel(&PartLabel, pLabel, 11.0f, TEXTALIGN_ML);
+
+	CUIRect SliderSlots[3];
+	for(int i = 0; i < 3; ++i)
+	{
+		const float RemainingWidth = SlidersArea.w;
+		const int RemainingSlots = 3 - i;
+		const float SlotWidth = RemainingSlots > 0 ? (RemainingWidth - 6.0f * (RemainingSlots - 1)) / RemainingSlots : RemainingWidth;
+		SlidersArea.VSplitLeft(SlotWidth, &SliderSlots[i], &SlidersArea);
+		if(i < 2)
+		{
+			SlidersArea.VSplitLeft(6.0f, nullptr, &SlidersArea);
+		}
+	}
+
+	for(int i = 0; i < 3; ++i)
+	{
+		CUIRect SliderLabel, SliderButton;
+		SliderSlots[i].VSplitLeft(10.0f, &SliderLabel, &SliderButton);
+		Ui()->DoLabel(&SliderLabel, apShortLabels[i], 9.0f, TEXTALIGN_ML);
+
+		SliderButton.Draw(ColorRGBA(0.12f, 0.12f, 0.12f, 0.95f), IGraphics::CORNER_ALL, 0.0f);
+		CUIRect Rail = SliderButton;
+		Rail.Margin(1.0f, &Rail);
+
+		ColorRGBA HandleColor;
+		CUIRect SliderControl = SliderButton;
+		const float ControlHeight = minimum(14.0f, SliderButton.h - 2.0f);
+		SliderControl.y += (SliderButton.h - ControlHeight) / 2.0f;
+		SliderControl.h = ControlHeight;
+		Color[i] = Ui()->DoScrollbarH(&((char *)pColor)[i], &SliderControl, Color[i]);
+
+		if(i == 0)
+		{
+			HandleColor = color_cast<ColorRGBA>(ColorHSLA(Color[i], 1.0f, 0.5f, 1.0f));
+		}
+		else if(i == 1)
+		{
+			HandleColor = color_cast<ColorRGBA>(ColorHSLA(Color.h, Color[i], 0.5f, 1.0f));
+		}
+		else
+		{
+			HandleColor = color_cast<ColorRGBA>(ColorHSLA(Color.h, Color.s, Color[i], 1.0f).UnclampLighting(DarkestLight));
+		}
+
+		SliderButton.Draw(ColorRGBA(0.12f, 0.12f, 0.12f, 0.95f), IGraphics::CORNER_ALL, 0.0f);
+		Graphics()->TextureClear();
+		Graphics()->TrianglesBegin();
+		if(i == 0)
+		{
+			RenderHueRect(&Rail);
+		}
+		else if(i == 1)
+		{
+			RenderSaturationRect(&Rail);
+		}
+		else
+		{
+			RenderLightingRect(&Rail);
+		}
+		Graphics()->TrianglesEnd();
+
+		const float HandleSize = maximum(8.0f, SliderButton.h - 6.0f);
+		CUIRect SquareHandle;
+		SquareHandle.w = HandleSize;
+		SquareHandle.h = HandleSize;
+		SquareHandle.x = SliderButton.x + (SliderButton.w - SquareHandle.w) * Color[i];
+		SquareHandle.y = SliderButton.y + (SliderButton.h - SquareHandle.h) / 2.0f;
+		SquareHandle.Draw(ColorRGBA(0.0f, 0.0f, 0.0f, 0.65f), IGraphics::CORNER_ALL, 0.0f);
+		CUIRect SquareFill = SquareHandle;
+		SquareFill.Margin(1.0f, &SquareFill);
+		SquareFill.Draw(HandleColor, IGraphics::CORNER_ALL, 0.0f);
+	}
+
+	if(pValueInput != nullptr && pValueBuf != nullptr && ValueBufSize > 0)
+	{
+		if(Ui()->ActiveItem() != pValueInput)
+		{
+			str_format(pValueBuf, ValueBufSize, "%u", *pColor);
+		}
+		pValueInput->SetBuffer(pValueBuf, ValueBufSize);
+		pValueInput->SetEmptyText("0");
+		if(Ui()->DoEditBox(pValueInput, &ValueEdit, 11.0f))
+		{
+			if(pValueBuf[0] != '\0' && str_isallnum(pValueBuf))
+			{
+				const unsigned long ParsedColor = str_toulong_base(pValueBuf, 10);
+				*pColor = minimum<unsigned long>(ParsedColor, std::numeric_limits<unsigned int>::max());
+			}
+		}
+	}
+
+	if(OriginalColor != Color)
+	{
+		*pColor = Color.Pack(false);
 	}
 	return PrevPackedColor != *pColor;
 }
@@ -3181,43 +3600,42 @@ void CMenus::RenderSettingsDDNet(CUIRect MainView)
 	// Updater
 #if defined(CONF_AUTOUPDATE) || defined(CONF_INFORM_UPDATE)
 	{
-		const bool NeedUpdate = GameClient()->m_TClient.NeedUpdate();
-
-		// Update Button
 		char aBuf[256];
-		if(NeedUpdate)
+		FormatCatClientSettingsUpdateStatus(GameClient(), aBuf, sizeof(aBuf));
+#if defined(CONF_AUTOUPDATE)
+		if(ShouldShowCatClientUpdateAction(GameClient()))
 		{
-			str_format(aBuf, sizeof(aBuf), Localize("CatClient %s is available on GitHub:"), GameClient()->m_TClient.m_aVersionStr);
 			UpdaterRect.VSplitLeft(TextRender()->TextWidth(14.0f, aBuf, -1, -1.0f) + 10.0f, &UpdaterRect, &Button);
-			Button.VSplitLeft(135.0f, &Button, nullptr);
+			Button.VSplitLeft(115.0f, &Button, nullptr);
 			static CButtonContainer s_ButtonUpdate;
-			if(DoButton_Menu(&s_ButtonUpdate, Localize("Download update"), 0, &Button))
+			if(DoButton_Menu(&s_ButtonUpdate, GetCatClientUpdateActionText(GameClient()), 0, &Button))
 			{
-				Client()->ViewLink(GameClient()->m_TClient.LatestReleaseUrl());
+				GameClient()->Updater()->InitiateUpdate();
 			}
 		}
-		else if(!GameClient()->m_TClient.m_FetchedTClientInfo)
-		{
-			str_copy(aBuf, Localize("Checking CatClient updates…"));
-		}
-		else if(GameClient()->m_TClient.NoPublishedRelease())
-		{
-			str_copy(aBuf, Localize("No CatClient release has been published on GitHub yet."));
-		}
-		else if(GameClient()->m_TClient.UpdateCheckFailed())
-		{
-			str_copy(aBuf, Localize("Couldn't check CatClient updates."));
-		}
 		else
+#endif
+		if(!GameClient()->m_TClient.NeedUpdate() &&
+#if defined(CONF_AUTOUPDATE)
+			GameClient()->Updater()->GetCurrentState() == IUpdater::CLEAN &&
+#endif
+			GameClient()->m_TClient.m_FetchedTClientInfo)
 		{
-			str_copy(aBuf, Localize("No updates available"));
 			UpdaterRect.VSplitLeft(TextRender()->TextWidth(14.0f, aBuf, -1, -1.0f) + 10.0f, &UpdaterRect, &Button);
 			Button.VSplitLeft(100.0f, &Button, nullptr);
-			static CButtonContainer s_ButtonUpdate;
-			if(DoButton_Menu(&s_ButtonUpdate, Localize("Check now"), 0, &Button))
+			static CButtonContainer s_ButtonCheckUpdate;
+			if(DoButton_Menu(&s_ButtonCheckUpdate, CCLocalize("Check now"), 0, &Button))
 			{
 				GameClient()->m_TClient.FetchTClientInfo();
 			}
+		}
+		if(GameClient()->m_TClient.NeedUpdate() || GameClient()->m_TClient.UpdateCheckFailed()
+#if defined(CONF_AUTOUPDATE)
+			|| GameClient()->Updater()->GetCurrentState() == IUpdater::FAIL || GameClient()->Updater()->GetCurrentState() == IUpdater::NEED_RESTART
+#endif
+		)
+		{
+			TextRender()->TextColor(1.0f, 0.4f, 0.4f, 1.0f);
 		}
 		Ui()->DoLabel(&UpdaterRect, aBuf, 14.0f, TEXTALIGN_ML);
 		TextRender()->TextColor(1.0f, 1.0f, 1.0f, 1.0f);

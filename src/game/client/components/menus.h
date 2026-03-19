@@ -654,6 +654,7 @@ protected:
 	}
 
 	static CUi::EPopupMenuFunctionResult PopupMapPicker(void *pContext, CUIRect View, bool Active);
+	static CUi::EPopupMenuFunctionResult PopupTeeFlagSelection(void *pContext, CUIRect View, bool Active);
 
 	void SetNeedSendInfo();
 	void UpdateColors();
@@ -967,6 +968,7 @@ private:
 	void RenderSettingsCatClientVisuals(CUIRect MainView);
 	void RenderSettingsCatClientShop(CUIRect MainView);
 	void RenderSettingsCatClientStreamer(CUIRect MainView);
+	void RenderSettingsCatClientVoice(CUIRect MainView);
 	void RenderSettingsCatClientInfo(CUIRect MainView);
 	void RenderTeeCute(const CAnimState *pAnim, const CTeeRenderInfo *pInfo, int Emote, vec2 Dir, vec2 Pos, bool CuteEyes, float Alpha = 1.0f);
 
@@ -980,6 +982,7 @@ private:
 
 	ColorHSLA RenderHSLColorPicker(const CUIRect *pRect, unsigned int *pColor, bool Alpha);
 	bool RenderHslaScrollbars(CUIRect *pRect, unsigned int *pColor, bool Alpha, float DarkestLight);
+	bool RenderCompactHslaScrollbars(CUIRect *pRect, const char *pLabel, unsigned int *pColor, float DarkestLight, CLineInput *pValueInput = nullptr, char *pValueBuf = nullptr, size_t ValueBufSize = 0);
 	int DoButtonLineSize_Menu(CButtonContainer *pButtonContainer, const char *pText, int Checked, const CUIRect *pRect, float ButtonLineSize, bool Fake = false, const char *pImageName = nullptr, int Corners = IGraphics::CORNER_ALL, float Rounding = 5.0f, float FontFactor = 0.0f, ColorRGBA Color = ColorRGBA(1.0f, 1.0f, 1.0f, 0.5f));
 };
 #endif

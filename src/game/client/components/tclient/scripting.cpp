@@ -24,10 +24,6 @@ private:
 			Client()->GetServerInfo(&s_ServerInfo);
 			return &s_ServerInfo;
 		}
-		else if(GameClient()->m_ConnectServerInfo)
-		{
-			return &*GameClient()->m_ConnectServerInfo;
-		}
 		return nullptr;
 	}
 	CScriptingCtx::Any State(const std::string &Str, const CScriptingCtx::Any &Arg)
@@ -76,8 +72,6 @@ private:
 		{
 			if(Client()->State() == IClient::STATE_ONLINE || Client()->State() == IClient::STATE_DEMOPLAYBACK)
 				return GameClient()->Map()->BaseName();
-			else if(GameClient()->m_ConnectServerInfo)
-				return GameClient()->m_ConnectServerInfo->m_aMap;
 			else
 				return nullptr;
 		}
@@ -86,8 +80,6 @@ private:
 			const NETADDR *pAddress = nullptr;
 			if(Client()->State() == IClient::STATE_ONLINE)
 				pAddress = &Client()->ServerAddress();
-			else if(GameClient()->m_ConnectServerInfo)
-				pAddress = &GameClient()->m_ConnectServerInfo->m_aAddresses[0];
 			else
 				return nullptr;
 			char Addr[128];

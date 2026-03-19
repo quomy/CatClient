@@ -32,6 +32,7 @@
 #include "components/broadcast.h"
 #include "components/camera.h"
 #include "components/catclient/catclient.h"
+#include "components/catclient/voice/voice.h"
 #include "components/censor.h"
 #include "components/chat.h"
 #include "components/console.h"
@@ -76,12 +77,10 @@
 #include "components/tclient/outlines.h"
 #include "components/tclient/pet.h"
 #include "components/tclient/player_indicator.h"
-#include "components/tclient/rainbow.h"
 #include "components/tclient/scripting.h"
 #include "components/tclient/skinprofiles.h"
 #include "components/tclient/statusbar.h"
 #include "components/tclient/tclient.h"
-#include "components/tclient/trails.h"
 #include "components/tclient/translate.h"
 #include "components/tclient/warlist.h"
 #include "components/tooltips.h"
@@ -195,6 +194,7 @@ public:
 	CVoting m_Voting;
 	CSpectator m_Spectator;
 	CCatClient m_CatClient;
+	CVoiceChat m_VoiceChat;
 
 	CPlayers m_Players;
 	CNamePlates m_NamePlates;
@@ -223,13 +223,11 @@ public:
 	CBindWheel m_BindWheel;
 	CBgDraw m_BgDraw;
 	CTClient m_TClient;
-	CTrails m_Trails;
 	CTranslate m_Translate;
 	CPet m_Pet;
 	CPlayerIndicator m_PlayerIndicator;
 	COutlines m_Outlines;
 	CMumble m_Mumble;
-	CRainbow m_Rainbow;
 	CWarList m_WarList;
 	CScripting m_Scripting;
 	CMod m_Mod;
@@ -746,6 +744,16 @@ public:
 	bool AntiPingGrenade() const { return g_Config.m_ClAntiPing && g_Config.m_ClAntiPingGrenade && !m_Snap.m_SpecInfo.m_Active && Client()->State() != IClient::STATE_DEMOPLAYBACK; }
 	bool AntiPingWeapons() const { return g_Config.m_ClAntiPing && g_Config.m_ClAntiPingWeapons && !m_Snap.m_SpecInfo.m_Active && Client()->State() != IClient::STATE_DEMOPLAYBACK; }
 	bool AntiPingGunfire() const { return AntiPingGrenade() && AntiPingWeapons() && g_Config.m_ClAntiPingGunfire; }
+	static constexpr int FAST_INPUT_MODE_CATCLIENT = 0;
+	static constexpr int FAST_INPUT_MODE_SAIKO = 1;
+	bool UseSaikoFastInput() const { return g_Config.m_TcFastInputMode == FAST_INPUT_MODE_SAIKO; }
+	bool CatClientFastInputEnabled() const { return !UseSaikoFastInput() && g_Config.m_TcFastInput != 0; }
+	float SaikoFastInputTicks() const { return g_Config.m_TcFastInputSaikoAmount / 100.0f; }
+	bool SaikoFastInputEnabled() const { return UseSaikoFastInput() && g_Config.m_TcFastInput != 0 && g_Config.m_TcFastInputSaikoAmount > 0; }
+	bool FastInputEnabled() const { return CatClientFastInputEnabled() || SaikoFastInputEnabled(); }
+	int CatClientFastInputTicks() const { return CatClientFastInputEnabled() ? (g_Config.m_TcFastInputAmount + 19) / 20 : 0; }
+	int SaikoFastInputTickCount() const { return SaikoFastInputEnabled() ? (g_Config.m_TcFastInputSaikoAmount + 99) / 100 : 0; }
+	bool FastInputUsesRegularPredicted() const { return CatClientFastInputEnabled(); }
 	bool Predict() const;
 	bool PredictDummy() const { return g_Config.m_ClPredictDummy && Client()->DummyConnected() && m_Snap.m_LocalClientId >= 0 && m_aLocalIds[!g_Config.m_ClDummy] >= 0 && !m_aClients[m_aLocalIds[!g_Config.m_ClDummy]].m_Paused; }
 	const CTuningParams *GetTuning(int i) const { return &m_aTuningList[i]; }
@@ -1038,8 +1046,6 @@ public:
 	int m_SmoothTick = 0;
 	float m_SmoothIntraTick = 0;
 	bool CheckNewInput() override;
-	std::optional<CServerInfo> m_ConnectServerInfo = std::nullopt;
-	void SetConnectInfo(const NETADDR *pAddress) override;
 };
 
 ColorRGBA CalculateNameColor(ColorHSLA TextColorHSL);

@@ -60,7 +60,6 @@ public:
 	bool NeedUpdate();
 	bool UpdateCheckFailed() const { return m_UpdateCheckFailed; }
 	bool NoPublishedRelease() const { return m_NoPublishedRelease; }
-	const char *LatestReleaseUrl() const { return m_aReleaseUrl; }
 
 	void RenderMiniVoteHud();
 	void RenderCenterLines();
@@ -73,7 +72,6 @@ public:
 	bool m_NoPublishedRelease = false;
 	bool m_UpdatePromptShown = false;
 	char m_aVersionStr[64] = "0";
-	char m_aReleaseUrl[256] = "";
 
 	Regex m_RegexChatIgnore;
 };

@@ -6,7 +6,10 @@
 #include <base/math.h>
 #include <base/system.h>
 
+#include <engine/shared/localization.h>
+
 #include <game/client/components/menus.h>
+#include <game/localization.h>
 
 struct SCatClientMenuFlagOption
 {
@@ -57,7 +60,7 @@ inline void CatClientMenuDoBitmaskButtonGroup(CMenus *pMenus, CUIRect View, CCat
 		if(SafeColumns == 1 || OptionIndex == NumOptions - 1)
 		{
 			const bool Active = (*pFlags & pOptions[OptionIndex].m_Flag) != 0;
-			if(pMenus->DoButton_Menu(&pState->m_aButtons[OptionIndex], pOptions[OptionIndex].m_pLabel, Active, &Row, BUTTONFLAG_LEFT, nullptr, IGraphics::CORNER_ALL, 5.0f, 0.15f, ColorRGBA(0.0f, 0.0f, 0.0f, 0.25f)))
+			if(pMenus->DoButton_Menu(&pState->m_aButtons[OptionIndex], CCLocalize(pOptions[OptionIndex].m_pLabel), Active, &Row, BUTTONFLAG_LEFT, nullptr, IGraphics::CORNER_ALL, 5.0f, 0.15f, ColorRGBA(0.0f, 0.0f, 0.0f, 0.25f)))
 			{
 				*pFlags ^= pOptions[OptionIndex].m_Flag;
 			}
@@ -70,7 +73,7 @@ inline void CatClientMenuDoBitmaskButtonGroup(CMenus *pMenus, CUIRect View, CCat
 			Row.VSplitMid(&LeftButton, &RightButton, CATCLIENT_MENU_MARGIN_SMALL);
 
 			const bool LeftActive = (*pFlags & pOptions[OptionIndex].m_Flag) != 0;
-			if(pMenus->DoButton_Menu(&pState->m_aButtons[OptionIndex], pOptions[OptionIndex].m_pLabel, LeftActive, &LeftButton, BUTTONFLAG_LEFT, nullptr, IGraphics::CORNER_ALL, 5.0f, 0.15f, ColorRGBA(0.0f, 0.0f, 0.0f, 0.25f)))
+			if(pMenus->DoButton_Menu(&pState->m_aButtons[OptionIndex], CCLocalize(pOptions[OptionIndex].m_pLabel), LeftActive, &LeftButton, BUTTONFLAG_LEFT, nullptr, IGraphics::CORNER_ALL, 5.0f, 0.15f, ColorRGBA(0.0f, 0.0f, 0.0f, 0.25f)))
 			{
 				*pFlags ^= pOptions[OptionIndex].m_Flag;
 			}
@@ -79,7 +82,7 @@ inline void CatClientMenuDoBitmaskButtonGroup(CMenus *pMenus, CUIRect View, CCat
 			if(OptionIndex < NumOptions)
 			{
 				const bool RightActive = (*pFlags & pOptions[OptionIndex].m_Flag) != 0;
-				if(pMenus->DoButton_Menu(&pState->m_aButtons[OptionIndex], pOptions[OptionIndex].m_pLabel, RightActive, &RightButton, BUTTONFLAG_LEFT, nullptr, IGraphics::CORNER_ALL, 5.0f, 0.15f, ColorRGBA(0.0f, 0.0f, 0.0f, 0.25f)))
+				if(pMenus->DoButton_Menu(&pState->m_aButtons[OptionIndex], CCLocalize(pOptions[OptionIndex].m_pLabel), RightActive, &RightButton, BUTTONFLAG_LEFT, nullptr, IGraphics::CORNER_ALL, 5.0f, 0.15f, ColorRGBA(0.0f, 0.0f, 0.0f, 0.25f)))
 				{
 					*pFlags ^= pOptions[OptionIndex].m_Flag;
 				}
@@ -108,7 +111,7 @@ inline void CatClientMenuDoChoiceButtonGroup(CMenus *pMenus, CUIRect View, CCatC
 		if(SafeColumns == 1 || OptionIndex == NumOptions - 1)
 		{
 			const bool Active = *pValue == pOptions[OptionIndex].m_Value;
-			if(pMenus->DoButton_Menu(&pState->m_aButtons[OptionIndex], pOptions[OptionIndex].m_pLabel, Active, &Row, BUTTONFLAG_LEFT, nullptr, IGraphics::CORNER_ALL, 5.0f, 0.15f, ColorRGBA(0.0f, 0.0f, 0.0f, 0.25f)))
+			if(pMenus->DoButton_Menu(&pState->m_aButtons[OptionIndex], CCLocalize(pOptions[OptionIndex].m_pLabel), Active, &Row, BUTTONFLAG_LEFT, nullptr, IGraphics::CORNER_ALL, 5.0f, 0.15f, ColorRGBA(0.0f, 0.0f, 0.0f, 0.25f)))
 			{
 				*pValue = pOptions[OptionIndex].m_Value;
 			}
@@ -121,7 +124,7 @@ inline void CatClientMenuDoChoiceButtonGroup(CMenus *pMenus, CUIRect View, CCatC
 			Row.VSplitMid(&LeftButton, &RightButton, CATCLIENT_MENU_MARGIN_SMALL);
 
 			const bool LeftActive = *pValue == pOptions[OptionIndex].m_Value;
-			if(pMenus->DoButton_Menu(&pState->m_aButtons[OptionIndex], pOptions[OptionIndex].m_pLabel, LeftActive, &LeftButton, BUTTONFLAG_LEFT, nullptr, IGraphics::CORNER_ALL, 5.0f, 0.15f, ColorRGBA(0.0f, 0.0f, 0.0f, 0.25f)))
+			if(pMenus->DoButton_Menu(&pState->m_aButtons[OptionIndex], CCLocalize(pOptions[OptionIndex].m_pLabel), LeftActive, &LeftButton, BUTTONFLAG_LEFT, nullptr, IGraphics::CORNER_ALL, 5.0f, 0.15f, ColorRGBA(0.0f, 0.0f, 0.0f, 0.25f)))
 			{
 				*pValue = pOptions[OptionIndex].m_Value;
 			}
@@ -130,7 +133,7 @@ inline void CatClientMenuDoChoiceButtonGroup(CMenus *pMenus, CUIRect View, CCatC
 			if(OptionIndex < NumOptions)
 			{
 				const bool RightActive = *pValue == pOptions[OptionIndex].m_Value;
-				if(pMenus->DoButton_Menu(&pState->m_aButtons[OptionIndex], pOptions[OptionIndex].m_pLabel, RightActive, &RightButton, BUTTONFLAG_LEFT, nullptr, IGraphics::CORNER_ALL, 5.0f, 0.15f, ColorRGBA(0.0f, 0.0f, 0.0f, 0.25f)))
+				if(pMenus->DoButton_Menu(&pState->m_aButtons[OptionIndex], CCLocalize(pOptions[OptionIndex].m_pLabel), RightActive, &RightButton, BUTTONFLAG_LEFT, nullptr, IGraphics::CORNER_ALL, 5.0f, 0.15f, ColorRGBA(0.0f, 0.0f, 0.0f, 0.25f)))
 				{
 					*pValue = pOptions[OptionIndex].m_Value;
 				}

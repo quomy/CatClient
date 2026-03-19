@@ -583,7 +583,7 @@ void CHud::RenderTextInfo()
 	if(Showfps)
 	{
 		char aBuf[16];
-		const int FramesPerSecond = round_to_int(1.0f / Client()->FrameTimeAverage());
+		const int FramesPerSecond = round_to_int(1.0f / Client()->DisplayFrameTimeAverage());
 		str_format(aBuf, sizeof(aBuf), "%d", FramesPerSecond);
 
 		static float s_TextWidth0 = TextRender()->TextWidth(12.f, "0", -1, -1.0f);
@@ -910,9 +910,21 @@ void CHud::RenderCursor()
 			Alpha /= 2.0f;
 	}
 
+	const bool RestoreCustomAspectForCursor = g_Config.m_CcAspectRatioEnabled != 0 && !Graphics()->HasScreenAspectOverride();
+	if(RestoreCustomAspectForCursor)
+	{
+		float AspectRatio = g_Config.m_CcAspectRatio / 100.0f;
+		if(g_Config.m_CcAspectRatioCustom != 0 && g_Config.m_CcAspectRatioCustomY > 0)
+			AspectRatio = (float)maximum(g_Config.m_CcAspectRatioCustomX, 1) / (float)g_Config.m_CcAspectRatioCustomY;
+		Graphics()->SetScreenAspectOverride(std::clamp(AspectRatio, 1.0f, 4.0f));
+	}
+
 	Graphics()->SetColor(1.0f, 1.0f, 1.0f, Alpha);
 	Graphics()->TextureSet(GameClient()->m_GameSkin.m_aSpriteWeaponCursors[CurWeapon]);
 	Graphics()->RenderQuadContainerAsSprite(m_HudQuadContainerIndex, m_aCursorOffset[CurWeapon], TargetPos.x, TargetPos.y, Scale, Scale);
+
+	if(RestoreCustomAspectForCursor)
+		Graphics()->ClearScreenAspectOverride();
 }
 
 void CHud::PrepareAmmoHealthAndArmorQuads()
@@ -2069,6 +2081,13 @@ void CHud::OnRender()
 	if(!GameClient()->m_Snap.m_pGameInfoObj)
 		return;
 
+	const bool RenderInterfaceInNativeAspect = g_Config.m_CcAspectRatioEnabled != 0 &&
+		(g_Config.m_CcAspectRatioExclude & CCatClient::ASPECT_RATIO_EXCLUDE_INTERFACE) != 0 &&
+		Graphics()->HasScreenAspectOverride();
+	const float SavedAspect = RenderInterfaceInNativeAspect ? Graphics()->ScreenAspect() : 0.0f;
+	if(RenderInterfaceInNativeAspect)
+		Graphics()->ClearScreenAspectOverride();
+
 	m_Width = 300.0f * Graphics()->ScreenAspect();
 	m_Height = 300.0f;
 	Graphics()->MapScreen(0.0f, 0.0f, m_Width, m_Height);
@@ -2121,6 +2140,8 @@ void CHud::OnRender()
 		RenderDummyActions();
 		RenderWarmupTimer();
 		RenderTextInfo();
+		GameClient()->m_VoiceChat.RenderHudTalkingIndicator(m_Width, m_Height);
+		GameClient()->m_VoiceChat.RenderHudMuteStatusIndicator(m_Width, m_Height);
 		GameClient()->m_TClient.RenderCenterLines();
 		RenderLocalTime((m_Width / 7) * 3);
 		if(Client()->State() != IClient::STATE_DEMOPLAYBACK)
@@ -2130,6 +2151,10 @@ void CHud::OnRender()
 		if(g_Config.m_ClShowRecord)
 			RenderRecord();
 	}
+
+	if(RenderInterfaceInNativeAspect)
+		Graphics()->SetScreenAspectOverride(SavedAspect);
+
 	RenderCursor();
 }
 

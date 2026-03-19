@@ -60,7 +60,6 @@ public:
 	bool m_PingActive = false;
 
 private:
-	float m_FrameTimeAverage = 0.0f;
 	int m_PlayerId = 0;
 	float m_FontSize = 12.0f;
 	float m_CursorX, m_CursorY, m_BarX = 0.0f, m_BarY;

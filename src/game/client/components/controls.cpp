@@ -21,6 +21,8 @@
 CControls::CControls()
 {
 	mem_zero(&m_aLastData, sizeof(m_aLastData));
+	mem_zero(&m_aFastInput, sizeof(m_aFastInput));
+	mem_zero(&m_SaikoFastInput, sizeof(m_SaikoFastInput));
 	std::fill(std::begin(m_aMousePos), std::end(m_aMousePos), vec2(0.0f, 0.0f));
 	std::fill(std::begin(m_aMousePosOnAction), std::end(m_aMousePosOnAction), vec2(0.0f, 0.0f));
 	std::fill(std::begin(m_aTargetPos), std::end(m_aTargetPos), vec2(0.0f, 0.0f));
@@ -35,6 +37,8 @@ void CControls::OnReset()
 	for(int &AmmoCount : m_aAmmoCount)
 		AmmoCount = 0;
 
+	mem_zero(&m_aFastInput, sizeof(m_aFastInput));
+	mem_zero(&m_SaikoFastInput, sizeof(m_SaikoFastInput));
 	m_LastSendTime = 0;
 }
 
@@ -509,6 +513,42 @@ float CControls::GetMaxMouseDistance() const
 
 bool CControls::CheckNewInput()
 {
+	if(GameClient()->UseSaikoFastInput())
+	{
+		CNetObj_PlayerInput TestInput = m_aInputData[g_Config.m_ClDummy];
+		TestInput.m_Direction = 0;
+		if(m_aInputDirectionLeft[g_Config.m_ClDummy] && !m_aInputDirectionRight[g_Config.m_ClDummy])
+			TestInput.m_Direction = -1;
+		if(!m_aInputDirectionLeft[g_Config.m_ClDummy] && m_aInputDirectionRight[g_Config.m_ClDummy])
+			TestInput.m_Direction = 1;
+
+		bool NewInput = false;
+		if(m_SaikoFastInput.m_Direction != TestInput.m_Direction)
+			NewInput = true;
+		if(m_SaikoFastInput.m_Hook != TestInput.m_Hook)
+			NewInput = true;
+		if(m_SaikoFastInput.m_Fire != TestInput.m_Fire)
+			NewInput = true;
+		if(m_SaikoFastInput.m_Jump != TestInput.m_Jump)
+			NewInput = true;
+		if(m_SaikoFastInput.m_NextWeapon != TestInput.m_NextWeapon)
+			NewInput = true;
+		if(m_SaikoFastInput.m_PrevWeapon != TestInput.m_PrevWeapon)
+			NewInput = true;
+		if(m_SaikoFastInput.m_WantedWeapon != TestInput.m_WantedWeapon)
+			NewInput = true;
+
+		if(g_Config.m_ClSubTickAiming)
+		{
+			TestInput.m_TargetX = (int)m_aMousePos[g_Config.m_ClDummy].x;
+			TestInput.m_TargetY = (int)m_aMousePos[g_Config.m_ClDummy].y;
+		}
+
+		m_SaikoFastInput = TestInput;
+
+		return NewInput;
+	}
+
 	bool NewInput[2] = {};
 	for(int Dummy = 0; Dummy < NUM_DUMMIES; Dummy++)
 	{

@@ -252,57 +252,6 @@ Indicator in freeze color
 Indicator safe color
 == Колір гравця в безпеці
 
-Rainbow
-== Веселка
-
-Rainbow Tees
-== Веселкові тії
-
-Rainbow weapons
-== Веселкова зброя
-
-Rainbow hook
-== Веселковий гак
-
-Rainbow others
-== Веселкові інші тії
-
-Rainbow speed
-== Швидкість веселки
-
-Pulse
-== Пульс
-
-Black
-== Чорний
-
-Random
-== Випадковий
-
-Tee Trails
-== Трейл тії
-
-Enable tee trails
-== Увімкнути трейли
-
-Fade trail alpha
-== Затухання трейла
-
-Taper trail width
-== Звужена ширина трейла
-
-Trail width
-== Ширина трейла
-
-Trail length
-== Довжина трейла
-
-Trail alpha
-== Прозорість трейла
-
-Tee trail color
-== Колір трейла
-
 Name:
 == Назва:
 
@@ -615,9 +564,6 @@ Auto reply to muted players
 Auto reply when tabbed out
 == Авто-відповідь коли не в грі
 
-Show other tees' trails
-== Показувати трейл інших тії
-
 Solid
 == Статичний
 
@@ -841,9 +787,6 @@ Show country flags in nameplates
 == 
 
 Fake CTF flags
-== 
-
-Auto execute
 == 
 
 [Outlines]

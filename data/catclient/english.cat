@@ -1,0 +1,604 @@
+##### translated strings #####
+
+Add blocked word
+== Add blocked word
+
+Amount
+== Amount
+
+Anti Kill
+== Anti Kill
+
+Anti Quit
+== Anti Quit
+
+Applied
+== Applied
+
+Apply
+== Apply
+
+Are you sure you want to open the blocked words list, and did you hide your screen on stream?
+== Are you sure you want to open the blocked words list, and did you hide your screen on stream?
+
+Ask before quitting
+== Ask before quitting
+
+Aspect Ratio
+== Aspect Ratio
+
+Assets directory
+== Assets directory
+
+Author
+== Author
+
+Auto Lag Message
+== Auto Lag Message
+
+Auto Refresh
+== Auto Refresh
+
+Auto set
+== Auto set
+
+Auto Team Lock
+== Auto Team Lock
+
+Back
+== Back
+
+Background color
+== Background color
+
+Blocked Words (%d)
+== Blocked Words (%d)
+
+Cancel
+== Cancel
+
+CatClient
+== CatClient
+
+CatClient %s is available on GitHub.
+== CatClient %s is available on GitHub.
+
+CatClient %s is available on GitHub:
+== CatClient %s is available on GitHub:
+
+CatClient %s is available.
+== CatClient %s is available.
+
+CatClient %s is available. Open the start menu and press 'Update now' to install it.
+== CatClient %s is available. Open the start menu and press 'Update now' to install it.
+
+CatClient Developer
+== CatClient Developer
+
+CatClient Links
+== CatClient Links
+
+CatClient is up to date.
+== CatClient is up to date.
+
+CatClient needs to be restarted to finish the update!
+== CatClient needs to be restarted to finish the update!
+
+CatClient update failed. Please try again.
+== CatClient update failed. Please try again.
+
+CatClient update is installed. Restart to finish.
+== CatClient update is installed. Restart to finish.
+
+Chat Animations
+== Chat Animations
+
+Check now
+== Check now
+
+Checking CatClient updates…
+== Checking CatClient updates…
+
+(Checking for updates)
+== (Checking for updates)
+
+Choose Aspect Ratio
+== Choose Aspect Ratio
+
+Choose Audio Preset
+== Choose Audio Preset
+
+Choose Cursor Preset
+== Choose Cursor Preset
+
+Choose UI Scale
+== Choose UI Scale
+
+Choose a custom cursor preset or leave Default to keep the original game cursor.
+== Choose a custom cursor preset or leave Default to keep the original game cursor.
+
+Choose an audio preset or leave Default to use sounds from the original game data.
+== Choose an audio preset or leave Default to use sounds from the original game data.
+
+Close
+== Close
+
+Couldn't check CatClient updates.
+== Couldn't check CatClient updates.
+
+Cursors
+== Cursors
+
+No clan
+== No clan
+
+Custom Background
+== Custom Background
+
+Custom
+== Custom
+
+Discord
+== Discord
+
+Download update
+== Download update
+
+Installing CatClient update…
+== Installing CatClient update…
+
+Downloading default background…
+== Downloading default background…
+
+Emoticons
+== Emoticons
+
+Emote Wheel
+== Emote Wheel
+
+Enable
+== Enable
+
+Enhanced Laser
+== Enhanced Laser
+
+Entities
+== Entities
+
+Exclude
+== Exclude
+
+Interface
+== Interface
+
+Bind Wheel
+== Bind Wheel
+
+Enable Streamer Mode
+== Enable Streamer Mode
+
+Failed to build a download URL
+== Failed to build a download URL
+
+Fast Input others
+== Fast Input others
+
+Fast Inputs
+== Fast Inputs
+
+Fast Inputs Moved
+== Fast Inputs Moved
+
+Fast Inputs moved from TClient into CatClient > General.
+== Fast Inputs moved from TClient into CatClient > General.
+
+Finish
+== Finish
+
+Freeze Flakes
+== Freeze Flakes
+
+Game
+== Game
+
+Game BG
+== Game BG
+
+General
+== General
+
+HUD
+== HUD
+
+Hammer hits
+== Hammer hits
+
+Hidden
+== Hidden
+
+Hide
+== Hide
+
+Hide Chat
+== Hide Chat
+
+Hide Effects
+== Hide Effects
+
+Hide Friend/Whisper Info
+== Hide Friend/Whisper Info
+
+Hide Server IP
+== Hide Server IP
+
+Image
+== Image
+
+Input
+== Input
+
+Info
+== Info
+
+Inspired By
+== Inspired By
+
+Install
+== Install
+
+Installed
+== Installed
+
+Downloaded
+== Downloaded
+
+Installing
+== Installing
+
+Installing...
+== Installing...
+
+Items
+== Items
+
+Jump sound
+== Jump sound
+
+Jumps
+== Jumps
+
+Kill Delay
+== Kill Delay
+
+Kill is blocked while another player is in your team
+== Kill is blocked while another player is in your team
+
+Lag Threshold
+== Lag Threshold
+
+Loading CatClient
+== Loading CatClient
+
+Loading shop...
+== Loading shop...
+
+Local hammer sound
+== Local hammer sound
+
+Lock Delay
+== Lock Delay
+
+Main Menu
+== Main Menu
+
+Message
+== Message
+
+Min Ping
+== Min Ping
+
+Modern UI
+== Modern UI
+
+Mute Sounds
+== Mute Sounds
+
+New settings menu
+== New settings menu
+
+New start menu
+== New start menu
+
+Next
+== Next
+
+No CatClient release has been published on GitHub yet.
+== No CatClient release has been published on GitHub yet.
+
+No CatClient release has been published yet.
+== No CatClient release has been published yet.
+
+No assets found on this page
+== No assets found on this page
+
+No background images found
+== No background images found
+
+No blocked words yet
+== No blocked words yet
+
+No updates available
+== No updates available
+
+(No published release)
+== (No published release)
+
+(Restart required)
+== (Restart required)
+
+(Up to date)
+== (Up to date)
+
+(Update available)
+== (Update available)
+
+(Update check unavailable)
+== (Update check unavailable)
+
+(Update failed)
+== (Update failed)
+
+(Updating)
+== (Updating)
+
+Preparing CatClient update…
+== Preparing CatClient update…
+
+Retry update
+== Retry update
+
+Update now
+== Update now
+
+Updating CatClient… %d%%
+== Updating CatClient… %d%%
+
+Off
+== Off
+
+Open
+== Open
+
+Open and close
+== Open and close
+
+Open blocked words?
+== Open blocked words?
+
+Others hammer sound
+== Others hammer sound
+
+Others hook sound
+== Others hook sound
+
+Page
+== Page
+
+Particles
+== Particles
+
+Pick the ingame stretch ratio you want to use. The menu itself stays unaffected.
+== Pick the ingame stretch ratio you want to use. The menu itself stays unaffected.
+
+Preview is still loading
+== Preview is still loading
+
+Preview unavailable
+== Preview unavailable
+
+Previous
+== Previous
+
+Ratio
+== Ratio
+
+Refresh
+== Refresh
+
+Refresh Every
+== Refresh Every
+
+Saiko
+== Saiko
+
+Server Browser
+== Server Browser
+
+Set the menu size that feels comfortable. You can keep the default and continue.
+== Set the menu size that feels comfortable. You can keep the default and continue.
+
+Shop
+== Shop
+
+Shop request failed
+== Shop request failed
+
+Shop response is invalid
+== Shop response is invalid
+
+Skip setup
+== Skip setup
+
+Step
+== Step
+
+Streamer
+== Streamer
+
+Streamer Mode
+== Streamer Mode
+
+Stretch Ingame Aspect
+== Stretch Ingame Aspect
+
+Sub-Tick aiming
+== Sub-Tick aiming
+
+Target
+== Target
+
+Team Protection
+== Team Protection
+
+The list is hidden by default for stream safety.
+== The list is hidden by default for stream safety.
+
+Typing
+== Typing
+
+UI Scale
+== UI Scale
+
+Unable to install asset
+== Unable to install asset
+
+Unknown author
+== Unknown author
+
+Visuals
+== Visuals
+
+Weapon switch sound
+== Weapon switch sound
+
+Website
+== Website
+
+Voice
+== Voice
+
+Voice Chat
+== Voice Chat
+
+Voice chat
+== Voice chat
+
+Overlay
+== Overlay
+
+Voice panel bind
+== Voice panel bind
+
+Participant
+== Participant
+
+Participants
+== Participants
+
+No connected participants.
+== No connected participants.
+
+Local participant
+== Local participant
+
+Team
+== Team
+
+spec
+== spec
+
+System default
+== System default
+
+Voice: On
+== Voice: On
+
+Voice: Off
+== Voice: Off
+
+Mode: Push-to-talk
+== Mode: Push-to-talk
+
+Mode: Automatic activation
+== Mode: Automatic activation
+
+PTT bind
+== PTT bind
+
+Microphone
+== Microphone
+
+Headphones
+== Headphones
+
+Connection
+== Connection
+
+Connected
+== Connected
+
+Connecting
+== Connecting
+
+Mode
+== Mode
+
+Push-to-talk
+== Push-to-talk
+
+Automatic activation
+== Automatic activation
+
+Muted
+== Muted
+
+On
+== On
+
+Voice volume
+== Voice volume
+
+Mic check: On
+== Mic check: On
+
+Mic check: Off
+== Mic check: Off
+
+Microphone level
+== Microphone level
+
+Mic volume
+== Mic volume
+
+Reconnect
+== Reconnect
+
+Mute microphone bind
+== Mute microphone bind
+
+Mute headphones bind
+== Mute headphones bind
+
+Voice servers
+== Voice servers
+
+Servers
+== Servers
+
+Current
+== Current
+
+Offline
+== Offline
+
+Reload
+== Reload
+
+Available servers
+== Available servers
+
+Loading server list...
+== Loading server list...
+
+No servers loaded. Press Reload
+== No servers loaded. Press Reload

@@ -15,23 +15,22 @@ void CMenus::RenderSettingsCatClientInfo(CUIRect MainView)
 
 	CatClientMenuBeginSection(LeftView, Section, Content, 115.0f);
 	Content.HSplitTop(CATCLIENT_MENU_HEADLINE_HEIGHT, &Label, &Content);
-	Ui()->DoLabel(&Label, "CatClient Links", CATCLIENT_MENU_HEADLINE_FONT_SIZE, TEXTALIGN_ML);
+	Ui()->DoLabel(&Label, CCLocalize("CatClient Links"), CATCLIENT_MENU_HEADLINE_FONT_SIZE, TEXTALIGN_ML);
 	Content.HSplitTop(CATCLIENT_MENU_MARGIN_SMALL, nullptr, &Content);
 
 	static CButtonContainer s_WebsiteButton;
 	Content.HSplitTop(CATCLIENT_MENU_LINE_SIZE, &Button, &Content);
-	if(DoButtonLineSize_Menu(&s_WebsiteButton, "Website", 0, &Button, CATCLIENT_MENU_LINE_SIZE, false, 0, IGraphics::CORNER_ALL, 5.0f, 0.0f, ColorRGBA(0.0f, 0.0f, 0.0f, 0.25f)))
+	if(DoButtonLineSize_Menu(&s_WebsiteButton, CCLocalize("Website"), 0, &Button, CATCLIENT_MENU_LINE_SIZE, false, 0, IGraphics::CORNER_ALL, 5.0f, 0.0f, ColorRGBA(0.0f, 0.0f, 0.0f, 0.25f)))
 		Client()->ViewLink("https://teeworlds.xyz");
 	Content.HSplitTop(CATCLIENT_MENU_MARGIN_SMALL, nullptr, &Content);
 	static CButtonContainer s_DiscordButton;
 	Content.HSplitTop(CATCLIENT_MENU_LINE_SIZE, &Button, &Content);
-	if(DoButtonLineSize_Menu(&s_DiscordButton, "Discord", 0, &Button, CATCLIENT_MENU_LINE_SIZE, false, 0, IGraphics::CORNER_ALL, 5.0f, 0.0f, ColorRGBA(0.0f, 0.0f, 0.0f, 0.25f)))
+	if(DoButtonLineSize_Menu(&s_DiscordButton, CCLocalize("Discord"), 0, &Button, CATCLIENT_MENU_LINE_SIZE, false, 0, IGraphics::CORNER_ALL, 5.0f, 0.0f, ColorRGBA(0.0f, 0.0f, 0.0f, 0.25f)))
 		Client()->ViewLink("https://discord.gg/28YFTUW5Jg");
-	
 
 	CatClientMenuBeginSection(RightView, Section, Content, 115.0f);
 	Content.HSplitTop(CATCLIENT_MENU_HEADLINE_HEIGHT, &Label, &Content);
-	Ui()->DoLabel(&Label, "CatClient Developer", CATCLIENT_MENU_HEADLINE_FONT_SIZE, TEXTALIGN_ML);
+	Ui()->DoLabel(&Label, CCLocalize("CatClient Developer"), CATCLIENT_MENU_HEADLINE_FONT_SIZE, TEXTALIGN_ML);
 	Content.HSplitTop(CATCLIENT_MENU_MARGIN_SMALL, nullptr, &Content);
 
 	CUIRect TeeRect, DevCardRect;
@@ -42,7 +41,7 @@ void CMenus::RenderSettingsCatClientInfo(CUIRect MainView)
 	BottomView.HSplitTop(CATCLIENT_MENU_SECTION_SPACING, nullptr, &BottomView);
 	CatClientMenuBeginSection(BottomView, Section, Content, 90.0f);
 	Content.HSplitTop(CATCLIENT_MENU_HEADLINE_HEIGHT, &Label, &Content);
-	Ui()->DoLabel(&Label, "Inspired By", CATCLIENT_MENU_HEADLINE_FONT_SIZE, TEXTALIGN_MC);
+	Ui()->DoLabel(&Label, CCLocalize("Inspired By"), CATCLIENT_MENU_HEADLINE_FONT_SIZE, TEXTALIGN_MC);
 	Content.HSplitTop(CATCLIENT_MENU_MARGIN_SMALL, nullptr, &Content);
 
 	static CButtonContainer s_BestClientButton, s_RushieClientButton;

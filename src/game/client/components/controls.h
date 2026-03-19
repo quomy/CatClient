@@ -42,6 +42,7 @@ public:
 
 	// TClient
 	CNetObj_PlayerInput m_aFastInput[NUM_DUMMIES];
+	CNetObj_PlayerInput m_SaikoFastInput;
 	bool m_FastInputHookAction = false;
 	bool m_FastInputFireAction = false;
 

@@ -25,16 +25,29 @@ class CCatClient : public CComponent
 	std::shared_ptr<CHttpRequest> m_pCursorDownloadTask;
 	std::shared_ptr<CHttpRequest> m_pBackgroundDownloadTask;
 
+	struct SCustomBackgroundFrame
+	{
+		IGraphics::CTextureHandle m_Texture;
+		std::chrono::nanoseconds m_Duration = std::chrono::milliseconds(10);
+	};
+
 	IGraphics::CTextureHandle m_CursorTexture;
 	bool m_HasCustomCursor = false;
 	IGraphics::CTextureHandle m_CustomBackgroundTexture;
+	std::vector<SCustomBackgroundFrame> m_vCustomBackgroundFrames;
 	bool m_HasCustomBackgroundTexture = false;
 	vec2 m_CustomBackgroundImageSize = vec2(0.0f, 0.0f);
+	std::chrono::nanoseconds m_CustomBackgroundAnimationStart = std::chrono::nanoseconds::zero();
+	std::chrono::nanoseconds m_CustomBackgroundAnimationDuration = std::chrono::nanoseconds::zero();
 	char m_aLoadedBackgroundImage[128]{};
 	std::chrono::nanoseconds m_LastBackgroundAttempt = std::chrono::nanoseconds::zero();
 	bool m_StreamerWordsLoaded = false;
 	std::vector<std::string> m_vIgnoredPlayers;
 	std::vector<std::string> m_vStreamerBlockedWords;
+
+	std::chrono::nanoseconds m_LastLagMessageTime = std::chrono::nanoseconds::zero();
+	std::chrono::nanoseconds m_LastFrameTime = std::chrono::nanoseconds::zero();
+	bool m_LagMessageSent = false;
 
 	static void ConfigSaveCallback(class IConfigManager *pConfigManager, void *pUserData);
 	static void ConIgnorePlayer(class IConsole::IResult *pResult, void *pUserData);
@@ -55,6 +68,8 @@ class CCatClient : public CComponent
 	void StartAutomaticCursorDownload();
 	void FinishAutomaticCursorDownload();
 	void EnsureCustomBackgroundFolder() const;
+	bool LoadStillFfmpegBackground(IOHANDLE File, const char *pTextureName);
+	bool LoadAnimatedBackground(IOHANDLE File, const char *pTextureName, const char *pInputFormatName = nullptr);
 	bool LoadCustomBackgroundTexture(const char *pImageName);
 	void UnloadCustomBackgroundTexture();
 	void StartDefaultBackgroundDownload();
@@ -63,6 +78,7 @@ class CCatClient : public CComponent
 	void EnsureStreamerWordsLoaded();
 	void SaveStreamerWords() const;
 	bool SetPlayerIgnoredInternal(const char *pPlayerName, bool Ignored, bool SaveConfig);
+	IGraphics::CTextureHandle CurrentCustomBackgroundTexture() const;
 
 public:
 	enum EMuteSoundFlags
@@ -92,6 +108,13 @@ public:
 		MODERN_UI_FPS_PING = 1 << 0,
 		MODERN_UI_RACE_TIMER = 1 << 1,
 		MODERN_UI_LOCAL_TIMER = 1 << 2,
+	};
+
+	enum EAspectRatioExcludeFlags
+	{
+		ASPECT_RATIO_EXCLUDE_INTERFACE = 1 << 0,
+		ASPECT_RATIO_EXCLUDE_BIND_WHEEL = 1 << 1,
+		ASPECT_RATIO_EXCLUDE_EMOTE_WHEEL = 1 << 2,
 	};
 
 	enum EStreamerFlags
@@ -143,6 +166,7 @@ public:
 	bool InvitePlayer(int ClientId);
 	bool ShouldBlockKill();
 	bool ShouldMuteSound(int SoundId, int OwnerId, const vec2 *pSoundPos = nullptr) const;
+	void CheckAndSendLagMessage();
 };
 
 #endif

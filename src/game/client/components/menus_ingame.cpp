@@ -719,7 +719,7 @@ void CMenus::RenderServerInfo(CUIRect MainView)
 				"Address: ddnet://%s\n"
 				"My IGN: %s\n",
 				CurrentServerInfo.m_aName,
-				GameClient()->m_CatClient.HasStreamerFlag(CCatClient::STREAMER_HIDE_SERVER_IP) ? "hidden" : CurrentServerInfo.m_aAddress,
+				GameClient()->m_CatClient.MaskServerAddress(CurrentServerInfo.m_aAddress, aMaskedAddress, sizeof(aMaskedAddress)),
 				Client()->PlayerName());
 			Input()->SetClipboardText(aInfo);
 		}

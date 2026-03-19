@@ -1302,13 +1302,14 @@ void CMenus::RenderServerbrowserInfo(CUIRect View)
 			if(DoButton_Menu(&s_CopyButton, Localize("Copy info"), 0, &Button))
 			{
 				char aInfo[256];
+				char aMaskedAddress[NETADDR_MAXSTRSIZE];
 				str_format(
 					aInfo,
 					sizeof(aInfo),
 					"%s\n"
 					"Address: ddnet://%s\n",
 					pSelectedServer->m_aName,
-					pSelectedServer->m_aAddress);
+					GameClient()->m_CatClient.MaskServerAddress(pSelectedServer->m_aAddress, aMaskedAddress, sizeof(aMaskedAddress)));
 				Input()->SetClipboardText(aInfo);
 			}
 		}

@@ -1,0 +1,604 @@
+##### translated strings #####
+
+Add blocked word
+== Добавить блокируемое слово
+
+Amount
+== Количество
+
+Anti Kill
+== Анти-килл
+
+Anti Quit
+== Анти-выход
+
+Applied
+== Применено
+
+Apply
+== Применить
+
+Are you sure you want to open the blocked words list, and did you hide your screen on stream?
+== Вы точно хотите открыть список заблокированных слов, и вы скрыли экран на стриме?
+
+Ask before quitting
+== Спрашивать перед выходом
+
+Aspect Ratio
+== Соотношение сторон
+
+Assets directory
+== Папка ассетов
+
+Author
+== Автор
+
+Auto Lag Message
+== Автосообщение о лаге
+
+Auto Refresh
+== Автообновление
+
+Auto set
+== Авто применять
+
+Auto Team Lock
+== Автоблокировка команды
+
+Back
+== Назад
+
+Background color
+== Цвет фона
+
+Blocked Words (%d)
+== Заблокированные слова (%d)
+
+Cancel
+== Отмена
+
+CatClient
+== CatClient
+
+CatClient %s is available on GitHub.
+== CatClient %s доступен на GitHub.
+
+CatClient %s is available on GitHub:
+== CatClient %s доступен на GitHub:
+
+CatClient %s is available.
+== Доступен CatClient %s.
+
+CatClient %s is available. Open the start menu and press 'Update now' to install it.
+== Доступен CatClient %s. Открой стартовое меню и нажми 'Обновить сейчас', чтобы установить его.
+
+CatClient Developer
+== Разработчик CatClient
+
+CatClient Links
+== Ссылки CatClient
+
+CatClient is up to date.
+== CatClient обновлён.
+
+CatClient needs to be restarted to finish the update!
+== Чтобы завершить обновление, CatClient нужно перезапустить!
+
+CatClient update failed. Please try again.
+== Обновление CatClient не удалось. Попробуйте ещё раз.
+
+CatClient update is installed. Restart to finish.
+== Обновление CatClient установлено. Перезапустите клиент, чтобы завершить.
+
+Chat Animations
+== Анимации чата
+
+Check now
+== Проверить сейчас
+
+Checking CatClient updates…
+== Проверка обновлений CatClient…
+
+(Checking for updates)
+== (Проверка обновлений)
+
+Choose Aspect Ratio
+== Выберите соотношение сторон
+
+Choose Audio Preset
+== Выберите аудио-пресет
+
+Choose Cursor Preset
+== Выберите пресет курсора
+
+Choose UI Scale
+== Выберите масштаб интерфейса
+
+Choose a custom cursor preset or leave Default to keep the original game cursor.
+== Выберите пользовательский пресет курсора или оставьте дефолтный, чтобы сохранить оригинальный курсор игры.
+
+Choose an audio preset or leave Default to use sounds from the original game data.
+== Выберите аудио-пресет или оставьте дефолтный, чтобы использовать звуки из оригинальных данных игры.
+
+Close
+== Закрыть
+
+Couldn't check CatClient updates.
+== Не удалось проверить обновления CatClient.
+
+Cursors
+== Курсоры
+
+No clan
+== Без клана
+
+Custom Background
+== Свой фон
+
+Custom
+== Custom
+
+Discord
+== Discord
+
+Download update
+== Скачать обновление
+
+Installing CatClient update…
+== Устанавливается обновление CatClient…
+
+Downloading default background…
+== Загружается фон по умолчанию…
+
+Emoticons
+== Эмотиконы
+
+Emote Wheel
+== Колесо эмоций
+
+Enable
+== Включить
+
+Enhanced Laser
+== Улучшенный лазер
+
+Entities
+== Энтити
+
+Exclude
+== Исключить
+
+Interface
+== Интерфейс
+
+Bind Wheel
+== Колесо биндов
+
+Enable Streamer Mode
+== Включить режим стримера
+
+Failed to build a download URL
+== Не удалось сформировать URL загрузки
+
+Fast Input others
+== Фаст инпуты для других
+
+Fast Inputs
+== Фаст инпуты
+
+Fast Inputs Moved
+== Фаст инпуты перенесены
+
+Fast Inputs moved from TClient into CatClient > General.
+== Фаст инпуты перенесены из TClient в CatClient > Общее.
+
+Finish
+== Завершить
+
+Freeze Flakes
+== Снежинки заморозки
+
+Game
+== Игра
+
+Game BG
+== Фон игры
+
+General
+== Общее
+
+HUD
+== HUD
+
+Hammer hits
+== Удары молотка
+
+Hidden
+== Скрыто
+
+Hide
+== Скрыть
+
+Hide Chat
+== Скрыть чат
+
+Hide Effects
+== Скрыть эффекты
+
+Hide Friend/Whisper Info
+== Скрыть информацию о друзьях и шепоте
+
+Hide Server IP
+== Скрыть IP сервера
+
+Image
+== Изображение
+
+Input
+== Ввод
+
+Info
+== Информация
+
+Inspired By
+== Вдохновлено
+
+Install
+== Установить
+
+Installed
+== Установлено
+
+Downloaded
+== Скачано
+
+Installing
+== Установка
+
+Installing...
+== Устанавливается...
+
+Items
+== Элементы
+
+Jump sound
+== Звук прыжка
+
+Jumps
+== Прыжки
+
+Kill Delay
+== Задержка килла
+
+Kill is blocked while another player is in your team
+== Килл заблокирован, пока в вашей команде есть другой игрок
+
+Lag Threshold
+== Порог лага
+
+Loading CatClient
+== Загрузка CatClient
+
+Loading shop...
+== Загрузка магазина...
+
+Local hammer sound
+== Звук локального молотка
+
+Lock Delay
+== Задержка блокировки
+
+Main Menu
+== Главное меню
+
+Message
+== Сообщение
+
+Min Ping
+== Мин. пинг
+
+Modern UI
+== Современный интерфейс
+
+Mute Sounds
+== Отключение звуков
+
+New settings menu
+== Новое меню настроек
+
+New start menu
+== Новое главное меню
+
+Next
+== Далее
+
+No CatClient release has been published on GitHub yet.
+== На GitHub ещё не опубликован релиз CatClient.
+
+No CatClient release has been published yet.
+== Релиз CatClient ещё не был опубликован.
+
+No assets found on this page
+== На этой странице ассеты не найдены
+
+No background images found
+== Фоновые изображения не найдены
+
+No blocked words yet
+== Заблокированных слов пока нет
+
+No updates available
+== Обновлений нет
+
+(No published release)
+== (Релиз не опубликован)
+
+(Restart required)
+== (Нужен рестарт)
+
+(Up to date)
+== (Актуальная версия)
+
+(Update available)
+== (Есть обновление)
+
+(Update check unavailable)
+== (Проверка обновлений недоступна)
+
+(Update failed)
+== (Ошибка обновления)
+
+(Updating)
+== (Идёт обновление)
+
+Preparing CatClient update…
+== Подготавливается обновление CatClient…
+
+Retry update
+== Повторить обновление
+
+Update now
+== Обновить сейчас
+
+Updating CatClient… %d%%
+== Обновляется CatClient… %d%%
+
+Off
+== Выкл.
+
+Open
+== Открыть
+
+Open and close
+== Открытие и закрытие
+
+Open blocked words?
+== Открыть заблокированные слова?
+
+Others hammer sound
+== Звук молотка других
+
+Others hook sound
+== Звук хука других
+
+Page
+== Страница
+
+Particles
+== Частицы
+
+Pick the ingame stretch ratio you want to use. The menu itself stays unaffected.
+== Выберите нужное растянутое соотношение сторон для игры. Само меню это не затронет.
+
+Preview is still loading
+== Превью ещё загружается
+
+Preview unavailable
+== Превью недоступно
+
+Previous
+== Назад
+
+Ratio
+== Соотношение
+
+Refresh
+== Обновить
+
+Refresh Every
+== Обновлять каждые
+
+Saiko
+== Saiko
+
+Server Browser
+== Браузер серверов
+
+Set the menu size that feels comfortable. You can keep the default and continue.
+== Настройте удобный размер меню. Можно оставить значение по умолчанию и продолжить.
+
+Shop
+== Магазин
+
+Shop request failed
+== Ошибка запроса магазина
+
+Shop response is invalid
+== Некорректный ответ магазина
+
+Skip setup
+== Пропустить настройку
+
+Step
+== Шаг
+
+Streamer
+== Стример
+
+Streamer Mode
+== Режим стримера
+
+Stretch Ingame Aspect
+== Растягивать соотношение сторон в игре
+
+Sub-Tick aiming
+== Саб-тик прицеливание
+
+Target
+== Путь
+
+Team Protection
+== Защита команды
+
+The list is hidden by default for stream safety.
+== Список по умолчанию скрыт для безопасности на стриме.
+
+Typing
+== Печать
+
+UI Scale
+== Масштаб интерфейса
+
+Unable to install asset
+== Не удалось установить ассет
+
+Unknown author
+== Неизвестный автор
+
+Visuals
+== Визуал
+
+Weapon switch sound
+== Звук смены оружия
+
+Website
+== Сайт
+
+Voice
+== Голос
+
+Voice Chat
+== Голосовой чат
+
+Voice chat
+== Голосовой чат
+
+Overlay
+== Оверлей
+
+Voice panel bind
+== Бинд панели голосового чата
+
+Participant
+== Участник
+
+Participants
+== Участники
+
+No connected participants.
+== Нет подключенных участников.
+
+Local participant
+== Локальный участник
+
+Team
+== Команда
+
+spec
+== spec
+
+System default
+== Системное устройство
+
+Voice: On
+== Голосовой чат: Вкл
+
+Voice: Off
+== Голосовой чат: Выкл
+
+Mode: Push-to-talk
+== Режим: Нажми и говори
+
+Mode: Automatic activation
+== Режим: Автоактивация
+
+PTT bind
+== Бинд Push-to-talk
+
+Microphone
+== Микрофон
+
+Headphones
+== Наушники
+
+Connection
+== Подключение
+
+Connected
+== Подключено
+
+Connecting
+== Подключение
+
+Mode
+== Режим
+
+Push-to-talk
+== Нажми и говори
+
+Automatic activation
+== Автоактивация
+
+Muted
+== Выкл
+
+On
+== Вкл
+
+Voice volume
+== Громкость голосового чата
+
+Mic check: On
+== Проверка микрофона: Вкл
+
+Mic check: Off
+== Проверка микрофона: Выкл
+
+Microphone level
+== Уровень микрофона
+
+Mic volume
+== Громкость микрофона
+
+Reconnect
+== Переподключить
+
+Mute microphone bind
+== Бинд отключения микрофона
+
+Mute headphones bind
+== Бинд отключения наушников
+
+Voice servers
+== Голосовые серверы
+
+Servers
+== Серверы
+
+Current
+== Текущий
+
+Offline
+== Отключено
+
+Reload
+== Обновить
+
+Available servers
+== Доступные серверы
+
+Loading server list...
+== Загрузка списка серверов...
+
+No servers loaded. Press Reload
+== Список серверов не загружен. Нажмите обновить

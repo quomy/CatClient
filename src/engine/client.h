@@ -101,6 +101,7 @@ protected:
 	float m_GlobalTime = 0.0f;
 	float m_RenderFrameTime = 0.0001f;
 	float m_FrameTimeAverage = 0.0001f;
+	float m_DisplayFrameTimeAverage = 0.0f;
 
 	TLoadingCallback m_LoadingCallback = nullptr;
 
@@ -185,6 +186,8 @@ public:
 	float RenderFrameTime() const { return m_RenderFrameTime; }
 	// Exponentially weighted average of frame times.
 	float FrameTimeAverage() const { return m_FrameTimeAverage; }
+	// More heavily smoothed frame time used for FPS readouts in the UI.
+	float DisplayFrameTimeAverage() const { return m_DisplayFrameTimeAverage > 0.0f ? m_DisplayFrameTimeAverage : m_FrameTimeAverage; }
 
 	// actions
 	virtual void Connect(const char *pAddress, const char *pPassword = nullptr) = 0;
@@ -379,7 +382,6 @@ protected:
 public:
 	// TClient
 	virtual bool CheckNewInput() = 0;
-	virtual void SetConnectInfo(const NETADDR *pAddress) = 0;
 
 	virtual void OnConsoleInit() = 0;
 

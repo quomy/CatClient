@@ -1560,7 +1560,6 @@ void CGameContext::ProgressVoteOptions(int ClientId)
 
 	if(!VotesLeft)
 	{
-		// player has up to date vote option list
 		return;
 	}
 

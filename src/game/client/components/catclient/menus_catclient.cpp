@@ -14,11 +14,11 @@ void CMenus::RenderSettingsCatClient(CUIRect MainView)
 	CatClientMenuConstrainWidth(TabBar, Tabs, CATCLIENT_MENU_TAB_WIDTH * (float)NUM_CATCLIENT_TABS);
 	static CButtonContainer s_aTabs[NUM_CATCLIENT_TABS] = {};
 	const char *apTabNames[NUM_CATCLIENT_TABS] = {
-		Localize("General"),
-		Localize("Visuals"),
-		Localize("Shop"),
-		Localize("Streamer"),
-		Localize("Info"),
+		CCLocalize("General"),
+		CCLocalize("Visuals"),
+		CCLocalize("Shop"),
+		CCLocalize("Streamer"),
+		CCLocalize("Info"),
 	};
 
 	for(int Tab = 0; Tab < NUM_CATCLIENT_TABS; ++Tab)

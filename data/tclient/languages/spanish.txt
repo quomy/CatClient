@@ -332,48 +332,6 @@ Hide ghosts of frozen players
 Render ghosts as circles
 == Mostrar fantasmas como círculos
 
-Rainbow
-== Arcoíris
-
-Rainbow Tees
-== Tees arcoíris
-
-Rainbow weapons
-== Armas arcoíris
-
-Rainbow hook
-== Gancho arcoíris
-
-Rainbow others
-== Otros arcoíris
-
-Pulse
-== Pulso
-
-Black
-== Negro
-
-Random
-== Aleatorio
-
-Rainbow speed
-== Velocidad arcoíris
-
-Tee Trails
-== Estelas de tee
-
-Enable tee trails
-== Activar estelas
-
-Show other tees' trails
-== Mostrar estelas de otros
-
-Fade trail alpha
-== Desvanecer opacidad de estela
-
-Taper trail width
-== Afinar ancho de estela
-
 Solid
 == Sólido
 
@@ -382,18 +340,6 @@ Tee
 
 Speed
 == Velocidad
-
-Tee trail color
-== Color de estela
-
-Trail width
-== Ancho de estela
-
-Trail length
-== Largo de estela
-
-Trail alpha
-== Opacidad de estela
 
 War Entries
 == Entradas de guerra
@@ -754,9 +700,6 @@ Tiny Tee Size
 == 
 
 Fake CTF flags
-== 
-
-Auto execute
 == 
 
 Pet

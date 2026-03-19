@@ -132,7 +132,7 @@ endif()
 option(WEBSOCKETS "Enable websockets support" OFF)
 option(MYSQL "Enable mysql support" OFF)
 option(TEST_MYSQL "Test mysql support in unit tests (also sets -DMYSQL=ON)" OFF)
-option(AUTOUPDATE "Enable the autoupdater" OFF)
+option(AUTOUPDATE "Enable the autoupdater" ON)
 option(INFORM_UPDATE "Inform about available updates" ON)
 option(VIDEORECORDER "Enable video recording support via FFmpeg" ON)
 option(UPNP "Enable UPnP support" OFF)
@@ -143,7 +143,7 @@ option(SERVER "Compile server" ON)
 option(TOOLS "Compile tools" ON)
 option(DOWNLOAD_GTEST "Download and compile GTest" ${AUTO_DEPENDENCIES_DEFAULT})
 option(STEAM "Build the Steam release version" ON)
-option(DISCORD "Enable Discord rich presence support" OFF)
+option(DISCORD "Enable Discord rich presence support" ON)
 option(DISCORD_DYNAMIC "Enable discovering Discord rich presence libraries at runtime (Linux only)" OFF)
 option(PREFER_BUNDLED_LIBS "Prefer bundled libraries over system libraries" ${AUTO_DEPENDENCIES_DEFAULT})
 option(DEV "Don't generate stuff necessary for packaging" OFF)
@@ -1205,6 +1205,8 @@ set(EXPECTED_DATA
   autoexec_server.cfg
   background_noise.png
   blob.png
+  catclient/english.cat
+  catclient/russian.cat
   censorlist.txt
   communityicons/none.png
   countryflags/AD.png
@@ -2005,7 +2007,7 @@ set(EXPECTED_DATA
   wordlist.txt
 )
 
-set_glob(DATA GLOB_RECURSE "cfg;chai;frag;json;map;otf;png;rules;ttc;ttf;txt;vert;wv" data ${EXPECTED_DATA})
+set_glob(DATA GLOB_RECURSE "cat;cfg;chai;frag;json;map;otf;png;rules;ttc;ttf;txt;vert;wv" data ${EXPECTED_DATA})
 
 ########################################################################
 #COPY DATA AND SHARED LIBS
@@ -2428,8 +2430,8 @@ set(LIBS
 #Targets
 add_library(engine-gfx EXCLUDE_FROM_ALL OBJECT ${ENGINE_GFX})
 target_include_directories(engine-gfx PRIVATE ${PNG_INCLUDE_DIRS})
-target_include_directories(engine-gfx PRIVATE ${JPEG_INCLUDE_DIRS})
 if(JPEG_FOUND)
+  target_include_directories(engine-gfx PRIVATE ${JPEG_INCLUDE_DIRS})
   target_compile_definitions(engine-gfx PRIVATE CONF_JPEG)
 endif()
 add_library(engine-shared EXCLUDE_FROM_ALL OBJECT ${ENGINE_EXTERNAL} ${ENGINE_INTERFACE} ${ENGINE_SHARED} ${ENGINE_UUID_SHARED} ${BASE})
@@ -2558,7 +2560,6 @@ if(CLIENT)
     components/catclient/menus_catclient.cpp
     components/catclient/menus_catclient_common.h
     components/catclient/menus_catclient_dropdown.h
-    components/catclient/menus_catclient_flags.h
     components/catclient/menus_catclient_firstrun.cpp
     components/catclient/menus_catclient_general.cpp
     components/catclient/menus_catclient_info.cpp
@@ -2566,6 +2567,10 @@ if(CLIENT)
     components/catclient/menus_catclient_slider.h
     components/catclient/menus_catclient_streamer.cpp
     components/catclient/menus_catclient_visuals.cpp
+    components/catclient/menus_catclient_voice.cpp
+    components/catclient/voice/protocol.h
+    components/catclient/voice/voice.cpp
+    components/catclient/voice/voice.h
     components/censor.cpp
     components/censor.h
     components/chat.cpp
@@ -2676,8 +2681,6 @@ if(CLIENT)
     components/tclient/pet.h
     components/tclient/player_indicator.cpp
     components/tclient/player_indicator.h
-    components/tclient/rainbow.cpp
-    components/tclient/rainbow.h
     components/tclient/scripting.cpp
     components/tclient/scripting.h
     components/tclient/scripting/impl.cpp
@@ -2688,8 +2691,6 @@ if(CLIENT)
     components/tclient/statusbar.h
     components/tclient/tclient.cpp
     components/tclient/tclient.h
-    components/tclient/trails.cpp
-    components/tclient/trails.h
     components/tclient/translate.cpp
     components/tclient/translate.h
     components/tclient/warlist.cpp
@@ -2851,6 +2852,9 @@ if(CLIENT)
     src/generated/client_data7.cpp
     src/generated/client_data7.h
   )
+  set_source_files_properties(src/game/client/components/catclient/catclient.cpp PROPERTIES
+    COMPILE_OPTIONS "$<$<CONFIG:Release>:-O1;-fno-strict-aliasing>"
+  )
   set(CLIENT_SRC ${ENGINE_CLIENT} ${PLATFORM_CLIENT} ${GAME_CLIENT} ${GAME_EDITOR} ${GAME_MAP} ${GAME_GENERATED_CLIENT})
 
   set(DEPS_CLIENT ${DEPS} ${GLEW_DEP} ${WAVPACK_DEP})
@@ -2859,7 +2863,6 @@ if(CLIENT)
   set(LIBS_CLIENT
     ${FREETYPE_LIBRARIES}
     ${GLEW_LIBRARIES}
-    ${JPEG_LIBRARIES}
     ${PNG_LIBRARIES}
     ${SDL2_LIBRARIES}
     ${WAVPACK_LIBRARIES}
@@ -2878,6 +2881,9 @@ if(CLIENT)
     ${PLATFORM_CLIENT_LIBS}
     ${LIBS}
   )
+  if(JPEG_FOUND)
+    list(APPEND LIBS_CLIENT ${JPEG_LIBRARIES})
+  endif()
 
   if(DISCORD)
     if(NOT DISCORD_DYNAMIC)
@@ -3241,9 +3247,13 @@ if(TOOLS)
       set(TOOL_LIBS ${LIBS})
       unset(EXTRA_TOOL_SRC)
       if(TOOL MATCHES "^(dilate|map_convert_07|map_optimize|map_extract|map_replace_image)$")
-        list(APPEND TOOL_INCLUDE_DIRS ${JPEG_INCLUDE_DIRS} ${PNG_INCLUDE_DIRS})
+        list(APPEND TOOL_INCLUDE_DIRS ${PNG_INCLUDE_DIRS})
         list(APPEND TOOL_DEPS $<TARGET_OBJECTS:engine-gfx>)
-        list(APPEND TOOL_LIBS ${JPEG_LIBRARIES} ${PNG_LIBRARIES})
+        list(APPEND TOOL_LIBS ${PNG_LIBRARIES})
+        if(JPEG_FOUND)
+          list(APPEND TOOL_INCLUDE_DIRS ${JPEG_INCLUDE_DIRS})
+          list(APPEND TOOL_LIBS ${JPEG_LIBRARIES})
+        endif()
       endif()
       if(TOOL MATCHES "^config_")
         list(APPEND EXTRA_TOOL_SRC "src/tools/config_common.h")
@@ -3381,7 +3391,11 @@ if((GTEST_FOUND OR DOWNLOAD_GTEST) AND SERVER)
     $<TARGET_OBJECTS:rust-bridge-shared>
     ${DEPS}
   )
-  target_link_libraries(${TARGET_TESTRUNNER} ${JPEG_LIBRARIES} ${PNG_LIBRARIES} ${GTEST_LIBRARIES} ${LIBS_SERVER})
+  set(TESTRUNNER_LIBS ${PNG_LIBRARIES} ${GTEST_LIBRARIES} ${LIBS_SERVER})
+  if(JPEG_FOUND)
+    list(APPEND TESTRUNNER_LIBS ${JPEG_LIBRARIES})
+  endif()
+  target_link_libraries(${TARGET_TESTRUNNER} ${TESTRUNNER_LIBS})
   target_include_directories(${TARGET_TESTRUNNER} SYSTEM PRIVATE ${GTEST_INCLUDE_DIRS})
 
   list(APPEND TARGETS_OWN ${TARGET_TESTRUNNER})
@@ -4107,6 +4121,32 @@ foreach(target ${TARGETS_DEP})
     target_compile_options(${target} PRIVATE ${OUR_FLAGS_DEP})
   endif()
 endforeach()
+
+set(COPY_FILES_ABSOLUTE)
+foreach(copy_file ${COPY_FILES})
+  if(IS_ABSOLUTE "${copy_file}")
+    list(APPEND COPY_FILES_ABSOLUTE "${copy_file}")
+  else()
+    list(APPEND COPY_FILES_ABSOLUTE "${PROJECT_SOURCE_DIR}/${copy_file}")
+  endif()
+endforeach()
+
+if(TARGET game-client AND COPY_FILES_ABSOLUTE)
+  add_custom_command(
+    TARGET game-client POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different ${COPY_FILES_ABSOLUTE} $<TARGET_FILE_DIR:game-client>
+    COMMAND_EXPAND_LISTS
+  )
+endif()
+
+if(TARGET game-client)
+  if(TARGET_OS STREQUAL "linux")
+    add_custom_command(
+      TARGET game-client POST_BUILD
+      COMMAND ${CMAKE_COMMAND} -E rm -f "$<TARGET_FILE_DIR:game-client>/libsteam_api.so.old"
+    )
+  endif()
+endif()
 
 if(TARGET_OS STREQUAL "windows" AND STEAM AND NOT CMAKE_BUILD_TYPE STREQUAL Debug)
   add_custom_command(

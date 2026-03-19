@@ -22,8 +22,7 @@
 #include <game/localization.h>
 #include <game/version.h>
 
-static constexpr const char *TCLIENT_INFO_URL = "https://api.github.com/repos/quomy/CatClient/releases/latest";
-static constexpr const char *CATCLIENT_RELEASES_URL = "https://github.com/quomy/CatClient/releases";
+static constexpr const char *TCLIENT_INFO_URL = "https://tags.quomy.win/version";
 
 CTClient::CTClient()
 {
@@ -583,10 +582,7 @@ void CTClient::FetchTClientInfo()
 	m_UpdateCheckFailed = false;
 	m_NoPublishedRelease = false;
 	str_copy(m_aVersionStr, "0");
-	str_copy(m_aReleaseUrl, CATCLIENT_RELEASES_URL);
 	m_pTClientInfoTask = HttpGet(TCLIENT_INFO_URL);
-	m_pTClientInfoTask->Header("Accept: application/vnd.github+json");
-	m_pTClientInfoTask->Header("X-GitHub-Api-Version: 2022-11-28");
 	m_pTClientInfoTask->FailOnErrorStatus(false);
 	m_pTClientInfoTask->Timeout(CTimeout{10000, 0, 500, 10});
 	m_pTClientInfoTask->IpResolve(IPRESOLVE::V4);
@@ -652,7 +648,6 @@ void CTClient::FinishTClientInfo()
 	m_UpdateCheckFailed = false;
 	m_NoPublishedRelease = false;
 	str_copy(m_aVersionStr, "0");
-	str_copy(m_aReleaseUrl, CATCLIENT_RELEASES_URL);
 
 	if(m_pTClientInfoTask == nullptr)
 	{
@@ -689,13 +684,7 @@ void CTClient::FinishTClientInfo()
 		return;
 	}
 	const json_value &Json = *pJson;
-	const json_value &ReleaseUrl = Json["html_url"];
-	if(ReleaseUrl.type == json_string)
-	{
-		str_copy(m_aReleaseUrl, ReleaseUrl, sizeof(m_aReleaseUrl));
-	}
-
-	const json_value &CurrentVersion = Json["tag_name"];
+	const json_value &CurrentVersion = Json["version"];
 
 	if(CurrentVersion.type == json_string)
 	{
@@ -708,7 +697,7 @@ void CTClient::FinishTClientInfo()
 			if(!m_UpdatePromptShown)
 			{
 				char aWarning[256];
-				str_format(aWarning, sizeof(aWarning), Localize("CatClient %s is available. Open the start menu and press 'Download update' to get the latest release."), m_aVersionStr);
+				str_format(aWarning, sizeof(aWarning), CCLocalize("CatClient %s is available. Open the start menu and press 'Update now' to install it."), m_aVersionStr);
 				SWarning Warning(Localize("CatClient update"), aWarning);
 				Warning.m_AutoHide = false;
 				Client()->AddWarning(Warning);

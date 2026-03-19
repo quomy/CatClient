@@ -346,7 +346,7 @@ void CSkins7::OnInit()
 	InitPlaceholderSkinParts();
 
 	Refresh([this]() {
-		GameClient()->m_Menus.RenderLoading(Localize("Loading CatClient"), Localize("Loading skin files"), 0);
+		GameClient()->m_Menus.RenderLoading(CCLocalize("Loading CatClient"), Localize("Loading skin files"), 0);
 	});
 }
 

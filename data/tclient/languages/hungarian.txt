@@ -242,9 +242,6 @@ Negative stability buffer (for Gores)
 Uncertainty duration
 == 
 
-Auto execute
-== 
-
 Voting
 == 
 
@@ -492,48 +489,6 @@ Render ghosts as circles
 Toggle ghosts key
 == 
 
-Rainbow
-== 
-
-Rainbow Tees
-== 
-
-Rainbow weapons
-== 
-
-Rainbow hook
-== 
-
-Rainbow others
-== 
-
-Pulse
-== 
-
-Black
-== 
-
-Random
-== 
-
-Rainbow speed
-== 
-
-Tee Trails
-== 
-
-Enable tee trails
-== 
-
-Show other tees' trails
-== 
-
-Fade trail alpha
-== 
-
-Taper trail width
-== 
-
 Solid
 == 
 
@@ -541,18 +496,6 @@ Tee
 == 
 
 Speed
-== 
-
-Tee trail color
-== 
-
-Trail width
-== 
-
-Trail length
-== 
-
-Trail alpha
 == 
 
 Background Draw
