@@ -79,11 +79,11 @@ jobs:
     - name: Build universal libjpeg
       if: contains(matrix.os, 'macOS')
       run: |
-        arch -x86_64 brew install libjpeg  # installs to /usr/local
+        arch -x86_64 /usr/local/bin/brew install libjpeg || true
         lipo -create \
           /opt/homebrew/lib/libjpeg.dylib \
           /usr/local/lib/libjpeg.dylib \
-          -output /usr/local/lib/libjpeg-fat.dylib
+          -output ${GITHUB_WORKSPACE}/libjpeg-fat.dylib
 
     - name: Build in release mode
       env:
@@ -104,6 +104,8 @@ jobs:
         if [[ "${{ matrix.os }}" == "macOS-latest" ]]; then
             POST_FLAGS+=" -DPNG_LIBRARY=${GITHUB_WORKSPACE}/ddnet-libs/png/mac/libfat/libpng16.16.dylib"
             POST_FLAGS+=" -DPNG_INCLUDEDIR=${GITHUB_WORKSPACE}/ddnet-libs/png/include"
+            POST_FLAGS+=" -DJPEG_LIBRARY=${GITHUB_WORKSPACE}/libjpeg-fat.dylib"
+            POST_FLAGS+=" -DJPEG_INCLUDE_DIR=/opt/homebrew/include"
         fi
         mkdir release
         cd release
