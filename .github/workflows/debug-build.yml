@@ -1,9 +1,10 @@
 name: Debug Build
 
 on:
-  push:
-    branches-ignore:
-      - gh-readonly-queue/**
+  workflow_dispatch:
+#   push:
+#     branches-ignore:
+#       - gh-readonly-queue/**
 
 jobs:
   build-cmake:
