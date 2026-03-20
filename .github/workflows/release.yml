@@ -119,8 +119,8 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ./artifacts/${{ env.CLIENT_NAME }}-ubuntu.tar.xz
-          asset_name: ${{ env.CLIENT_NAME }}-ubuntu.tar.xz
+          asset_path: ./artifacts/${{ env.CLIENT_NAME }}-ubuntu.tar.gz
+          asset_name: ${{ env.CLIENT_NAME }}-ubuntu.tar.gz
           asset_content_type: application/tar.xz
           
 
