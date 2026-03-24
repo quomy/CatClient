@@ -20,7 +20,7 @@ using std::string;
 
 namespace
 {
-constexpr const char *UPDATER_BASE_URL = "https://tags.quomy.win";
+constexpr const char *UPDATER_BASE_URL = "https://api.github.com";
 constexpr const char *UPDATER_LOCAL_MANIFEST = "update/update.json";
 constexpr const char *UPDATER_LOCAL_EXTRACTED = "update/extracted";
 
@@ -75,7 +75,7 @@ const char *GetUpdaterUrl(char *pBuf, int BufSize, const char *pFile)
 
 const char *GetUpdaterManifestPath()
 {
-	return "update/" UPDATER_RELEASE_PLATFORM ".json";
+	return "repos/quomy/CatClient/releases/latest";
 }
 
 const char *FormatFetchUrl(char *pBuf, int BufSize, const char *pUrl, bool UpdaterPath)
@@ -92,6 +92,42 @@ const char *FormatFetchUrl(char *pBuf, int BufSize, const char *pUrl, bool Updat
 bool IsSpecialDirEntry(const char *pName)
 {
 	return str_comp(pName, ".") == 0 || str_comp(pName, "..") == 0;
+}
+
+bool HasSha256DigestPrefix(const char *pDigest)
+{
+	return pDigest &&
+		pDigest[0] == 's' &&
+		pDigest[1] == 'h' &&
+		pDigest[2] == 'a' &&
+		pDigest[3] == '2' &&
+		pDigest[4] == '5' &&
+		pDigest[5] == '6' &&
+		pDigest[6] == ':';
+}
+
+const json_value *FindGitHubReleaseAsset(const json_value *pAssets, const char *pName)
+{
+	if(!pAssets || pAssets->type != json_array || !pName || pName[0] == '\0')
+		return nullptr;
+
+	for(int i = 0; i < json_array_length(pAssets); ++i)
+	{
+		const json_value *pAsset = json_array_get(pAssets, i);
+		if(!pAsset || pAsset->type != json_object)
+			continue;
+
+		const char *pAssetName = json_string_get(json_object_get(pAsset, "name"));
+		if(pAssetName && str_comp(pAssetName, pName) == 0)
+			return pAsset;
+	}
+
+	return nullptr;
+}
+
+void BuildGitHubExtractRoot(char *pBuf, int BufSize, const char *pVersion)
+{
+	str_format(pBuf, BufSize, "%s-%s-%s", CLIENT_NAME, pVersion, UPDATER_RELEASE_PACKAGE_SUFFIX);
 }
 
 struct SRemovePathData
@@ -525,6 +561,8 @@ bool CUpdater::ParseUpdate()
 		return false;
 	}
 
+	m_Manifest.Reset();
+
 	const char *pVersion = json_string_get(json_object_get(pManifest, "version"));
 	const json_value *pArchive = json_object_get(pManifest, "archive");
 	const char *pDownloadUrl = pArchive ? json_string_get(json_object_get(pArchive, "download_url")) : nullptr;
@@ -533,30 +571,22 @@ bool CUpdater::ParseUpdate()
 	const char *pExtractRoot = pArchive ? json_string_get(json_object_get(pArchive, "extract_root")) : nullptr;
 	const char *pSha256 = pArchive ? json_string_get(json_object_get(pArchive, "sha256")) : nullptr;
 
-	m_Manifest.Reset();
 	if(pVersion)
-	{
 		m_Manifest.m_Version = pVersion;
-	}
 	if(pDownloadUrl)
-	{
 		m_Manifest.m_DownloadUrl = pDownloadUrl;
-	}
 	if(pFilename)
-	{
 		m_Manifest.m_Filename = pFilename;
-	}
 	if(pFormat)
-	{
 		m_Manifest.m_Format = pFormat;
-	}
 	if(pExtractRoot)
-	{
 		m_Manifest.m_ExtractRoot = pExtractRoot;
-	}
-	if(pSha256 && sha256_from_str(&m_Manifest.m_Sha256, pSha256) == 0)
+	if(pSha256)
 	{
-		m_Manifest.m_HasSha256 = true;
+		if(HasSha256DigestPrefix(pSha256))
+			pSha256 += 7;
+		if(sha256_from_str(&m_Manifest.m_Sha256, pSha256) == 0)
+			m_Manifest.m_HasSha256 = true;
 	}
 
 	const json_value *pPreserve = json_object_get(pManifest, "preserve");
@@ -566,9 +596,39 @@ bool CUpdater::ParseUpdate()
 		{
 			const char *pName = json_string_get(json_array_get(pPreserve, i));
 			if(pName && pName[0] != '\0')
-			{
 				m_Manifest.m_PreservedFiles.insert(pName);
-			}
+		}
+	}
+
+	if(!m_Manifest.IsValid())
+	{
+		m_Manifest.Reset();
+		const char *pTagName = json_string_get(json_object_get(pManifest, "tag_name"));
+		const json_value *pAssets = json_object_get(pManifest, "assets");
+		const json_value *pAsset = FindGitHubReleaseAsset(pAssets, UPDATER_RELEASE_ASSET_NAME);
+		const char *pAssetDownloadUrl = pAsset ? json_string_get(json_object_get(pAsset, "browser_download_url")) : nullptr;
+		const char *pAssetDigest = pAsset ? json_string_get(json_object_get(pAsset, "digest")) : nullptr;
+
+		if(pTagName)
+			m_Manifest.m_Version = pTagName;
+		if(pAssetDownloadUrl)
+			m_Manifest.m_DownloadUrl = pAssetDownloadUrl;
+		if(UPDATER_RELEASE_ASSET_NAME[0] != '\0')
+			m_Manifest.m_Filename = UPDATER_RELEASE_ASSET_NAME;
+		if(UPDATER_RELEASE_ARCHIVE_FORMAT[0] != '\0')
+			m_Manifest.m_Format = UPDATER_RELEASE_ARCHIVE_FORMAT;
+		if(pTagName && pTagName[0] != '\0')
+		{
+			char aExtractRoot[IO_MAX_PATH_LENGTH];
+			BuildGitHubExtractRoot(aExtractRoot, sizeof(aExtractRoot), pTagName);
+			m_Manifest.m_ExtractRoot = aExtractRoot;
+		}
+		if(pAssetDigest)
+		{
+			if(HasSha256DigestPrefix(pAssetDigest))
+				pAssetDigest += 7;
+			if(sha256_from_str(&m_Manifest.m_Sha256, pAssetDigest) == 0)
+				m_Manifest.m_HasSha256 = true;
 		}
 	}
 
@@ -733,7 +793,8 @@ void CUpdater::InitiateUpdate()
 	}
 
 	SetCurrentState(IUpdater::GETTING_MANIFEST);
-	FetchUpdaterFile(GetUpdaterManifestPath(), UPDATER_LOCAL_MANIFEST);
+	char aManifestUrl[1024];
+	FetchUrl(GetUpdaterUrl(aManifestUrl, sizeof(aManifestUrl), GetUpdaterManifestPath()), UPDATER_LOCAL_MANIFEST);
 }
 
 void CUpdater::PerformUpdate()

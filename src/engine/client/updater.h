@@ -21,10 +21,16 @@
 #define PLAT_EXT ".exe"
 #define PLAT_NAME CONF_PLATFORM_STRING
 #define UPDATER_RELEASE_PLATFORM "win64"
+#define UPDATER_RELEASE_ASSET_NAME CLIENT_NAME "-windows.zip"
+#define UPDATER_RELEASE_ARCHIVE_FORMAT "zip"
+#define UPDATER_RELEASE_PACKAGE_SUFFIX "win64"
 #elif defined(CONF_PLATFORM_LINUX) && defined(CONF_ARCH_AMD64)
 #define PLAT_EXT ""
 #define PLAT_NAME CONF_PLATFORM_STRING "-x86_64"
 #define UPDATER_RELEASE_PLATFORM "linux_x86_64"
+#define UPDATER_RELEASE_ASSET_NAME CLIENT_NAME "-ubuntu.tar.gz"
+#define UPDATER_RELEASE_ARCHIVE_FORMAT "tar.gz"
+#define UPDATER_RELEASE_PACKAGE_SUFFIX "linux_x86_64"
 #else
 #if defined(CONF_AUTOUPDATE)
 #error Compiling with autoupdater on an unsupported platform
@@ -32,6 +38,9 @@
 #define PLAT_EXT ""
 #define PLAT_NAME "unsupported-unsupported"
 #define UPDATER_RELEASE_PLATFORM "unsupported"
+#define UPDATER_RELEASE_ASSET_NAME ""
+#define UPDATER_RELEASE_ARCHIVE_FORMAT ""
+#define UPDATER_RELEASE_PACKAGE_SUFFIX ""
 #endif
 
 #define PLAT_CLIENT_DOWN CLIENT_EXEC "-" PLAT_NAME PLAT_EXT
