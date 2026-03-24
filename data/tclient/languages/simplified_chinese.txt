@@ -132,8 +132,6 @@ Adjust your prediction margin while frozen
 Frozen Margin
 == 冻结预测值
 
-Tile Outlines
-== 方块轮廓
 
 Show any enabled outlines
 == 显示任何已启用的轮廓
@@ -186,8 +184,6 @@ Uncertainty duration
 Other
 == 其他
 
-Ghost Tools
-== 影子工具
 
 Show unpredicted ghosts for other players
 == 显示其他玩家未预测的影子
@@ -206,54 +202,6 @@ Hide ghosts of frozen players
 
 Render ghosts as circles
 == 将影子显示为圆圈
-
-Player Indicator
-== 玩家指示器
-
-Show any enabled Indicators
-== 开启玩家指示器
-
-Hide indicator for tees on your screen
-== 其他玩家在屏幕内时隐藏指示器
-
-Show only freeze Players
-== 仅显示冻结玩家
-
-Render tiny tees instead of circles
-== 渲染成迷你Tee而不是圆圈
-
-Use warlist groups for indicator
-== 为指示器启用敌对列表分组
-
-Indicator size
-== 显示大小
-
-Indicator opacity
-== 指示器不透明度
-
-Change indicator offset based on distance to other tees
-== 根据与其他Tee的距离更改指示器偏移量
-
-Indicator min offset
-== 指示器最小偏移量
-
-Indicator max offset
-== 指示器最大偏移量
-
-Indicator max distance
-== 指示器最大距离
-
-Indicator offset
-== 指示器偏移
-
-Indicator alive color
-== 指示器存活颜色
-
-Indicator in freeze color
-== 指示器冻结颜色
-
-Indicator safe color
-== 指示器安全颜色
 
 Name:
 == 名称:
@@ -306,8 +254,6 @@ Add Entry
 Allow Duplicate Entries
 == 允许重复条目
 
-Enable warlist
-== 启用敌对列表
 
 Colors in chat
 == 在聊天栏中的颜色
@@ -330,8 +276,6 @@ Online Players
 Show clan if war
 == 如果有敌对则显示战队
 
-Chat Binds
-== 聊天绑定
 
 Kaomoji
 == 颜文字
@@ -480,11 +424,7 @@ Anti Ping Smoothing
 Use new smoothing algorithm
 == 使用新的平滑算法
 
-Use warlist colors instead of regular colors
-== 使用敌对列表颜色而不是常规颜色
 
-Show all warlist groups
-== 显示所有敌对列表分组
 
 Last!
 == 最后存活！
@@ -611,8 +551,6 @@ Loaded %d items
 Loaded %d items (discarded %d items)
 == 加载了 %d 项（丢弃了 %d 项）
 
-Pet
-== 宠物
 
 Pet Skin:
 == 宠物皮肤:
@@ -626,8 +564,6 @@ Pet size
 Show mini vote HUD
 == 显示小型投票HUD
 
-Show the pet
-== 显示宠物
 
 Translated text hidden due to streamer mode
 == 由于主播模式，隐藏翻译文本
@@ -734,8 +670,6 @@ Translate ID:
 Bind Wheel
 == 绑定轮盘
 
-War List
-== 战争列表
 
 [Hammer Mode]
 Normal

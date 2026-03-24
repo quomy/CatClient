@@ -16,7 +16,6 @@ class CMapLayers : public CComponent
 {
 	// TClient
 	friend class CScriptRunner;
-	friend class COutlines;
 
 	friend class CBackground;
 	friend class CMenuBackground;

@@ -2660,8 +2660,6 @@ if(CLIENT)
     components/tclient/bg_draw.h
     components/tclient/bg_draw_file.cpp
     components/tclient/bg_draw_file.h
-    components/tclient/bindchat.cpp
-    components/tclient/bindchat.h
     components/tclient/bindwheel.cpp
     components/tclient/bindwheel.h
     components/tclient/colored_parts.h
@@ -2675,12 +2673,6 @@ if(CLIENT)
     components/tclient/moving_tiles.h
     components/tclient/mumble.cpp
     components/tclient/mumble.h
-    components/tclient/outlines.cpp
-    components/tclient/outlines.h
-    components/tclient/pet.cpp
-    components/tclient/pet.h
-    components/tclient/player_indicator.cpp
-    components/tclient/player_indicator.h
     components/tclient/scripting.cpp
     components/tclient/scripting.h
     components/tclient/scripting/impl.cpp
@@ -2693,8 +2685,6 @@ if(CLIENT)
     components/tclient/tclient.h
     components/tclient/translate.cpp
     components/tclient/translate.h
-    components/tclient/warlist.cpp
-    components/tclient/warlist.h
     components/tooltips.cpp
     components/tooltips.h
     components/touch_controls.cpp

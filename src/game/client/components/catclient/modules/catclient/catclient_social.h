@@ -176,17 +176,6 @@ bool CCatClient::HasHideEffectFlag(int Flag) const
 	return (g_Config.m_CcHideEffects & Flag) != 0;
 }
 
-bool CCatClient::ShouldBlockKill()
-{
-	UpdateAntiKillState();
-	if(!g_Config.m_CcAntiKill || m_AntiKillStart == std::chrono::nanoseconds::zero())
-	{
-		return false;
-	}
-
-	return time_get_nanoseconds() - m_AntiKillStart >= std::chrono::minutes(g_Config.m_CcAntiKillDelay);
-}
-
 bool CCatClient::ShouldMuteSound(int SoundId, int OwnerId, const vec2 *pSoundPos) const
 {
 	const bool IsLocalSound = IsLocalClientId(OwnerId);

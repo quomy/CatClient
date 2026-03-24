@@ -21,7 +21,6 @@
 #include <game/client/components/menus_settings_controls.h>
 #include <game/client/components/menus_start.h>
 #include <game/client/components/skins7.h>
-#include <game/client/components/tclient/warlist.h>
 #include <game/client/lineinput.h>
 #include <game/client/ui.h>
 #include <game/voting.h>
@@ -118,6 +117,10 @@ public:
 	{
 	};
 
+	struct SCustomArrow : public SCustomItem
+	{
+	};
+
 	struct SCustomCursor : public SCustomItem
 	{
 	};
@@ -130,6 +133,7 @@ protected:
 	std::vector<SCustomHud> m_vHudList;
 	std::vector<SCustomExtras> m_vExtrasList;
 	std::vector<SCustomAudio> m_vAudioList;
+	std::vector<SCustomArrow> m_vArrowList;
 	std::vector<SCustomCursor> m_vCursorList;
 
 	bool m_IsInit = false;
@@ -143,6 +147,7 @@ protected:
 	static int HudScan(const char *pName, int IsDir, int DirType, void *pUser);
 	static int ExtrasScan(const char *pName, int IsDir, int DirType, void *pUser);
 	static int AudioScan(const char *pName, int IsDir, int DirType, void *pUser);
+	static int ArrowScan(const char *pName, int IsDir, int DirType, void *pUser);
 	static int CursorScan(const char *pName, int IsDir, int DirType, void *pUser);
 
 	static void ConchainAssetsEntities(IConsole::IResult *pResult, void *pUserData, IConsole::FCommandCallback pfnCallback, void *pCallbackUserData);
@@ -152,6 +157,7 @@ protected:
 	static void ConchainAssetHud(IConsole::IResult *pResult, void *pUserData, IConsole::FCommandCallback pfnCallback, void *pCallbackUserData);
 	static void ConchainAssetExtras(IConsole::IResult *pResult, void *pUserData, IConsole::FCommandCallback pfnCallback, void *pCallbackUserData);
 	static void ConchainAssetAudio(IConsole::IResult *pResult, void *pUserData, IConsole::FCommandCallback pfnCallback, void *pCallbackUserData);
+	static void ConchainAssetArrows(IConsole::IResult *pResult, void *pUserData, IConsole::FCommandCallback pfnCallback, void *pCallbackUserData);
 	static void ConchainAssetCursor(IConsole::IResult *pResult, void *pUserData, IConsole::FCommandCallback pfnCallback, void *pCallbackUserData);
 
 	void ClearCustomItems(int CurTab);
@@ -729,12 +735,12 @@ public:
 	};
 
 	enum
-	{
-		CATCLIENT_TAB_GENERAL = 0,
-		CATCLIENT_TAB_VISUALS,
-		CATCLIENT_TAB_SHOP,
-		CATCLIENT_TAB_STREAMER,
-		CATCLIENT_TAB_INFO,
+		{
+			CATCLIENT_TAB_GENERAL = 0,
+			CATCLIENT_TAB_VISUALS,
+			CATCLIENT_TAB_SHOP,
+			CATCLIENT_TAB_STREAMER,
+			CATCLIENT_TAB_INFO,
 
 		NUM_CATCLIENT_TABS,
 	};
@@ -748,6 +754,7 @@ public:
 		ASSETS_TAB_HUD,
 		ASSETS_TAB_EXTRAS,
 		ASSETS_TAB_AUDIO,
+		ASSETS_TAB_ARROWS,
 		ASSETS_TAB_CURSORS,
 
 		NUM_ASSETS_TABS,
@@ -957,23 +964,19 @@ private:
 	void RenderSettingsTClient(CUIRect MainView);
 	void RenderSettingsTClientSettings(CUIRect MainView);
 	void RenderSettingsTClientBindWheel(CUIRect MainView);
-	void RenderSettingsTClientChatBinds(CUIRect MainView);
-	void RenderSettingsTClientWarList(CUIRect MainView);
 	void RenderSettingsTClientInfo(CUIRect MainView);
 	void RenderSettingsTClientStatusBar(CUIRect MainView);
 	void RenderSettingsTClientProfiles(CUIRect MainView);
 	void RenderSettingsTClientConfigs(CUIRect MainView);
 	void RenderSettingsCatClient(CUIRect MainView);
-	void RenderSettingsCatClientGeneral(CUIRect MainView);
-	void RenderSettingsCatClientVisuals(CUIRect MainView);
-	void RenderSettingsCatClientShop(CUIRect MainView);
-	void RenderSettingsCatClientStreamer(CUIRect MainView);
+		void RenderSettingsCatClientGeneral(CUIRect MainView);
+		void RenderSettingsCatClientVisuals(CUIRect MainView);
+		void RenderSettingsCatClientShop(CUIRect MainView);
+		void RenderSettingsCatClientStreamer(CUIRect MainView);
 	void RenderSettingsCatClientVoice(CUIRect MainView);
 	void RenderSettingsCatClientInfo(CUIRect MainView);
 	void RenderTeeCute(const CAnimState *pAnim, const CTeeRenderInfo *pInfo, int Emote, vec2 Dir, vec2 Pos, bool CuteEyes, float Alpha = 1.0f);
 
-	const CWarType *m_pRemoveWarType = nullptr;
-	void PopupConfirmRemoveWarType();
 	void PopupConfirmOpenBlockedWords();
 	void RenderDevSkin(vec2 RenderPos, float Size, const char *pSkinName, const char *pBackupSkin, bool CustomColors, int FeetColor, int BodyColor, int Emote, bool Rainbow, bool Cute,
 		ColorRGBA ColorFeet = ColorRGBA(0, 0, 0, 0), ColorRGBA ColorBody = ColorRGBA(0, 0, 0, 0));

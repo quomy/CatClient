@@ -68,21 +68,16 @@
 #include "components/spectator.h"
 #include "components/statboard.h"
 #include "components/tclient/bg_draw.h"
-#include "components/tclient/bindchat.h"
 #include "components/tclient/bindwheel.h"
 #include "components/tclient/custom_communities.h"
 #include "components/tclient/mod.h"
 #include "components/tclient/moving_tiles.h"
 #include "components/tclient/mumble.h"
-#include "components/tclient/outlines.h"
-#include "components/tclient/pet.h"
-#include "components/tclient/player_indicator.h"
 #include "components/tclient/scripting.h"
 #include "components/tclient/skinprofiles.h"
 #include "components/tclient/statusbar.h"
 #include "components/tclient/tclient.h"
 #include "components/tclient/translate.h"
-#include "components/tclient/warlist.h"
 #include "components/tooltips.h"
 #include "components/touch_controls.h"
 #include "components/voting.h"
@@ -219,16 +214,11 @@ public:
 	// TClient Components
 	CSkinProfiles m_SkinProfiles;
 	CStatusBar m_StatusBar;
-	CBindChat m_BindChat;
 	CBindWheel m_BindWheel;
 	CBgDraw m_BgDraw;
 	CTClient m_TClient;
 	CTranslate m_Translate;
-	CPet m_Pet;
-	CPlayerIndicator m_PlayerIndicator;
-	COutlines m_Outlines;
 	CMumble m_Mumble;
-	CWarList m_WarList;
 	CScripting m_Scripting;
 	CMod m_Mod;
 	CCustomCommunities m_CustomCommunities;

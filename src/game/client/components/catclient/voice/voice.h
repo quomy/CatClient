@@ -198,6 +198,7 @@ private:
 	float m_MicLevel = 0.0f;
 	char m_aLastServerAddr[128] = "";
 	int64_t m_LastStartAttempt = 0;
+	int64_t m_LastAudioInitAttempt = 0;
 	int64_t m_LastServerListPingSweepTick = 0;
 	int m_LastInputDevice = -2;
 	int m_LastOutputDevice = -2;
@@ -252,6 +253,7 @@ private:
 	void CloseAudioDevices();
 	bool CreateEncoder();
 	void DestroyEncoder();
+	void EnsureAudioReady(bool Force = false);
 	void ClearPeerState();
 	void SendHello();
 	void SendGoodbye();

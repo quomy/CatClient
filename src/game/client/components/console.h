@@ -60,6 +60,7 @@ class CGameConsole : public CComponent
 		int m_CurSelStart = 0;
 		int m_CurSelEnd = 0;
 		bool m_HasSelection = false;
+		float m_SelectionAutoScrollAccumulator = 0.0f;
 		int m_NewLineCounter = 0;
 
 		CGameConsole *m_pGameConsole;

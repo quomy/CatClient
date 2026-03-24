@@ -10,6 +10,7 @@
 #include <engine/textrender.h>
 
 #include <chrono>
+#include <algorithm>
 #include <string>
 #include <vector>
 
@@ -443,6 +444,7 @@ private:
 	IGraphics *m_pGraphics;
 	IInput *m_pInput;
 	ITextRender *m_pTextRender;
+	float m_TransitionAlpha = 1.0f;
 
 	std::vector<CUIElement *> m_vpOwnUIElements; // ui elements maintained by CUi class
 	std::vector<CUIElement *> m_vpUIElements;
@@ -461,6 +463,9 @@ public:
 	IGraphics *Graphics() const { return m_pGraphics; }
 	IInput *Input() const { return m_pInput; }
 	ITextRender *TextRender() const { return m_pTextRender; }
+	void SetTransitionAlpha(float Alpha) { m_TransitionAlpha = std::clamp(Alpha, 0.0f, 1.0f); }
+	float TransitionAlpha() const { return m_TransitionAlpha; }
+	ColorRGBA ApplyTransitionAlpha(ColorRGBA Color) const { return Color.WithMultipliedAlpha(m_TransitionAlpha); }
 
 	CUi();
 	~CUi();

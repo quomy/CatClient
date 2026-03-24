@@ -277,6 +277,14 @@ int CMenus::CursorScan(const char *pName, int IsDir, int DirType, void *pUser)
 	return 0;
 }
 
+int CMenus::ArrowScan(const char *pName, int IsDir, int DirType, void *pUser)
+{
+	auto *pRealUser = (SMenuAssetScanUser *)pUser;
+	auto *pThis = (CMenus *)pRealUser->m_pUser;
+	IGraphics *pGraphics = pThis->Graphics();
+	return AssetScan(pName, IsDir, DirType, pThis->m_vArrowList, "arrow", pGraphics, pUser);
+}
+
 static std::vector<const CMenus::SCustomEntities *> gs_vpSearchEntitiesList;
 static std::vector<const CMenus::SCustomGame *> gs_vpSearchGamesList;
 static std::vector<const CMenus::SCustomEmoticon *> gs_vpSearchEmoticonsList;
@@ -284,6 +292,7 @@ static std::vector<const CMenus::SCustomParticle *> gs_vpSearchParticlesList;
 static std::vector<const CMenus::SCustomHud *> gs_vpSearchHudList;
 static std::vector<const CMenus::SCustomExtras *> gs_vpSearchExtrasList;
 static std::vector<const CMenus::SCustomAudio *> gs_vpSearchAudioList;
+static std::vector<const CMenus::SCustomArrow *> gs_vpSearchArrowList;
 static std::vector<const CMenus::SCustomCursor *> gs_vpSearchCursorList;
 
 static bool gs_aInitCustomList[CMenus::NUM_ASSETS_TABS] = {
@@ -314,6 +323,8 @@ static const CMenus::SCustomItem *GetCustomItem(int CurTab, size_t Index)
 		return gs_vpSearchExtrasList[Index];
 	else if(CurTab == CMenus::ASSETS_TAB_AUDIO)
 		return gs_vpSearchAudioList[Index];
+	else if(CurTab == CMenus::ASSETS_TAB_ARROWS)
+		return gs_vpSearchArrowList[Index];
 	else if(CurTab == CMenus::ASSETS_TAB_CURSORS)
 		return gs_vpSearchCursorList[Index];
 	dbg_assert_failed("Invalid CurTab: %d", CurTab);
@@ -385,6 +396,11 @@ void CMenus::ClearCustomItems(int CurTab)
 		m_vAudioList.clear();
 		GameClient()->m_Sounds.ReloadSamples();
 	}
+	else if(CurTab == CMenus::ASSETS_TAB_ARROWS)
+	{
+		ClearAssetList(m_vArrowList, Graphics());
+		GameClient()->m_CatClient.LoadArrowAsset(g_Config.m_ClAssetArrows);
+	}
 	else if(CurTab == CMenus::ASSETS_TAB_CURSORS)
 	{
 		ClearAssetList(m_vCursorList, Graphics());
@@ -413,6 +429,7 @@ void CMenus::UnloadCustomItems()
 	ClearAssetList(m_vParticlesList, Graphics());
 	ClearAssetList(m_vHudList, Graphics());
 	ClearAssetList(m_vExtrasList, Graphics());
+	ClearAssetList(m_vArrowList, Graphics());
 	ClearAssetList(m_vCursorList, Graphics());
 	m_vAudioList.clear();
 }
@@ -469,6 +486,7 @@ void CMenus::RenderSettingsCustom(CUIRect MainView)
 		Localize("HUD"),
 		Localize("Extras"),
 		Localize("Audio"),
+		Localize("Arrows"),
 		Localize("Cursors")};
 
 	for(int Tab = CMenus::ASSETS_TAB_ENTITIES; Tab < CMenus::NUM_ASSETS_TABS; ++Tab)
@@ -542,6 +560,10 @@ void CMenus::RenderSettingsCustom(CUIRect MainView)
 		{
 			gs_aInitCustomList[gs_CurCustomTab] = true;
 		}
+	}
+	else if(gs_CurCustomTab == CMenus::ASSETS_TAB_ARROWS)
+	{
+		InitAssetList(m_vArrowList, "assets/arrows", "arrow", ArrowScan, Graphics(), Storage(), &User);
 	}
 	else if(gs_CurCustomTab == CMenus::ASSETS_TAB_CURSORS)
 	{
@@ -618,6 +640,10 @@ void CMenus::RenderSettingsCustom(CUIRect MainView)
 		{
 			ListSize = InitSearchList(gs_vpSearchAudioList, m_vAudioList);
 		}
+		else if(gs_CurCustomTab == CMenus::ASSETS_TAB_ARROWS)
+		{
+			ListSize = InitSearchList(gs_vpSearchArrowList, m_vArrowList);
+		}
 		else if(gs_CurCustomTab == CMenus::ASSETS_TAB_CURSORS)
 		{
 			ListSize = InitSearchList(gs_vpSearchCursorList, m_vCursorList);
@@ -662,6 +688,12 @@ void CMenus::RenderSettingsCustom(CUIRect MainView)
 	{
 		SearchListSize = gs_vpSearchAudioList.size();
 		TextureHeight = 60;
+	}
+	else if(gs_CurCustomTab == CMenus::ASSETS_TAB_ARROWS)
+	{
+		SearchListSize = gs_vpSearchArrowList.size();
+		TextureWidth = 96;
+		TextureHeight = 96;
 	}
 	else if(gs_CurCustomTab == CMenus::ASSETS_TAB_CURSORS)
 	{
@@ -713,6 +745,11 @@ void CMenus::RenderSettingsCustom(CUIRect MainView)
 			if(str_comp(pItem->m_aName, g_Config.m_ClAssetAudio) == 0)
 				OldSelected = i;
 		}
+		else if(gs_CurCustomTab == CMenus::ASSETS_TAB_ARROWS)
+		{
+			if(str_comp(pItem->m_aName, g_Config.m_ClAssetArrows) == 0)
+				OldSelected = i;
+		}
 		else if(gs_CurCustomTab == CMenus::ASSETS_TAB_CURSORS)
 		{
 			if(str_comp(pItem->m_aName, g_Config.m_ClAssetCursor) == 0)
@@ -729,7 +766,7 @@ void CMenus::RenderSettingsCustom(CUIRect MainView)
 		ItemRect.HSplitTop(15, &ItemRect, &TextureRect);
 		TextureRect.HSplitTop(10, nullptr, &TextureRect);
 		Ui()->DoLabel(&ItemRect, pItem->m_aName, ItemRect.h - 2, TEXTALIGN_MC);
-		if(pItem->m_RenderTexture.IsValid())
+		if(pItem->m_RenderTexture.IsValid() && !pItem->m_RenderTexture.IsNullTexture())
 		{
 			Graphics()->WrapClamp();
 			Graphics()->TextureSet(pItem->m_RenderTexture);
@@ -740,7 +777,7 @@ void CMenus::RenderSettingsCustom(CUIRect MainView)
 			Graphics()->QuadsEnd();
 			Graphics()->WrapNormal();
 		}
-		else if(gs_CurCustomTab == CMenus::ASSETS_TAB_AUDIO || gs_CurCustomTab == CMenus::ASSETS_TAB_CURSORS)
+		else if(gs_CurCustomTab == CMenus::ASSETS_TAB_AUDIO || gs_CurCustomTab == CMenus::ASSETS_TAB_ARROWS || gs_CurCustomTab == CMenus::ASSETS_TAB_CURSORS)
 		{
 			TextRender()->SetFontPreset(EFontPreset::ICON_FONT);
 			TextRender()->SetRenderFlags(ETextRenderFlags::TEXT_RENDER_FLAG_ONLY_ADVANCE_WIDTH | ETextRenderFlags::TEXT_RENDER_FLAG_NO_X_BEARING | ETextRenderFlags::TEXT_RENDER_FLAG_NO_Y_BEARING | ETextRenderFlags::TEXT_RENDER_FLAG_NO_PIXEL_ALIGNMENT | ETextRenderFlags::TEXT_RENDER_FLAG_NO_OVERSIZE);
@@ -790,6 +827,11 @@ void CMenus::RenderSettingsCustom(CUIRect MainView)
 				str_copy(g_Config.m_ClAssetAudio, GetCustomItem(gs_CurCustomTab, NewSelected)->m_aName);
 				GameClient()->m_Sounds.ReloadSamples();
 			}
+			else if(gs_CurCustomTab == CMenus::ASSETS_TAB_ARROWS)
+			{
+				str_copy(g_Config.m_ClAssetArrows, GetCustomItem(gs_CurCustomTab, NewSelected)->m_aName);
+				GameClient()->m_CatClient.LoadArrowAsset(g_Config.m_ClAssetArrows);
+			}
 			else if(gs_CurCustomTab == CMenus::ASSETS_TAB_CURSORS)
 			{
 				str_copy(g_Config.m_ClAssetCursor, GetCustomItem(gs_CurCustomTab, NewSelected)->m_aName);
@@ -830,6 +872,8 @@ void CMenus::RenderSettingsCustom(CUIRect MainView)
 			str_copy(aBufFull, "assets/extras");
 		else if(gs_CurCustomTab == CMenus::ASSETS_TAB_AUDIO)
 			str_copy(aBufFull, "assets/audio");
+		else if(gs_CurCustomTab == CMenus::ASSETS_TAB_ARROWS)
+			str_copy(aBufFull, "assets/arrows");
 		else if(gs_CurCustomTab == CMenus::ASSETS_TAB_CURSORS)
 			str_copy(aBufFull, "assets/cursors");
 		Storage()->GetCompletePath(IStorage::TYPE_SAVE, aBufFull, aBuf, sizeof(aBuf));
@@ -958,6 +1002,21 @@ void CMenus::ConchainAssetAudio(IConsole::IResult *pResult, void *pUserData, ICo
 		if(str_comp(pArg, g_Config.m_ClAssetAudio) != 0)
 		{
 			pThis->GameClient()->m_Sounds.ReloadSamples();
+		}
+	}
+
+	pfnCallback(pResult, pCallbackUserData);
+}
+
+void CMenus::ConchainAssetArrows(IConsole::IResult *pResult, void *pUserData, IConsole::FCommandCallback pfnCallback, void *pCallbackUserData)
+{
+	CMenus *pThis = (CMenus *)pUserData;
+	if(pResult->NumArguments() == 1)
+	{
+		const char *pArg = pResult->GetString(0);
+		if(str_comp(pArg, g_Config.m_ClAssetArrows) != 0)
+		{
+			pThis->GameClient()->m_CatClient.LoadArrowAsset(pArg);
 		}
 	}
 

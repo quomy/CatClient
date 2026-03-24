@@ -2,7 +2,6 @@
 #define GAME_CLIENT_COMPONENTS_CATCLIENT_CATCLIENT_H
 
 #include "catclient_nametags.h"
-
 #include <engine/console.h>
 #include <engine/graphics.h>
 #include <engine/shared/http.h>
@@ -19,10 +18,7 @@ class CCatClient : public CComponent
 	int m_AutoTeamLockTeam = 0;
 	std::chrono::nanoseconds m_AutoTeamLockStart = std::chrono::nanoseconds::zero();
 	bool m_AutoTeamLockIssued = false;
-	int m_AntiKillTeam = 0;
-	std::chrono::nanoseconds m_AntiKillStart = std::chrono::nanoseconds::zero();
 	CCatClientNameTags m_NameTags;
-	std::shared_ptr<CHttpRequest> m_pCursorDownloadTask;
 	std::shared_ptr<CHttpRequest> m_pBackgroundDownloadTask;
 
 	struct SCustomBackgroundFrame
@@ -33,6 +29,8 @@ class CCatClient : public CComponent
 
 	IGraphics::CTextureHandle m_CursorTexture;
 	bool m_HasCustomCursor = false;
+	IGraphics::CTextureHandle m_ArrowTexture;
+	bool m_HasCustomArrow = false;
 	IGraphics::CTextureHandle m_CustomBackgroundTexture;
 	std::vector<SCustomBackgroundFrame> m_vCustomBackgroundFrames;
 	bool m_HasCustomBackgroundTexture = false;
@@ -55,18 +53,11 @@ class CCatClient : public CComponent
 
 	void AbortTask(std::shared_ptr<CHttpRequest> &pTask);
 	void ResetAutoTeamLock();
-	void ResetAntiKill();
 	bool IsLocalTeamLocked() const;
-	bool IsLocalPlayerInTeam() const;
-	bool HasActiveTeammateInLocalTeam() const;
 	bool IsLocalClientId(int ClientId) const;
 	bool IsLikelyLocalHammerHit(vec2 Pos) const;
 	void UpdateAspectRatioOverride();
-	void UpdateAntiKillState();
 	void UpdateIgnoredPlayers();
-	bool LoadAutomaticCursorAsset();
-	void StartAutomaticCursorDownload();
-	void FinishAutomaticCursorDownload();
 	void EnsureCustomBackgroundFolder() const;
 	bool LoadStillFfmpegBackground(IOHANDLE File, const char *pTextureName);
 	bool LoadAnimatedBackground(IOHANDLE File, const char *pTextureName, const char *pInputFormatName = nullptr);
@@ -107,7 +98,7 @@ public:
 	{
 		MODERN_UI_FPS_PING = 1 << 0,
 		MODERN_UI_RACE_TIMER = 1 << 1,
-		MODERN_UI_LOCAL_TIMER = 1 << 2,
+		MODERN_UI_GAME_INTERFACE = 1 << 3,
 	};
 
 	enum EAspectRatioExcludeFlags
@@ -134,6 +125,8 @@ public:
 	void OnStateChange(int NewState, int OldState) override;
 	void OnShutdown() override;
 
+	void LoadArrowAsset(const char *pPath);
+	const IGraphics::CTextureHandle &ArrowTexture() const;
 	void LoadCursorAsset(const char *pPath);
 	const IGraphics::CTextureHandle &CursorTexture() const;
 	const char *ResolveAudioFile(const char *pDefaultPath, char *pBuffer, size_t BufferSize) const;
@@ -164,7 +157,6 @@ public:
 	bool IgnorePlayer(const char *pPlayerName);
 	bool UnignorePlayer(const char *pPlayerName);
 	bool InvitePlayer(int ClientId);
-	bool ShouldBlockKill();
 	bool ShouldMuteSound(int SoundId, int OwnerId, const vec2 *pSoundPos = nullptr) const;
 	void CheckAndSendLagMessage();
 };

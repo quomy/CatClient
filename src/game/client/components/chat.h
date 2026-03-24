@@ -6,6 +6,7 @@
 #include <base/str.h>
 
 #include <engine/console.h>
+#include <engine/graphics.h>
 #include <engine/shared/config.h>
 #include <engine/shared/protocol.h>
 #include <engine/shared/ringbuffer.h>
@@ -19,8 +20,10 @@
 
 #include <memory>
 #include <optional>
+#include <chrono>
 #include <vector>
 
+class CHttpRequest;
 class CTranslateResponse
 {
 public:
@@ -37,7 +40,7 @@ class CChat : public CComponent
 	static constexpr float CHAT_FONTSIZE_WIDTH_RATIO = 2.5f;
 	enum
 	{
-		MAX_LINES = 64,
+		MAX_LINES = 256,
 		MAX_LINE_LENGTH = 256
 	};
 
@@ -79,6 +82,21 @@ class CChat : public CComponent
 		int m_TimesRepeated;
 
 		std::shared_ptr<CTranslateResponse> m_pTranslateResponse;
+		char m_aGifUrl[512] = "";
+		bool m_GifPreviewFailed = false;
+		vec2 m_GifImageSize = vec2(0.0f, 0.0f);
+		float m_GifRenderWidth = 0.0f;
+		float m_GifRenderHeight = 0.0f;
+		float m_GifRenderOffsetY = 0.0f;
+		std::shared_ptr<CHttpRequest> m_pGifTask;
+		struct SGifFrame
+		{
+			IGraphics::CTextureHandle m_Texture;
+			std::chrono::nanoseconds m_Duration = std::chrono::milliseconds(10);
+		};
+		std::vector<SGifFrame> m_vGifFrames;
+		std::chrono::nanoseconds m_GifAnimationStart = std::chrono::nanoseconds::zero();
+		std::chrono::nanoseconds m_GifAnimationDuration = std::chrono::nanoseconds::zero();
 	};
 
 	bool m_PrevScoreBoardShowed;
@@ -118,6 +136,7 @@ class CChat : public CComponent
 	vec2 m_MousePress;
 	vec2 m_MouseRelease;
 	float m_ChatScrollOffset = 0.0f;
+	float m_ChatScrollTarget = 0.0f;
 	int m_PlaceholderOffset;
 	int m_PlaceholderLength;
 	static char ms_aDisplayText[MAX_LINE_LENGTH];
@@ -205,8 +224,14 @@ class CChat : public CComponent
 	void PrepareWhisperCommand(const char *pPlayerName);
 	void OpenNameContextMenu(const char *pPlayerName);
 	void CloseNameContextMenu();
+	void AbortGifTask(CLine &Line);
+	void UnloadGifPreview(CLine &Line);
+	void StartGifPreview(CLine &Line);
+	void UpdateGifPreview(CLine &Line);
+	bool LoadGifPreviewFromMemory(CLine &Line, const unsigned char *pData, size_t DataSize);
+	bool FindGifUrl(const char *pText, char *pUrl, size_t UrlSize) const;
+	const IGraphics::CTextureHandle *CurrentGifTexture(const CLine &Line) const;
 
-	friend class CBindChat;
 	friend class CTranslate;
 	friend class CTClient;
 

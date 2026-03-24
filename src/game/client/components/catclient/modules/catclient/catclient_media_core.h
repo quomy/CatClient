@@ -1,9 +1,6 @@
 #ifndef GAME_CLIENT_COMPONENTS_CATCLIENT_MODULES_CATCLIENT_CATCLIENT_MEDIA_CORE_H
 #define GAME_CLIENT_COMPONENTS_CATCLIENT_MODULES_CATCLIENT_CATCLIENT_MEDIA_CORE_H
 
-static constexpr const char *CATCLIENT_AUTO_CURSOR_URL = "https://data.teeworlds.xyz/api/skins/dcfe12f4-fdbd-41d4-b287-a5af431ebf28?image=true";
-static constexpr const char *CATCLIENT_AUTO_CURSOR_PATH = "assets/cursors/catproject_auto.png";
-static constexpr CTimeout AUTO_CURSOR_REQUEST_TIMEOUT{10000, 0, 0, 0};
 static constexpr const char *CATCLIENT_DEFAULT_BACKGROUND_URL = "https://tags.quomy.win/firstbg.jpg";
 static constexpr const char *CATCLIENT_DEFAULT_BACKGROUND_NAME = "firstbg.jpg";
 static constexpr const char *CATCLIENT_DEFAULT_BACKGROUND_PATH = "catclient/backgrounds/firstbg.jpg";

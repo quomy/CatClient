@@ -56,6 +56,7 @@ void CUIElement::SUIElementRect::Reset()
 
 void CUIElement::SUIElementRect::Draw(const CUIRect *pRect, ColorRGBA Color, int Corners, float Rounding)
 {
+	Color = m_pParent->Ui()->ApplyTransitionAlpha(Color);
 	bool NeedsRecreate = false;
 	if(m_UIRectQuadContainer == -1 || m_Width != pRect->w || m_Height != pRect->h || m_QuadColor != Color)
 	{
@@ -805,17 +806,27 @@ vec2 CUi::CalcAlignedCursorPos(const CUIRect *pRect, vec2 TextSize, int Align, c
 
 CLabelResult CUi::DoLabel(const CUIRect *pRect, const char *pText, float Size, int Align, const SLabelProperties &LabelProps) const
 {
+	SLabelProperties AdjustedLabelProps = LabelProps;
+	for(auto &ColorSplit : AdjustedLabelProps.m_vColorSplits)
+		ColorSplit.m_Color = ApplyTransitionAlpha(ColorSplit.m_Color);
+
 	const int Flags = GetFlagsForLabelProperties(LabelProps, nullptr);
-	const SCursorAndBoundingBox TextBounds = CalcFontSizeCursorHeightAndBoundingBox(TextRender(), pText, Flags, Size, pRect->w, LabelProps);
+	const SCursorAndBoundingBox TextBounds = CalcFontSizeCursorHeightAndBoundingBox(TextRender(), pText, Flags, Size, pRect->w, AdjustedLabelProps);
 	const vec2 CursorPos = CalcAlignedCursorPos(pRect, TextBounds.m_TextSize, Align, TextBounds.m_LineCount == 1 ? &TextBounds.m_BiggestCharacterHeight : nullptr);
 
 	CTextCursor Cursor;
 	Cursor.SetPosition(CursorPos);
 	Cursor.m_FontSize = Size;
 	Cursor.m_Flags |= Flags;
-	Cursor.m_vColorSplits = LabelProps.m_vColorSplits;
-	Cursor.m_LineWidth = (float)LabelProps.m_MaxWidth;
+	Cursor.m_vColorSplits = AdjustedLabelProps.m_vColorSplits;
+	Cursor.m_LineWidth = (float)AdjustedLabelProps.m_MaxWidth;
+	const ColorRGBA TextColor = TextRender()->GetTextColor();
+	const ColorRGBA TextOutlineColor = TextRender()->GetTextOutlineColor();
+	TextRender()->TextColor(ApplyTransitionAlpha(TextColor));
+	TextRender()->TextOutlineColor(ApplyTransitionAlpha(TextOutlineColor));
 	TextRender()->TextEx(&Cursor, pText, -1);
+	TextRender()->TextColor(TextColor);
+	TextRender()->TextOutlineColor(TextOutlineColor);
 	return CLabelResult{.m_Truncated = Cursor.m_Truncated};
 }
 
@@ -899,7 +910,7 @@ void CUi::DoLabelStreamed(CUIElement::SUIElementRect &RectEl, const CUIRect *pRe
 	if(RectEl.m_UITextContainer.Valid())
 	{
 		const vec2 CursorPos = CalcAlignedCursorPos(pRect, vec2(RectEl.m_Cursor.m_LongestLineWidth, RectEl.m_Cursor.Height()), Align);
-		TextRender()->RenderTextContainer(RectEl.m_UITextContainer, RectEl.m_TextColor, RectEl.m_TextOutlineColor, CursorPos.x, CursorPos.y);
+		TextRender()->RenderTextContainer(RectEl.m_UITextContainer, ApplyTransitionAlpha(RectEl.m_TextColor), ApplyTransitionAlpha(RectEl.m_TextOutlineColor), CursorPos.x, CursorPos.y);
 	}
 }
 
@@ -1094,6 +1105,14 @@ int CUi::DoButton_Menu(CUIElement &UIElement, const CButtonContainer *pId, const
 				}
 			}
 		}
+		if(UIElement.AreRectsInit())
+		{
+			const float AlphaActive = ApplyTransitionAlpha(Props.m_Color.WithMultipliedAlpha(ButtonColorMulActive())).a;
+			const float AlphaHot = ApplyTransitionAlpha(Props.m_Color.WithMultipliedAlpha(ButtonColorMulHot())).a;
+			const float AlphaDefault = ApplyTransitionAlpha(Props.m_Color.WithMultipliedAlpha(ButtonColorMulDefault())).a;
+			if(UIElement.Rect(0)->m_QuadColor.a != AlphaActive || UIElement.Rect(1)->m_QuadColor.a != AlphaHot || UIElement.Rect(2)->m_QuadColor.a != AlphaDefault)
+				NeedsRecalc = true;
+		}
 		if(NeedsRecalc)
 		{
 			if(!UIElement.AreRectsInit())
@@ -1111,6 +1130,7 @@ int CUi::DoButton_Menu(CUIElement &UIElement, const CButtonContainer *pId, const
 					Color.a *= ButtonColorMulHot();
 				else if(i == 2)
 					Color.a *= ButtonColorMulDefault();
+				Color = ApplyTransitionAlpha(Color);
 				Graphics()->SetColor(Color);
 
 				CUIElement::SUIElementRect &NewRect = *UIElement.Rect(i);
@@ -1122,6 +1142,7 @@ int CUi::DoButton_Menu(CUIElement &UIElement, const CButtonContainer *pId, const
 				NewRect.m_Height = pRect->h;
 				NewRect.m_Rounding = Props.m_Rounding;
 				NewRect.m_Corners = Props.m_Corners;
+				NewRect.m_QuadColor = Color;
 				if(i == 0)
 				{
 					if(pText == nullptr)
@@ -1156,7 +1177,7 @@ int CUi::DoButton_Menu(CUIElement &UIElement, const CButtonContainer *pId, const
 	ColorRGBA ColorText(TextRender()->DefaultTextColor());
 	ColorRGBA ColorTextOutline(TextRender()->DefaultTextOutlineColor());
 	if(UIElement.Rect(0)->m_UITextContainer.Valid())
-		TextRender()->RenderTextContainer(UIElement.Rect(0)->m_UITextContainer, ColorText, ColorTextOutline);
+		TextRender()->RenderTextContainer(UIElement.Rect(0)->m_UITextContainer, ApplyTransitionAlpha(ColorText), ApplyTransitionAlpha(ColorTextOutline));
 	return DoButtonLogic(pId, Props.m_Checked, pRect, Props.m_Flags);
 }
 

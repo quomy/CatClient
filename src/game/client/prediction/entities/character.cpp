@@ -14,6 +14,11 @@
 
 // Character, "physical" player's part
 
+static bool IsValidWeapon(int Weapon)
+{
+	return Weapon >= WEAPON_HAMMER && Weapon < NUM_WEAPONS;
+}
+
 void CCharacter::SetWeapon(int Weapon)
 {
 	if(Weapon == m_Core.m_ActiveWeapon)
@@ -53,6 +58,9 @@ bool CCharacter::IsGrounded()
 void CCharacter::HandleJetpack()
 {
 	if(m_NumInputs < 2)
+		return;
+
+	if(!IsValidWeapon(m_Core.m_ActiveWeapon))
 		return;
 
 	vec2 Direction = normalize(vec2(m_LatestInput.m_TargetX, m_LatestInput.m_TargetY));
@@ -263,6 +271,8 @@ void CCharacter::FireWeapon()
 		return;
 
 	DoWeaponSwitch();
+	if(!IsValidWeapon(m_Core.m_ActiveWeapon))
+		return;
 	vec2 Direction = normalize(vec2(m_LatestInput.m_TargetX, m_LatestInput.m_TargetY));
 
 	bool FullAuto = false;
@@ -1199,7 +1209,7 @@ bool CCharacter::Unfreeze()
 {
 	if(m_FreezeTime > 0)
 	{
-		if(!m_Core.m_aWeapons[m_Core.m_ActiveWeapon].m_Got)
+		if(!IsValidWeapon(m_Core.m_ActiveWeapon) || !m_Core.m_aWeapons[m_Core.m_ActiveWeapon].m_Got)
 			m_Core.m_ActiveWeapon = WEAPON_GUN;
 		m_FreezeTime = 0;
 		m_Core.m_FreezeStart = 0;
@@ -1387,13 +1397,18 @@ void CCharacter::Read(CNetObj_Character *pChar, CNetObj_DDNetCharacter *pExtende
 	}
 	else
 	{
+		const int SnappedWeapon = IsValidWeapon(pChar->m_Weapon) ? pChar->m_Weapon : -1;
+
 		// ddnetcharacter is not available, try to get some info from the tunings and the character netobject instead.
 
 		// remove weapons that are unavailable. if the current weapon is ninja just set ammo to zero in case the player is frozen
-		if(pChar->m_Weapon != m_Core.m_ActiveWeapon)
+		if(SnappedWeapon != m_Core.m_ActiveWeapon)
 		{
-			if(pChar->m_Weapon == WEAPON_NINJA)
-				m_Core.m_aWeapons[m_Core.m_ActiveWeapon].m_Ammo = 0;
+			if(SnappedWeapon == WEAPON_NINJA)
+			{
+				if(IsValidWeapon(m_Core.m_ActiveWeapon))
+					m_Core.m_aWeapons[m_Core.m_ActiveWeapon].m_Ammo = 0;
+			}
 			else
 			{
 				if(m_Core.m_ActiveWeapon == WEAPON_NINJA)
@@ -1402,14 +1417,14 @@ void CCharacter::Read(CNetObj_Character *pChar, CNetObj_DDNetCharacter *pExtende
 					SetNinjaActivationTick(-500);
 					SetNinjaCurrentMoveTime(0);
 				}
-				if(pChar->m_Weapon == m_LastSnapWeapon)
+				if(SnappedWeapon == m_LastSnapWeapon && IsValidWeapon(m_Core.m_ActiveWeapon))
 					m_Core.m_aWeapons[m_Core.m_ActiveWeapon].m_Got = false;
 			}
 		}
 		// add weapon
-		if(pChar->m_Weapon >= 0 && pChar->m_Weapon != WEAPON_NINJA)
+		if(SnappedWeapon >= 0 && SnappedWeapon != WEAPON_NINJA)
 		{
-			m_Core.m_aWeapons[pChar->m_Weapon].m_Got = true;
+			m_Core.m_aWeapons[SnappedWeapon].m_Got = true;
 		}
 
 		// without ddnetcharacter we don't know if we have jetpack, so try to predict jetpack if strength isn't 0, on vanilla it's always 0
@@ -1418,9 +1433,9 @@ void CCharacter::Read(CNetObj_Character *pChar, CNetObj_DDNetCharacter *pExtende
 			m_Core.m_Jetpack = true;
 			m_Core.m_aWeapons[WEAPON_GUN].m_Got = true;
 			m_Core.m_aWeapons[WEAPON_GUN].m_Ammo = -1;
-			m_NinjaJetpack = pChar->m_Weapon == WEAPON_NINJA;
+			m_NinjaJetpack = SnappedWeapon == WEAPON_NINJA;
 		}
-		else if(pChar->m_Weapon != WEAPON_NINJA)
+		else if(SnappedWeapon != WEAPON_NINJA)
 		{
 			m_Core.m_Jetpack = false;
 		}
@@ -1480,13 +1495,14 @@ void CCharacter::Read(CNetObj_Character *pChar, CNetObj_DDNetCharacter *pExtende
 	SetTuneZone(GameWorld()->m_WorldConfig.m_UseTuneZones ? Collision()->IsTune(Collision()->GetMapIndex(m_Pos)) : 0);
 
 	// set the current weapon
-	if(pChar->m_Weapon != WEAPON_NINJA)
+	const int SnappedWeapon = IsValidWeapon(pChar->m_Weapon) ? pChar->m_Weapon : -1;
+	if(SnappedWeapon != WEAPON_NINJA)
 	{
-		if(pChar->m_Weapon >= 0)
-			m_Core.m_aWeapons[pChar->m_Weapon].m_Ammo = (GameWorld()->m_WorldConfig.m_InfiniteAmmo || pChar->m_Weapon == WEAPON_HAMMER) ? -1 : pChar->m_AmmoCount;
+		if(SnappedWeapon >= 0)
+			m_Core.m_aWeapons[SnappedWeapon].m_Ammo = (GameWorld()->m_WorldConfig.m_InfiniteAmmo || SnappedWeapon == WEAPON_HAMMER) ? -1 : pChar->m_AmmoCount;
 
-		if(pChar->m_Weapon != m_Core.m_ActiveWeapon)
-			SetActiveWeapon(pChar->m_Weapon);
+		if(SnappedWeapon != m_Core.m_ActiveWeapon)
+			SetActiveWeapon(SnappedWeapon);
 	}
 
 	// reset all input except direction and hook for non-local players (as in vanilla prediction)
@@ -1511,7 +1527,7 @@ void CCharacter::Read(CNetObj_Character *pChar, CNetObj_DDNetCharacter *pExtende
 
 	// in most cases the reload timer can be determined from the last attack tick
 	// (this is only needed for autofire weapons to prevent the predicted reload timer from desyncing)
-	if(IsLocal && m_Core.m_ActiveWeapon != WEAPON_HAMMER && !m_Core.m_aWeapons[WEAPON_NINJA].m_Got)
+	if(IsLocal && IsValidWeapon(m_Core.m_ActiveWeapon) && m_Core.m_ActiveWeapon != WEAPON_HAMMER && !m_Core.m_aWeapons[WEAPON_NINJA].m_Got)
 	{
 		if(maximum(m_LastTuneZoneTick, m_LastWeaponSwitchTick) + GameWorld()->GameTickSpeed() < GameWorld()->GameTick())
 		{

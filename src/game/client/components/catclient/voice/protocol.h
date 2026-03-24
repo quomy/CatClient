@@ -3,6 +3,7 @@
 #define GAME_CLIENT_COMPONENTS_BESTCLIENT_VOICE_PROTOCOL_H
 
 #include <base/net.h>
+#include <base/str.h>
 #include <base/system.h>
 
 #include <cstdint>
@@ -131,16 +132,78 @@ inline bool ReadHeader(const uint8_t *pData, int DataSize, EPacketType &Type, in
 
 inline bool ParseAddress(const char *pAddress, int DefaultPort, NETADDR &Out)
 {
+	if(!pAddress || pAddress[0] == '\0')
+		return false;
+
 	if(net_addr_from_str(&Out, pAddress) == 0)
 	{
 		if(Out.port == 0)
 			Out.port = DefaultPort;
 		return true;
 	}
-	if(net_host_lookup(pAddress, &Out, NETTYPE_ALL) == 0)
+
+	const char *pHostStart = pAddress;
+	const char *pHostEnd = pAddress + str_length(pAddress);
+	int Port = DefaultPort;
+	char aHost[128];
+
+	if(pAddress[0] == '[')
 	{
-		if(Out.port == 0)
-			Out.port = DefaultPort;
+		const char *pBracket = str_find(pAddress, "]");
+		if(!pBracket)
+			return false;
+		pHostStart = pAddress + 1;
+		pHostEnd = pBracket;
+		if(pBracket[1] == ':')
+		{
+			const char *pPort = pBracket + 2;
+			if(pPort[0] == '\0')
+				return false;
+			for(const char *p = pPort; *p; ++p)
+			{
+				if(*p < '0' || *p > '9')
+					return false;
+			}
+			Port = str_toint(pPort);
+		}
+	}
+	else if(const char *pLastColon = str_rchr(pAddress, ':'))
+	{
+		const bool HasAnotherColon = str_find(pAddress, ":") != pLastColon;
+		if(!HasAnotherColon)
+		{
+			const char *pPort = pLastColon + 1;
+			if(pPort[0] != '\0')
+			{
+				bool NumericPort = true;
+				for(const char *p = pPort; *p; ++p)
+				{
+					if(*p < '0' || *p > '9')
+					{
+						NumericPort = false;
+						break;
+					}
+				}
+				if(NumericPort)
+				{
+					pHostEnd = pLastColon;
+					Port = str_toint(pPort);
+				}
+			}
+		}
+	}
+
+	if(pHostEnd <= pHostStart)
+		return false;
+
+	str_truncate(aHost, sizeof(aHost), pHostStart, (int)(pHostEnd - pHostStart));
+	if(aHost[0] == '\0')
+		return false;
+	if(net_host_lookup(aHost, &Out, NETTYPE_ALL) == 0)
+	{
+		if(Port <= 0 || Port > 65535)
+			return false;
+		Out.port = Port;
 		return true;
 	}
 	return false;

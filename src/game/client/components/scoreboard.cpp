@@ -22,6 +22,27 @@
 #include <game/client/ui.h>
 #include <game/localization.h>
 
+namespace
+{
+	void BuildEscapedPlayerChatCommand(char *pBuf, size_t BufSize, const char *pPrefix, const char *pPlayerName)
+	{
+		str_copy(pBuf, pPrefix, BufSize);
+		char *pDst = pBuf + str_length(pBuf);
+		str_escape(&pDst, pPlayerName, pBuf + BufSize);
+		str_append(pBuf, "\"", BufSize);
+	}
+
+	float ScoreboardPopupHeight(bool IsLocal, bool IsSpectating)
+	{
+		if(IsLocal)
+		{
+			return IsSpectating ? 32.0f : 60.0f;
+		}
+
+		return IsSpectating ? 145.0f : 205.0f;
+	}
+}
+
 CScoreboard::CScoreboard()
 {
 	OnReset();
@@ -418,8 +439,8 @@ void CScoreboard::RenderSpectators(CUIRect Spectators)
 								     (Client()->DummyConnected() && GameClient()->m_aLocalIds[1] == pInfo->m_ClientId);
 				m_ScoreboardPopupContext.m_IsSpectating = true;
 
-				Ui()->DoPopupMenu(&m_ScoreboardPopupContext, Ui()->MouseX(), Ui()->MouseY(), 140.0f,
-					m_ScoreboardPopupContext.m_IsLocal ? 32.0f : 76.0f, &m_ScoreboardPopupContext, CScoreboardPopupContext::Render);
+				Ui()->DoPopupMenu(&m_ScoreboardPopupContext, Ui()->MouseX(), Ui()->MouseY(), 160.0f,
+					ScoreboardPopupHeight(m_ScoreboardPopupContext.m_IsLocal, m_ScoreboardPopupContext.m_IsSpectating), &m_ScoreboardPopupContext, CScoreboardPopupContext::Render);
 			}
 
 			if(Ui()->HotItem() == &m_aPlayers[pInfo->m_ClientId].m_PlayerButtonId ||
@@ -671,8 +692,8 @@ void CScoreboard::RenderScoreboard(CUIRect Scoreboard, int Team, int CountStart,
 									     (Client()->DummyConnected() && GameClient()->m_aLocalIds[1] == pInfo->m_ClientId);
 					m_ScoreboardPopupContext.m_IsSpectating = false;
 
-					Ui()->DoPopupMenu(&m_ScoreboardPopupContext, Ui()->MouseX(), Ui()->MouseY(), 140.0f,
-						m_ScoreboardPopupContext.m_IsLocal ? 60.0f : 130.0f, &m_ScoreboardPopupContext, CScoreboardPopupContext::Render);
+					Ui()->DoPopupMenu(&m_ScoreboardPopupContext, Ui()->MouseX(), Ui()->MouseY(), 160.0f,
+						ScoreboardPopupHeight(m_ScoreboardPopupContext.m_IsLocal, m_ScoreboardPopupContext.m_IsSpectating), &m_ScoreboardPopupContext, CScoreboardPopupContext::Render);
 				}
 
 				if(Ui()->HotItem() == &m_aPlayers[pInfo->m_ClientId].m_PlayerButtonId ||
@@ -771,10 +792,6 @@ void CScoreboard::RenderScoreboard(CUIRect Scoreboard, int Team, int CountStart,
 					TextRender()->SetFontPreset(EFontPreset::DEFAULT_FONT);
 				}
 
-				// TClient
-				if(pInfo->m_ClientId >= 0 && g_Config.m_TcWarList && g_Config.m_TcWarListScoreboard && GameClient()->m_WarList.GetAnyWar(pInfo->m_ClientId))
-					TextRender()->TextColor(GameClient()->m_WarList.GetNameplateColor(pInfo->m_ClientId));
-
 				char aSanitizedName[MAX_NAME_LENGTH];
 				GameClient()->m_CatClient.SanitizeText(ClientData.m_aName, aSanitizedName, sizeof(aSanitizedName));
 				TextRender()->TextEx(&Cursor, aSanitizedName);
@@ -813,10 +830,6 @@ void CScoreboard::RenderScoreboard(CUIRect Scoreboard, int Team, int CountStart,
 				{
 					TextRender()->TextColor(TextColor);
 				}
-
-				// TClient
-				if(pInfo->m_ClientId >= 0 && g_Config.m_TcWarList && g_Config.m_TcWarListScoreboard && GameClient()->m_WarList.GetAnyWar(pInfo->m_ClientId))
-					TextRender()->TextColor(GameClient()->m_WarList.GetClanColor(pInfo->m_ClientId));
 
 				char aSanitizedClan[MAX_CLAN_LENGTH];
 				GameClient()->m_CatClient.SanitizeText(ClientData.m_aClan, aSanitizedClan, sizeof(aSanitizedClan));
@@ -1249,6 +1262,34 @@ CUi::EPopupMenuFunctionResult CScoreboard::CScoreboardPopupContext::Render(void 
 
 	if(!pPopupContext->m_IsLocal)
 	{
+		View.HSplitTop(ItemSpacing * 2, nullptr, &View);
+		View.HSplitTop(ButtonSize, &Container, &View);
+		if(pUi->DoButton_PopupMenu(&pPopupContext->m_WhisperButton, Localize("Whisper"), &Container, FontSize, TEXTALIGN_MC))
+		{
+			char aCommand[2 * MAX_NAME_LENGTH + 32];
+			BuildEscapedPlayerChatCommand(aCommand, sizeof(aCommand), "chat all /w \"", Client.m_aName);
+			pScoreboard->Console()->ExecuteLine(aCommand, IConsole::CLIENT_ID_UNSPECIFIED);
+			return CUi::POPUP_CLOSE_CURRENT;
+		}
+
+		View.HSplitTop(ItemSpacing * 2, nullptr, &View);
+		View.HSplitTop(ButtonSize, &Container, &View);
+		if(pUi->DoButton_PopupMenu(&pPopupContext->m_SwapButton, Localize("Swap"), &Container, FontSize, TEXTALIGN_MC))
+		{
+			char aCommand[2 * MAX_NAME_LENGTH + 32];
+			BuildEscapedPlayerChatCommand(aCommand, sizeof(aCommand), "say /swap \"", Client.m_aName);
+			pScoreboard->Console()->ExecuteLine(aCommand, IConsole::CLIENT_ID_UNSPECIFIED);
+			return CUi::POPUP_CLOSE_CURRENT;
+		}
+
+		View.HSplitTop(ItemSpacing * 2, nullptr, &View);
+		View.HSplitTop(ButtonSize, &Container, &View);
+		if(pUi->DoButton_PopupMenu(&pPopupContext->m_VoteKickButton, Localize("Vote Kick"), &Container, FontSize, TEXTALIGN_MC))
+		{
+			pScoreboard->GameClient()->m_Voting.CallvoteKick(pPopupContext->m_ClientId, "", false);
+			return CUi::POPUP_CLOSE_CURRENT;
+		}
+
 		View.HSplitTop(ItemSpacing * 2, nullptr, &View);
 		View.HSplitTop(ButtonSize, &Container, &View);
 		const char *pIgnoreLabel = Client.m_ChatIgnore ? Localize("UnIgnore") : Localize("Ignore");

@@ -129,8 +129,6 @@ Adjust your prediction margin while frozen
 Frozen Margin
 == Межа у заморозці
 
-Tile Outlines
-== Обведення тайлів
 
 Show any enabled outlines
 == Показувати всі включені обведення
@@ -183,8 +181,6 @@ Uncertainty duration
 Other
 == Інше
 
-Ghost Tools
-== Інструменти привидів
 
 Show unpredicted ghosts for other players
 == Показувати непередбачуваних привидів для інших гравців
@@ -203,54 +199,6 @@ Hide ghosts of frozen players
 
 Render ghosts as circles
 == Показувати привидів як кола
-
-Player Indicator
-== Індикатор гравців
-
-Show any enabled Indicators
-== Показувати індикатори
-
-Hide indicator for tees on your screen
-== Прибрати індикатор якщо гравець на екрані
-
-Show only freeze Players
-== Показувати тільки гравців у заморозці
-
-Render tiny tees instead of circles
-== Показувати маленьких тії замість кіл
-
-Use warlist groups for indicator
-== Використовувати групи зі Списку воїнів для індикатора
-
-Indicator size
-== Розмір індикатора
-
-Indicator opacity
-== Прозор. індикатора
-
-Change indicator offset based on distance to other tees
-== Змін. зміщ. індикатора залежно від відст. до інших тії
-
-Indicator min offset
-== Мін. зміщ. індикатора
-
-Indicator max offset
-== Макс. зміщ. індикатора
-
-Indicator max distance
-== Макс. дист. індикатора
-
-Indicator offset
-== Зміщення індикатора
-
-Indicator alive color
-== Колір гравця не в заморозці
-
-Indicator in freeze color
-== Колір гравця у заморозці
-
-Indicator safe color
-== Колір гравця в безпеці
 
 Name:
 == Назва:
@@ -303,8 +251,6 @@ Add Entry
 Allow Duplicate Entries
 == Дозволити копії
 
-Enable warlist
-== Увімкнути
 
 Colors in chat
 == Кольори в чаті
@@ -327,8 +273,6 @@ Online Players
 Show clan if war
 == Показувати клан
 
-Chat Binds
-== Бінди для чату
 
 Kaomoji
 == Каомодзі
@@ -489,11 +433,7 @@ Anti Ping Smoothing
 Use new smoothing algorithm
 == Використовувати новий анти-пінг
 
-Use warlist colors instead of regular colors
-== Використовувати кольори списку замість звичайних
 
-Show all warlist groups
-== Показувати всі групи
 
 Last!
 == Останній!
@@ -656,8 +596,6 @@ Unmute:
 Bind Wheel
 == Колесо біндів
 
-War List
-== Список воєн
 
 Bind Wheel Key
 == Клавіша колеса біндів
@@ -692,11 +630,7 @@ Tiny Tees
 Tiny Tee Size
 == Розмір маленьких тії
 
-Pet
-== Питомець
 
-Show the pet
-== Показати питомця
 
 Pet size
 == Розмір питомця

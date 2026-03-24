@@ -11,9 +11,12 @@ class IGraphics;
 class CUIRect
 {
 	static IGraphics *ms_pGraphics;
+	static float ms_GlobalAlpha;
 
 public:
 	static void Init(IGraphics *pGraphics) { ms_pGraphics = pGraphics; }
+	static void SetGlobalAlpha(float Alpha) { ms_GlobalAlpha = Alpha; }
+	static float GlobalAlpha() { return ms_GlobalAlpha; }
 
 	float x, y, w, h;
 

@@ -14,13 +14,13 @@ void CCatClient::OnConsoleInit()
 
 void CCatClient::OnInit()
 {
+	g_Config.m_CcModernUi |= MODERN_UI_GAME_INTERFACE;
 	ResetAutoTeamLock();
-	ResetAntiKill();
 	m_NameTags.Init(GameClient());
+	LoadArrowAsset(g_Config.m_ClAssetArrows);
 	LoadCursorAsset(g_Config.m_ClAssetCursor);
 	EnsureCustomBackgroundFolder();
 	EnsureSelectedCustomBackgroundLoaded();
-	StartAutomaticCursorDownload();
 	if(!Storage()->FileExists(CATCLIENT_DEFAULT_BACKGROUND_PATH, IStorage::TYPE_SAVE))
 	{
 		StartDefaultBackgroundDownload();
@@ -30,11 +30,6 @@ void CCatClient::OnInit()
 
 void CCatClient::OnUpdate()
 {
-	if(m_pCursorDownloadTask && m_pCursorDownloadTask->Done())
-	{
-		FinishAutomaticCursorDownload();
-		m_pCursorDownloadTask = nullptr;
-	}
 	if(m_pBackgroundDownloadTask && m_pBackgroundDownloadTask->Done())
 	{
 		FinishDefaultBackgroundDownload();
@@ -52,7 +47,6 @@ void CCatClient::OnUpdate()
 
 	UpdateIgnoredPlayers();
 	UpdateAspectRatioOverride();
-	UpdateAntiKillState();
 	EnsureSelectedCustomBackgroundLoaded();
 	m_NameTags.Update();
 	CheckAndSendLagMessage();
@@ -61,7 +55,6 @@ void CCatClient::OnUpdate()
 void CCatClient::OnReset()
 {
 	ResetAutoTeamLock();
-	ResetAntiKill();
 	m_NameTags.Reset();
 }
 
@@ -127,7 +120,6 @@ void CCatClient::OnStateChange(int NewState, int OldState)
 	if(NewState != IClient::STATE_ONLINE)
 	{
 		ResetAutoTeamLock();
-		ResetAntiKill();
 	}
 
 	m_NameTags.OnStateChange(NewState, OldState);
@@ -137,13 +129,17 @@ void CCatClient::OnShutdown()
 {
 	Graphics()->ClearScreenAspectOverride();
 	m_NameTags.Shutdown();
-	AbortTask(m_pCursorDownloadTask);
 	AbortTask(m_pBackgroundDownloadTask);
 
 	if(m_HasCustomCursor)
 	{
 		Graphics()->UnloadTexture(&m_CursorTexture);
 		m_HasCustomCursor = false;
+	}
+	if(m_HasCustomArrow)
+	{
+		Graphics()->UnloadTexture(&m_ArrowTexture);
+		m_HasCustomArrow = false;
 	}
 	UnloadCustomBackgroundTexture();
 	m_aLoadedBackgroundImage[0] = '\0';

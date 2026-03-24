@@ -56,6 +56,9 @@ class CScoreboard : public CComponent
 		CButtonContainer m_SpectateButton;
 		CButtonContainer m_InviteButton;
 		CButtonContainer m_IgnoreButton;
+		CButtonContainer m_WhisperButton;
+		CButtonContainer m_SwapButton;
+		CButtonContainer m_VoteKickButton;
 
 		int m_ClientId;
 		bool m_IsLocal;

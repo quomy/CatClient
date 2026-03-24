@@ -122,11 +122,7 @@ Settings
 Bind Wheel
 == 
 
-War List
-== 
 
-Chat Binds
-== 
 
 Status Bar
 == 
@@ -266,67 +262,7 @@ Auto reply to muted players
 Auto reply when tabbed out
 == 
 
-Player Indicator
-== 
-
-Show any enabled Indicators
-== 
-
-Hide indicator for tees on your screen
-== 
-
-Show only freeze Players
-== 
-
 Only show after joining a team
-== 
-
-Render tiny tees instead of circles
-== 
-
-Use warlist groups for indicator
-== 
-
-Indicator size
-== 
-
-Indicator opacity
-== 
-
-Change indicator offset based on distance to other tees
-== 
-
-Indicator min offset
-== 
-
-Indicator max offset
-== 
-
-Indicator max distance
-== 
-
-Indicator offset
-== 
-
-Use warlist colors instead of regular colors
-== 
-
-Show all warlist groups
-== 
-
-Indicator alive color
-== 
-
-Indicator in freeze color
-== 
-
-Indicator safe color
-== 
-
-Pet
-== 
-
-Show the pet
 == 
 
 Pet size
@@ -398,8 +334,6 @@ Tees left alive text
 Count frozen tees
 == 
 
-Tile Outlines
-== 
 
 Show any enabled outlines
 == 
@@ -465,8 +399,6 @@ Unfreeze outline color
 Kill outline color
 == 
 
-Ghost Tools
-== 
 
 Show unpredicted ghosts for other players
 == 
@@ -588,8 +520,6 @@ Add Entry
 Allow Duplicate Entries
 == 
 
-Enable warlist
-== 
 
 Colors in chat
 == 

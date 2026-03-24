@@ -629,7 +629,7 @@ void CMenus::RenderSettingsTee(CUIRect MainView)
 	const float EyeButtonSize = 40.0f;
 	const bool RenderEyesBelow = MainView.w < 750.0f;
 	CUIRect YourSkin, Checkboxes, SkinPrefix, Eyes, Button, Label;
-	MainView.HSplitTop(UseUnifiedPlayerInfo ? (ShowUnifiedCompactColors ? 148.0f : 90.0f) : 90.0f, &YourSkin, &MainView);
+	MainView.HSplitTop(UseUnifiedPlayerInfo ? (ShowUnifiedCompactColors ? 140.0f : 90.0f) : 90.0f, &YourSkin, &MainView);
 	if(RenderEyesBelow)
 	{
 		YourSkin.VSplitLeft(MainView.w * 0.45f, &YourSkin, &Checkboxes);
@@ -727,9 +727,9 @@ void CMenus::RenderSettingsTee(CUIRect MainView)
 		if(ShowUnifiedCompactColors)
 		{
 			InputArea.HSplitTop(5.0f, nullptr, &InputArea);
-				InputArea.HSplitTop(24.0f, &BodyColorRow, &InputArea);
-				InputArea.HSplitTop(4.0f, nullptr, &InputArea);
-				InputArea.HSplitTop(24.0f, &FeetColorRow, &InputArea);
+			InputArea.HSplitTop(20.0f, &BodyColorRow, &InputArea);
+			InputArea.HSplitTop(4.0f, nullptr, &InputArea);
+			InputArea.HSplitTop(20.0f, &FeetColorRow, &InputArea);
 		}
 	}
 	else
@@ -852,18 +852,52 @@ void CMenus::RenderSettingsTee(CUIRect MainView)
 
 		if(ShowUnifiedCompactColors)
 		{
-			static CLineInput s_BodyColorInput;
-			static CLineInput s_FeetColorInput;
-			static char s_aBodyColorBuf[16];
-			static char s_aFeetColorBuf[16];
-			if(RenderCompactHslaScrollbars(&BodyColorRow, Localize("Body"), pColorBody, ColorHSLA::DARKEST_LGT, &s_BodyColorInput, s_aBodyColorBuf, sizeof(s_aBodyColorBuf)))
-			{
-				SetNeedSendInfo();
-			}
-			if(RenderCompactHslaScrollbars(&FeetColorRow, Localize("Feet"), pColorFeet, ColorHSLA::DARKEST_LGT, &s_FeetColorInput, s_aFeetColorBuf, sizeof(s_aFeetColorBuf)))
-			{
-				SetNeedSendInfo();
-			}
+			auto &&RenderCompactColorPickerRow = [&](CUIRect *pRow, const char *pPartLabel, unsigned int *pColor) {
+				pRow->Draw(ColorRGBA(1.0f, 1.0f, 1.0f, 0.05f), IGraphics::CORNER_ALL, 6.0f);
+
+				CUIRect Inner = *pRow;
+				Inner.Margin(4.0f, &Inner);
+
+				CUIRect PartLabel, PreviewButton;
+				Inner.VSplitLeft(28.0f, &PartLabel, &Inner);
+				Inner.VSplitRight(Inner.h, &Inner, &PreviewButton);
+				Ui()->DoLabel(&PartLabel, pPartLabel, 11.0f, TEXTALIGN_ML);
+
+				const unsigned PrevColor = *pColor;
+				ColorHSLA PreviewColor(*pColor, false);
+				const bool EditingThisPicker = Ui()->IsPopupOpen(&m_ColorPickerPopupContext) && m_ColorPickerPopupContext.m_pHslaColor == pColor;
+				if(EditingThisPicker)
+				{
+					PreviewColor = m_ColorPickerPopupContext.m_HslaColor;
+				}
+
+				ColorRGBA Outline = ColorRGBA(1.0f, 1.0f, 1.0f, 0.25f);
+				Outline.a *= Ui()->ButtonColorMul(pColor);
+
+				CUIRect PreviewFill = PreviewButton;
+				PreviewFill.Margin(3.0f, &PreviewFill);
+				PreviewButton.Draw(Outline, IGraphics::CORNER_ALL, 4.0f);
+				PreviewFill.Draw(color_cast<ColorRGBA>(PreviewColor.UnclampLighting(ColorHSLA::DARKEST_LGT)), IGraphics::CORNER_ALL, 4.0f);
+
+				if(Ui()->DoButtonLogic(pColor, 0, &PreviewButton, BUTTONFLAG_LEFT))
+				{
+					m_ColorPickerPopupContext.m_pHslaColor = pColor;
+					m_ColorPickerPopupContext.m_HslaColor = PreviewColor;
+					m_ColorPickerPopupContext.m_HsvaColor = color_cast<ColorHSVA>(PreviewColor);
+					m_ColorPickerPopupContext.m_RgbaColor = color_cast<ColorRGBA>(m_ColorPickerPopupContext.m_HsvaColor);
+					m_ColorPickerPopupContext.m_Alpha = false;
+					m_ColorPickerPopupContext.m_ColorMode = CUi::SColorPickerPopupContext::MODE_HSLA;
+					Ui()->ShowPopupColorPicker(Ui()->MouseX(), Ui()->MouseY(), &m_ColorPickerPopupContext);
+				}
+
+				if(PrevColor != *pColor)
+				{
+					SetNeedSendInfo();
+				}
+			};
+
+			RenderCompactColorPickerRow(&BodyColorRow, Localize("Body"), pColorBody);
+			RenderCompactColorPickerRow(&FeetColorRow, Localize("Feet"), pColorFeet);
 		}
 	}
 
@@ -1803,9 +1837,9 @@ void CMenus::RenderSettings(CUIRect MainView)
 		}
 		else
 		{
-			Animator.m_XOffset = 2.0f;
+			Animator.m_XOffset = 1.0f;
 			Animator.m_YOffset = 0.0f;
-			Animator.m_WOffset = 1.0f;
+			Animator.m_WOffset = 0.0f;
 			Animator.m_HOffset = 0.0f;
 			Animator.m_ScaleLabel = false;
 			Animator.m_RepositionLabel = false;
@@ -2499,7 +2533,6 @@ void CMenus::RenderSettingsAppearance(CUIRect MainView)
 		// Switches of the various normal HUD elements
 		DoButton_CheckBoxAutoVMarginAndSet(&g_Config.m_ClShowhudHealthAmmo, Localize("Show health, shields and ammo"), &g_Config.m_ClShowhudHealthAmmo, &LeftView, LineSize);
 		DoButton_CheckBoxAutoVMarginAndSet(&g_Config.m_ClShowhudScore, Localize("Show score"), &g_Config.m_ClShowhudScore, &LeftView, LineSize);
-		DoButton_CheckBoxAutoVMarginAndSet(&g_Config.m_ClShowLocalTimeAlways, Localize("Show local time always"), &g_Config.m_ClShowLocalTimeAlways, &LeftView, LineSize);
 		DoButton_CheckBoxAutoVMarginAndSet(&g_Config.m_ClSpecCursor, Localize("Show spectator cursor"), &g_Config.m_ClSpecCursor, &LeftView, LineSize);
 
 		// Settings of the HUD element for votes

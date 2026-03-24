@@ -60,10 +60,11 @@ void CStatboard::OnMessage(int MsgType, void *pRawMsg)
 	{
 		CNetMsg_Sv_KillMsg *pMsg = (CNetMsg_Sv_KillMsg *)pRawMsg;
 		CGameClient::CClientStats *pStats = GameClient()->m_aStats;
+		const bool ValidWeapon = pMsg->m_Weapon >= 0 && pMsg->m_Weapon < NUM_WEAPONS;
 
 		pStats[pMsg->m_Victim].m_Deaths++;
 		pStats[pMsg->m_Victim].m_CurrentSpree = 0;
-		if(pMsg->m_Weapon >= 0)
+		if(ValidWeapon)
 			pStats[pMsg->m_Victim].m_aDeathsFrom[pMsg->m_Weapon]++;
 		if(pMsg->m_Victim != pMsg->m_Killer)
 		{
@@ -72,7 +73,7 @@ void CStatboard::OnMessage(int MsgType, void *pRawMsg)
 
 			if(pStats[pMsg->m_Killer].m_CurrentSpree > pStats[pMsg->m_Killer].m_BestSpree)
 				pStats[pMsg->m_Killer].m_BestSpree = pStats[pMsg->m_Killer].m_CurrentSpree;
-			if(pMsg->m_Weapon >= 0)
+			if(ValidWeapon)
 				pStats[pMsg->m_Killer].m_aFragsWith[pMsg->m_Weapon]++;
 		}
 		else

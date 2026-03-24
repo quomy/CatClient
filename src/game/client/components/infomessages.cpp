@@ -257,6 +257,7 @@ void CInfoMessages::OnTeamKillMessage(const CNetMsg_Sv_KillMsgTeam *pMsg)
 void CInfoMessages::OnKillMessage(const CNetMsg_Sv_KillMsg *pMsg)
 {
 	CInfoMsg Kill = CreateInfoMsg(TYPE_KILL);
+	const bool ValidWeapon = pMsg->m_Weapon >= 0 && pMsg->m_Weapon < NUM_WEAPONS;
 
 	if(GameClient()->m_aClients[pMsg->m_Victim].m_Active)
 	{
@@ -274,7 +275,7 @@ void CInfoMessages::OnKillMessage(const CNetMsg_Sv_KillMsg *pMsg)
 		Kill.m_pKillerManagedTeeRenderInfo = GameClient()->CreateManagedTeeRenderInfo(GameClient()->m_aClients[Kill.m_KillerId]);
 	}
 
-	Kill.m_Weapon = pMsg->m_Weapon;
+	Kill.m_Weapon = ValidWeapon ? pMsg->m_Weapon : -1;
 	Kill.m_ModeSpecial = pMsg->m_ModeSpecial;
 	Kill.m_FlagCarrierBlue = GameClient()->m_Snap.m_pGameDataObj ? GameClient()->m_Snap.m_pGameDataObj->m_FlagCarrierBlue : -1;
 
@@ -359,7 +360,7 @@ void CInfoMessages::RenderKillMsg(const CInfoMsg &InfoMsg, float x, float y)
 
 	// render weapon
 	x -= 32.0f;
-	if(InfoMsg.m_Weapon >= 0)
+	if(InfoMsg.m_Weapon >= 0 && InfoMsg.m_Weapon < NUM_WEAPONS)
 	{
 		Graphics()->TextureSet(GameClient()->m_GameSkin.m_aSpriteWeapons[InfoMsg.m_Weapon]);
 		Graphics()->RenderQuadContainerAsSprite(m_SpriteQuadContainerIndex, 4 + InfoMsg.m_Weapon, x, y + 28);

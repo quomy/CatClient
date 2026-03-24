@@ -64,6 +64,8 @@ class CHud : public CComponent
 	ESpeedChange m_aLastPlayerSpeedChange[2];
 	STextContainerIndex m_aPlayerPositionContainers[2];
 	float m_aPlayerPrevPosition[2];
+	float m_ModernGameInterfaceFps = 0.0f;
+	float m_ModernGameInterfaceFpsUpdateTimer = 0.0f;
 
 	void RenderCursor();
 
@@ -103,7 +105,6 @@ class CHud : public CComponent
 
 	void RenderSpectatorHud();
 	void RenderWarmupTimer();
-	void RenderLocalTime(float x);
 	bool HasModernUiFlag(int Flag) const;
 
 	static constexpr float MOVEMENT_INFORMATION_LINE_HEIGHT = 8.0f;

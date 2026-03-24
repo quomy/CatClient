@@ -229,7 +229,7 @@ public:
 	CNamePlatePartDirection(CGameClient &This, Direction Dir) :
 		CNamePlatePartIcon(This)
 	{
-		m_Texture = g_pData->m_aImages[IMAGE_ARROW].m_Id;
+		m_Texture = This.m_CatClient.ArrowTexture();
 		m_Direction = Dir;
 		switch(m_Direction)
 		{
@@ -246,6 +246,7 @@ public:
 	}
 	void Update(CGameClient &This, const CNamePlateData &Data) override
 	{
+		m_Texture = This.m_CatClient.ArrowTexture();
 		if(!Data.m_ShowDirection)
 		{
 			m_ShiftOnInvis = false;
@@ -382,14 +383,6 @@ protected:
 		if(!m_Visible)
 			return false;
 		m_Color = Data.m_Color;
-		// TClient
-		if(g_Config.m_TcWarList)
-		{
-			if(This.m_WarList.GetWarData(Data.m_ClientId).m_WarName)
-				m_Color = This.m_WarList.GetNameplateColor(Data.m_ClientId).WithAlpha(Data.m_Color.a);
-			else if(This.m_WarList.GetWarData(Data.m_ClientId).m_WarClan)
-				m_Color = This.m_WarList.GetClanColor(Data.m_ClientId).WithAlpha(Data.m_Color.a);
-		}
 		return m_FontSize != Data.m_FontSize || str_comp(m_aText, Data.m_aName) != 0;
 	}
 	void UpdateText(CGameClient &This, const CNamePlateData &Data) override
@@ -419,9 +412,6 @@ protected:
 		if(!m_Visible && Data.m_aClan[0] != '\0')
 			return false;
 		m_Color = Data.m_Color;
-		// TClient
-		if(This.m_WarList.GetWarData(Data.m_ClientId).m_WarClan)
-			m_Color = This.m_WarList.GetClanColor(Data.m_ClientId).WithAlpha(Data.m_Color.a);
 		return m_FontSize != Data.m_FontSizeClan || str_comp(m_aText, Data.m_aClan) != 0;
 	}
 	void UpdateText(CGameClient &This, const CNamePlateData &Data) override
@@ -652,40 +642,6 @@ public:
 		CNamePlatePartText(This) {}
 };
 
-class CNamePlatePartReason : public CNamePlatePartText
-{
-private:
-	char m_aText[MAX_WARLIST_REASON_LENGTH] = "";
-	float m_FontSize = -INFINITY;
-
-protected:
-	bool UpdateNeeded(CGameClient &This, const CNamePlateData &Data) override
-	{
-		m_Visible = Data.m_InGame;
-		if(!m_Visible)
-			return false;
-		const char *pReason = This.m_WarList.GetWarData(Data.m_ClientId).m_aReason;
-		m_Visible = pReason[0] != '\0' && !This.m_Snap.m_apPlayerInfos[Data.m_ClientId]->m_Local;
-		if(!m_Visible)
-			return false;
-		m_Color = ColorRGBA(0.7f, 0.7f, 0.7f, Data.m_Color.a);
-		return m_FontSize != Data.m_FontSizeClan || str_comp(m_aText, pReason) != 0;
-	}
-	void UpdateText(CGameClient &This, const CNamePlateData &Data) override
-	{
-		m_FontSize = Data.m_FontSizeClan;
-		const char *pReason = This.m_WarList.GetWarData(Data.m_ClientId).m_aReason;
-		str_copy(m_aText, pReason, sizeof(m_aText));
-		CTextCursor Cursor;
-		Cursor.m_FontSize = m_FontSize;
-		This.TextRender()->CreateOrAppendTextContainer(m_TextContainerIndex, &Cursor, m_aText);
-	}
-
-public:
-	CNamePlatePartReason(CGameClient &This) :
-		CNamePlatePartText(This) {}
-};
-
 class CNamePlatePartIgnoreMark : public CNamePlatePartText
 {
 private:
@@ -765,8 +721,6 @@ private:
 		AddPart<CNamePlatePartClan>(This);
 		AddPart<CNamePlatePartNewLine>(This);
 
-		AddPart<CNamePlatePartReason>(This); // TClient
-		AddPart<CNamePlatePartNewLine>(This); // TClient
 		AddPart<CNamePlatePartSkin>(This); // TClient
 		AddPart<CNamePlatePartNewLine>(This); // TClient
 
@@ -1012,9 +966,6 @@ void CNamePlates::RenderNamePlateGame(vec2 Position, const CNetObj_PlayerInfo *p
 		}
 	}
 
-	// TClient
-	if(g_Config.m_TcWarList && g_Config.m_TcWarListShowClan && GameClient()->m_WarList.GetWarData(pPlayerInfo->m_ClientId).m_WarClan)
-		Data.m_ShowClan = true;
 	Data.m_Local = pPlayerInfo->m_Local;
 
 	// Check if the nameplate is actually on screen

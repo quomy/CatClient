@@ -41,6 +41,7 @@ struct CAvByteBufferReader
 
 #include "modules/catclient/catclient_media_core.h"
 #include "modules/catclient/catclient_state.h"
+#include "modules/catclient/catclient_arrows.h"
 #include "modules/catclient/catclient_cursor.h"
 #include "modules/catclient/catclient_background.h"
 #include "modules/catclient/catclient_lifecycle.h"

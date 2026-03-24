@@ -82,6 +82,7 @@ public:
 				"assets/hud",
 				"assets/particles",
 				"assets/audio",
+				"assets/arrows",
 				"assets/cursors",
 				"audio",
 				"communityicons",

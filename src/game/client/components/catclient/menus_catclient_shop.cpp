@@ -40,6 +40,7 @@ enum
 	CATCLIENT_SHOP_EMOTICONS,
 	CATCLIENT_SHOP_PARTICLES,
 	CATCLIENT_SHOP_HUD,
+	CATCLIENT_SHOP_ARROWS,
 	CATCLIENT_SHOP_CURSORS,
 	NUM_CATCLIENT_SHOP_TABS,
 };
@@ -50,6 +51,7 @@ static constexpr int gs_aVisibleCatClientShopTabs[] = {
 	CATCLIENT_SHOP_EMOTICONS,
 	CATCLIENT_SHOP_PARTICLES,
 	CATCLIENT_SHOP_HUD,
+	CATCLIENT_SHOP_ARROWS,
 	CATCLIENT_SHOP_CURSORS,
 };
 
@@ -67,6 +69,7 @@ static const SCatClientShopTypeInfo gs_aCatClientShopTypeInfos[NUM_CATCLIENT_SHO
 	{CCLocalizable("Emoticons"), "emoticon", "assets/emoticons", FontIcon::IMAGE},
 	{CCLocalizable("Particles"), "particle", "assets/particles", FontIcon::IMAGE},
 	{CCLocalizable("HUD"), "hud", "assets/hud", FontIcon::IMAGE},
+	{CCLocalizable("Arrows"), "arrows", "assets/arrows", FontIcon::IMAGE},
 	{CCLocalizable("Cursors"), "cursor", "assets/cursors", FontIcon::IMAGE},
 };
 

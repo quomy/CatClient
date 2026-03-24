@@ -43,6 +43,7 @@ constexpr int VOICE_TALKING_TIMEOUT_MS = 350;
 constexpr int VOICE_MAX_BITRATE_KBPS = 96;
 constexpr int VOICE_HEARTBEAT_SECONDS = 5;
 constexpr int VOICE_SERVER_STALE_SECONDS = 10;
+constexpr int VOICE_AUDIO_RETRY_SECONDS = 3;
 constexpr float PANEL_HEADER_HEIGHT = 34.0f;
 constexpr float PANEL_SECTION_BUTTON_SIZE = 34.0f;
 constexpr float PANEL_ROW_HEIGHT = 48.0f;
@@ -376,6 +377,7 @@ void CVoiceChat::OnReset()
 	m_LastHelloTick = 0;
 	m_LastServerPacketTick = 0;
 	m_LastHeartbeatTick = 0;
+	m_LastAudioInitAttempt = 0;
 	m_LastBitrate = -1;
 	m_HelloResetPending = false;
 	m_AdvertisedRoomKey.clear();
@@ -476,12 +478,12 @@ void CVoiceChat::OnUpdate()
 	}
 
 	ProcessNetwork();
-
-	if(!m_pEncoder)
-		return;
+	if((m_CaptureDevice == 0 || m_PlaybackDevice == 0 || !m_pEncoder) &&
+		(m_LastAudioInitAttempt == 0 || Now - m_LastAudioInitAttempt > VOICE_AUDIO_RETRY_SECONDS * time_freq()))
+		EnsureAudioReady();
 
 	const int ClampedBitrate = std::clamp(g_Config.m_BcVoiceChatBitrate, 6, VOICE_MAX_BITRATE_KBPS);
-	if(m_LastBitrate != ClampedBitrate)
+	if(m_pEncoder && m_LastBitrate != ClampedBitrate)
 	{
 		ConfigureVoiceOpusEncoder(m_pEncoder, ClampedBitrate);
 		m_LastBitrate = ClampedBitrate;
@@ -1217,17 +1219,7 @@ void CVoiceChat::StartVoice()
 	m_RuntimeState = m_RuntimeState == RUNTIME_RECONNECTING ? RUNTIME_RECONNECTING : RUNTIME_STARTING;
 	if(!OpenNetworking())
 		return;
-	if(!OpenAudioDevices())
-	{
-		CloseNetworking();
-		return;
-	}
-	if(!CreateEncoder())
-	{
-		CloseAudioDevices();
-		CloseNetworking();
-		return;
-	}
+	EnsureAudioReady(true);
 	m_LastStartAttempt = 0;
 	m_HelloResetPending = true;
 	SendHello();
@@ -1329,23 +1321,25 @@ bool CVoiceChat::OpenAudioDevices()
 	WantedCapture.samples = BestClientVoice::FRAME_SIZE;
 	WantedCapture.callback = nullptr;
 
-	const char *pCaptureDeviceName = GetAudioDeviceNameByIndex(1, g_Config.m_BcVoiceChatInputDevice);
-	m_CaptureDevice = SDL_OpenAudioDevice(pCaptureDeviceName, 1, &WantedCapture, &m_CaptureSpec, SDL_AUDIO_ALLOW_CHANNELS_CHANGE);
-	if(m_CaptureDevice == 0 && pCaptureDeviceName)
-	{
-		dbg_msg("voice", "failed to open selected capture device, fallback to default: %s", SDL_GetError());
-		m_CaptureDevice = SDL_OpenAudioDevice(nullptr, 1, &WantedCapture, &m_CaptureSpec, SDL_AUDIO_ALLOW_CHANNELS_CHANGE);
-	}
 	if(m_CaptureDevice == 0)
 	{
-		dbg_msg("voice", "failed to open capture device: %s", SDL_GetError());
-		return false;
-	}
-	if(m_CaptureSpec.freq != BestClientVoice::SAMPLE_RATE || m_CaptureSpec.format != AUDIO_S16SYS)
-	{
-		dbg_msg("voice", "capture format unsupported (need 48kHz s16)");
-		CloseAudioDevices();
-		return false;
+		const char *pCaptureDeviceName = GetAudioDeviceNameByIndex(1, g_Config.m_BcVoiceChatInputDevice);
+		m_CaptureDevice = SDL_OpenAudioDevice(pCaptureDeviceName, 1, &WantedCapture, &m_CaptureSpec, SDL_AUDIO_ALLOW_CHANNELS_CHANGE);
+		if(m_CaptureDevice == 0 && pCaptureDeviceName)
+		{
+			dbg_msg("voice", "failed to open selected capture device, fallback to default: %s", SDL_GetError());
+			m_CaptureDevice = SDL_OpenAudioDevice(nullptr, 1, &WantedCapture, &m_CaptureSpec, SDL_AUDIO_ALLOW_CHANNELS_CHANGE);
+		}
+		if(m_CaptureDevice == 0)
+		{
+			dbg_msg("voice", "failed to open capture device: %s", SDL_GetError());
+		}
+		else if(m_CaptureSpec.freq != BestClientVoice::SAMPLE_RATE || m_CaptureSpec.format != AUDIO_S16SYS)
+		{
+			dbg_msg("voice", "capture format unsupported (need 48kHz s16)");
+			SDL_CloseAudioDevice(m_CaptureDevice);
+			m_CaptureDevice = 0;
+		}
 	}
 
 	SDL_AudioSpec WantedPlayback = {};
@@ -1355,29 +1349,32 @@ bool CVoiceChat::OpenAudioDevices()
 	WantedPlayback.samples = BestClientVoice::FRAME_SIZE;
 	WantedPlayback.callback = nullptr;
 
-	const char *pPlaybackDeviceName = GetAudioDeviceNameByIndex(0, g_Config.m_BcVoiceChatOutputDevice);
-	m_PlaybackDevice = SDL_OpenAudioDevice(pPlaybackDeviceName, 0, &WantedPlayback, &m_PlaybackSpec, SDL_AUDIO_ALLOW_CHANNELS_CHANGE);
-	if(m_PlaybackDevice == 0 && pPlaybackDeviceName)
-	{
-		dbg_msg("voice", "failed to open selected playback device, fallback to default: %s", SDL_GetError());
-		m_PlaybackDevice = SDL_OpenAudioDevice(nullptr, 0, &WantedPlayback, &m_PlaybackSpec, SDL_AUDIO_ALLOW_CHANNELS_CHANGE);
-	}
 	if(m_PlaybackDevice == 0)
 	{
-		dbg_msg("voice", "failed to open playback device: %s", SDL_GetError());
-		CloseAudioDevices();
-		return false;
-	}
-	if(m_PlaybackSpec.freq != BestClientVoice::SAMPLE_RATE || m_PlaybackSpec.format != AUDIO_S16SYS || m_PlaybackSpec.channels != 2)
-	{
-		dbg_msg("voice", "playback format unsupported (need 48kHz s16)");
-		CloseAudioDevices();
-		return false;
+		const char *pPlaybackDeviceName = GetAudioDeviceNameByIndex(0, g_Config.m_BcVoiceChatOutputDevice);
+		m_PlaybackDevice = SDL_OpenAudioDevice(pPlaybackDeviceName, 0, &WantedPlayback, &m_PlaybackSpec, SDL_AUDIO_ALLOW_CHANNELS_CHANGE);
+		if(m_PlaybackDevice == 0 && pPlaybackDeviceName)
+		{
+			dbg_msg("voice", "failed to open selected playback device, fallback to default: %s", SDL_GetError());
+			m_PlaybackDevice = SDL_OpenAudioDevice(nullptr, 0, &WantedPlayback, &m_PlaybackSpec, SDL_AUDIO_ALLOW_CHANNELS_CHANGE);
+		}
+		if(m_PlaybackDevice == 0)
+		{
+			dbg_msg("voice", "failed to open playback device: %s", SDL_GetError());
+		}
+		else if(m_PlaybackSpec.freq != BestClientVoice::SAMPLE_RATE || m_PlaybackSpec.format != AUDIO_S16SYS || m_PlaybackSpec.channels != 2)
+		{
+			dbg_msg("voice", "playback format unsupported (need 48kHz s16 stereo)");
+			SDL_CloseAudioDevice(m_PlaybackDevice);
+			m_PlaybackDevice = 0;
+		}
 	}
 
-	SDL_PauseAudioDevice(m_CaptureDevice, 0);
-	SDL_PauseAudioDevice(m_PlaybackDevice, 0);
-	return true;
+	if(m_CaptureDevice != 0)
+		SDL_PauseAudioDevice(m_CaptureDevice, 0);
+	if(m_PlaybackDevice != 0)
+		SDL_PauseAudioDevice(m_PlaybackDevice, 0);
+	return m_CaptureDevice != 0 || m_PlaybackDevice != 0;
 }
 
 void CVoiceChat::CloseAudioDevices()
@@ -1416,6 +1413,25 @@ void CVoiceChat::DestroyEncoder()
 		opus_encoder_destroy(m_pEncoder);
 		m_pEncoder = nullptr;
 	}
+}
+
+void CVoiceChat::EnsureAudioReady(bool Force)
+{
+	if(Force)
+	{
+		DestroyEncoder();
+		CloseAudioDevices();
+	}
+	else if(m_CaptureDevice != 0 && m_PlaybackDevice != 0 && m_pEncoder)
+	{
+		return;
+	}
+
+	m_LastAudioInitAttempt = time_get();
+	OpenAudioDevices();
+
+	if(!m_pEncoder)
+		CreateEncoder();
 }
 
 void CVoiceChat::ClearPeerState()
@@ -3536,7 +3552,7 @@ void CVoiceChat::ConVoiceStatus(IConsole::IResult *pResult, void *pUserData)
 	(void)pResult;
 	CVoiceChat *pSelf = static_cast<CVoiceChat *>(pUserData);
 	dbg_msg("voice", "enabled=%d connected=%d participants=%d server='%s' ptt=%d",
-		1, pSelf->m_Registered ? 1 : 0, (int)pSelf->m_vVisibleMemberPeerIds.size(), g_Config.m_BcVoiceChatServerAddress, pSelf->m_PushToTalkPressed ? 1 : 0);
+		g_Config.m_BcVoiceChatEnable ? 1 : 0, pSelf->m_Registered ? 1 : 0, (int)pSelf->m_vVisibleMemberPeerIds.size(), g_Config.m_BcVoiceChatServerAddress, pSelf->m_PushToTalkPressed ? 1 : 0);
 }
 
 void CVoiceChat::ConToggleVoicePanel(IConsole::IResult *pResult, void *pUserData)

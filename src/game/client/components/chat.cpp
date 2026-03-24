@@ -1,6 +1,7 @@
 #include "chat.h"
 
 #include <base/io.h>
+#include <base/log.h>
 #include <base/math.h>
 #include <base/time.h>
 
@@ -9,6 +10,7 @@
 #include <engine/graphics.h>
 #include <engine/keys.h>
 #include <engine/shared/config.h>
+#include <engine/shared/http.h>
 #include <engine/shared/csv.h>
 #include <engine/textrender.h>
 
@@ -26,11 +28,26 @@
 #include <game/localization.h>
 
 #include <algorithm>
+#include <cctype>
+
+#if defined(CONF_VIDEORECORDER)
+extern "C" {
+	#include <libavcodec/avcodec.h>
+	#include <libavformat/avformat.h>
+	#include <libswscale/swscale.h>
+}
+#endif
 
 char CChat::ms_aDisplayText[MAX_LINE_LENGTH] = "";
 
 namespace
 {
+	static constexpr size_t CHAT_GIF_MAX_RESPONSE_SIZE = 12 * 1024 * 1024;
+	static constexpr size_t CHAT_GIF_MAX_FRAMES = 64;
+	static constexpr float CHAT_GIF_MAX_WIDTH = 120.0f;
+	static constexpr float CHAT_GIF_MAX_HEIGHT = 68.0f;
+	static constexpr float CHAT_GIF_SPACING = 3.0f;
+
 	float SmoothAnimation(float Progress)
 	{
 		Progress = std::clamp(Progress, 0.0f, 1.0f);
@@ -41,6 +58,145 @@ namespace
 	{
 		return (g_Config.m_CcChatAnimations & Flag) != 0;
 	}
+
+	bool IsUrlBoundary(char c)
+	{
+		return c == '\0' || std::isspace((unsigned char)c) || c == '"' || c == '\'' || c == '<' || c == '>';
+	}
+
+	bool UrlLooksLikeGif(const char *pUrl)
+	{
+		if(pUrl == nullptr || pUrl[0] == '\0')
+		{
+			return false;
+		}
+
+		const char *pGif = str_find_nocase(pUrl, ".gif");
+		if(pGif == nullptr)
+		{
+			return false;
+		}
+
+		const char NextChar = pGif[4];
+		return NextChar == '\0' || NextChar == '?' || NextChar == '#' || NextChar == '&' || NextChar == '/';
+	}
+
+#if defined(CONF_VIDEORECORDER)
+	struct CChatAvByteBufferReader
+	{
+		const uint8_t *m_pData = nullptr;
+		size_t m_Size = 0;
+		size_t m_ReadOffset = 0;
+	};
+
+	static int ChatAvReadPacket(void *pOpaque, uint8_t *pBuf, int BufSize)
+	{
+		auto *pReader = static_cast<CChatAvByteBufferReader *>(pOpaque);
+		if(pReader->m_ReadOffset >= pReader->m_Size)
+		{
+			return AVERROR_EOF;
+		}
+
+		const size_t Remaining = pReader->m_Size - pReader->m_ReadOffset;
+		const size_t ReadSize = minimum<size_t>((size_t)BufSize, Remaining);
+		mem_copy(pBuf, pReader->m_pData + pReader->m_ReadOffset, ReadSize);
+		pReader->m_ReadOffset += ReadSize;
+		return (int)ReadSize;
+	}
+
+	static int64_t ChatAvSeek(void *pOpaque, int64_t Offset, int Whence)
+	{
+		auto *pReader = static_cast<CChatAvByteBufferReader *>(pOpaque);
+		if(Whence == AVSEEK_SIZE)
+		{
+			return (int64_t)pReader->m_Size;
+		}
+
+		size_t NewOffset = 0;
+		switch(Whence & ~AVSEEK_FORCE)
+		{
+		case SEEK_SET:
+			if(Offset < 0)
+			{
+				return AVERROR(EINVAL);
+			}
+			NewOffset = (size_t)Offset;
+			break;
+		case SEEK_CUR:
+			if((Offset < 0 && (uint64_t)(-Offset) > pReader->m_ReadOffset) || (Offset > 0 && (uint64_t)Offset > pReader->m_Size - pReader->m_ReadOffset))
+			{
+				return AVERROR(EINVAL);
+			}
+			NewOffset = pReader->m_ReadOffset + (ptrdiff_t)Offset;
+			break;
+		case SEEK_END:
+			if((Offset < 0 && (uint64_t)(-Offset) > pReader->m_Size) || Offset > 0)
+			{
+				return AVERROR(EINVAL);
+			}
+			NewOffset = pReader->m_Size + (ptrdiff_t)Offset;
+			break;
+		default:
+			return AVERROR(EINVAL);
+		}
+
+		if(NewOffset > pReader->m_Size)
+		{
+			return AVERROR(EINVAL);
+		}
+
+		pReader->m_ReadOffset = NewOffset;
+		return (int64_t)pReader->m_ReadOffset;
+	}
+
+	static std::chrono::nanoseconds ChatGifFrameDuration(const AVFrame *pFrame, const AVPacket *pPacket, AVRational TimeBase)
+	{
+		int64_t DurationTicks = 0;
+		if(pFrame->duration > 0 && pFrame->duration != AV_NOPTS_VALUE)
+		{
+			DurationTicks = pFrame->duration;
+		}
+		else if(pPacket != nullptr && pPacket->duration > 0 && pPacket->duration != AV_NOPTS_VALUE)
+		{
+			DurationTicks = pPacket->duration;
+		}
+
+		if(DurationTicks <= 0)
+		{
+			return std::chrono::milliseconds(10);
+		}
+
+		const int64_t DurationNanoseconds = av_rescale_q(DurationTicks, TimeBase, AVRational{1, 1000000000});
+		return DurationNanoseconds > 0 ? std::chrono::nanoseconds(DurationNanoseconds) : std::chrono::milliseconds(10);
+	}
+
+	static std::chrono::nanoseconds ChatFrameTimestamp(const AVFrame *pFrame, AVRational TimeBase)
+	{
+		int64_t Timestamp = AV_NOPTS_VALUE;
+		if(pFrame->best_effort_timestamp != AV_NOPTS_VALUE)
+		{
+			Timestamp = pFrame->best_effort_timestamp;
+		}
+		else if(pFrame->pts != AV_NOPTS_VALUE)
+		{
+			Timestamp = pFrame->pts;
+		}
+
+		if(Timestamp == AV_NOPTS_VALUE)
+		{
+			return std::chrono::nanoseconds::min();
+		}
+
+		return std::chrono::nanoseconds(av_rescale_q(Timestamp, TimeBase, AVRational{1, 1000000000}));
+	}
+
+	static void LogChatGifDecodeError(const char *pOperation, const char *pUrl, int Result)
+	{
+		char aError[AV_ERROR_MAX_STRING_SIZE];
+		av_strerror(Result, aError, sizeof(aError));
+		log_log(LEVEL_ERROR, "chat/gif", "%s failed. url='%s' error='%s'", pOperation, pUrl, aError);
+	}
+#endif
 }
 
 CChat::CLine::CLine()
@@ -53,6 +209,8 @@ void CChat::CLine::Reset(CChat &This)
 {
 	This.TextRender()->DeleteTextContainer(m_TextContainerIndex);
 	This.Graphics()->DeleteQuadContainer(m_QuadContainerIndex);
+	This.AbortGifTask(*this);
+	This.UnloadGifPreview(*this);
 	m_Initialized = false;
 	m_Time = 0;
 	m_aText[0] = '\0';
@@ -68,6 +226,14 @@ void CChat::CLine::Reset(CChat &This)
 	m_PrefixWidth = 0.0f;
 	m_ContentWidth = 0.0f;
 	m_pTranslateResponse = nullptr;
+	m_aGifUrl[0] = '\0';
+	m_GifPreviewFailed = false;
+	m_GifImageSize = vec2(0.0f, 0.0f);
+	m_GifRenderWidth = 0.0f;
+	m_GifRenderHeight = 0.0f;
+	m_GifRenderOffsetY = 0.0f;
+	m_GifAnimationStart = std::chrono::nanoseconds::zero();
+	m_GifAnimationDuration = std::chrono::nanoseconds::zero();
 }
 
 CChat::CChat()
@@ -336,6 +502,482 @@ void CChat::CloseNameContextMenu()
 	m_NameContextPopup.m_aPlayerName[0] = '\0';
 }
 
+void CChat::AbortGifTask(CLine &Line)
+{
+	if(Line.m_pGifTask)
+	{
+		Line.m_pGifTask->Abort();
+		Line.m_pGifTask = nullptr;
+	}
+}
+
+void CChat::UnloadGifPreview(CLine &Line)
+{
+	for(auto &Frame : Line.m_vGifFrames)
+	{
+		Graphics()->UnloadTexture(&Frame.m_Texture);
+	}
+	Line.m_vGifFrames.clear();
+	Line.m_GifImageSize = vec2(0.0f, 0.0f);
+	Line.m_GifRenderWidth = 0.0f;
+	Line.m_GifRenderHeight = 0.0f;
+	Line.m_GifRenderOffsetY = 0.0f;
+	Line.m_GifAnimationStart = std::chrono::nanoseconds::zero();
+	Line.m_GifAnimationDuration = std::chrono::nanoseconds::zero();
+}
+
+bool CChat::FindGifUrl(const char *pText, char *pUrl, size_t UrlSize) const
+{
+	if(pText == nullptr || pUrl == nullptr || UrlSize == 0)
+	{
+		return false;
+	}
+
+	pUrl[0] = '\0';
+	const char *pCursor = pText;
+	while(*pCursor != '\0')
+	{
+		const char *pHttp = str_startswith(pCursor, "https://");
+		if(pHttp == nullptr)
+		{
+			pHttp = str_startswith(pCursor, "http://");
+		}
+
+		if(pHttp == nullptr)
+		{
+			++pCursor;
+			continue;
+		}
+
+		const char *pEnd = pHttp;
+		while(*pEnd != '\0' && !IsUrlBoundary(*pEnd))
+		{
+			++pEnd;
+		}
+
+		while(pEnd > pHttp)
+		{
+			const char Tail = pEnd[-1];
+			if(Tail == '.' || Tail == ',' || Tail == '!' || Tail == '?' || Tail == ':' || Tail == ';' || Tail == ')' || Tail == ']' || Tail == '}')
+			{
+				--pEnd;
+			}
+			else
+			{
+				break;
+			}
+		}
+
+		char aCandidate[512];
+		str_truncate(aCandidate, sizeof(aCandidate), pHttp, pEnd - pHttp);
+		if(UrlLooksLikeGif(aCandidate))
+		{
+			str_copy(pUrl, aCandidate, UrlSize);
+			return true;
+		}
+
+		pCursor = pEnd;
+	}
+
+	return false;
+}
+
+void CChat::StartGifPreview(CLine &Line)
+{
+#if !defined(CONF_VIDEORECORDER)
+	Line.m_GifPreviewFailed = true;
+	return;
+#else
+	if(Line.m_aGifUrl[0] == '\0' || Line.m_pGifTask || Line.m_GifPreviewFailed || !Line.m_vGifFrames.empty())
+	{
+		return;
+	}
+
+	auto pTask = HttpGet(Line.m_aGifUrl);
+	pTask->Timeout(CTimeout{4000, 12000, 500, 5});
+	pTask->MaxResponseSize((int64_t)CHAT_GIF_MAX_RESPONSE_SIZE);
+	pTask->FailOnErrorStatus(false);
+	Line.m_pGifTask = std::shared_ptr<CHttpRequest>(pTask.release());
+	Http()->Run(Line.m_pGifTask);
+#endif
+}
+
+bool CChat::LoadGifPreviewFromMemory(CLine &Line, const unsigned char *pData, size_t DataSize)
+{
+#if !defined(CONF_VIDEORECORDER)
+	(void)Line;
+	(void)pData;
+	(void)DataSize;
+	return false;
+#else
+	if(pData == nullptr || DataSize == 0)
+	{
+		return false;
+	}
+
+	bool Success = false;
+	std::vector<CLine::SGifFrame> vFrames;
+	std::vector<std::chrono::nanoseconds> vFrameTimestamps;
+	vec2 ImageSize = vec2(0.0f, 0.0f);
+	CChatAvByteBufferReader Reader{pData, DataSize, 0};
+	AVIOContext *pAvioContext = nullptr;
+	AVFormatContext *pFormatContext = nullptr;
+	AVCodecContext *pCodecContext = nullptr;
+	SwsContext *pSwsContext = nullptr;
+	AVPacket *pPacket = nullptr;
+	AVFrame *pFrame = nullptr;
+	int ConvertedWidth = 0;
+	int ConvertedHeight = 0;
+	AVPixelFormat ConvertedFormat = AV_PIX_FMT_NONE;
+
+	const auto Cleanup = [&]() {
+		av_packet_free(&pPacket);
+		av_frame_free(&pFrame);
+		sws_freeContext(pSwsContext);
+		avcodec_free_context(&pCodecContext);
+		avformat_close_input(&pFormatContext);
+		if(pAvioContext != nullptr)
+		{
+			av_freep(&pAvioContext->buffer);
+		}
+		avio_context_free(&pAvioContext);
+		if(!Success)
+		{
+			for(auto &Frame : vFrames)
+			{
+				Graphics()->UnloadTexture(&Frame.m_Texture);
+			}
+		}
+	};
+
+	uint8_t *pAvioBuffer = static_cast<uint8_t *>(av_malloc(4096));
+	if(pAvioBuffer == nullptr)
+	{
+		return false;
+	}
+
+	pAvioContext = avio_alloc_context(pAvioBuffer, 4096, 0, &Reader, ChatAvReadPacket, nullptr, ChatAvSeek);
+	if(pAvioContext == nullptr)
+	{
+		av_free(pAvioBuffer);
+		return false;
+	}
+
+	pFormatContext = avformat_alloc_context();
+	if(pFormatContext == nullptr)
+	{
+		Cleanup();
+		return false;
+	}
+
+	pFormatContext->pb = pAvioContext;
+	pFormatContext->flags |= AVFMT_FLAG_CUSTOM_IO;
+	auto *pInputFormat = av_find_input_format("gif");
+	int Result = avformat_open_input(&pFormatContext, nullptr, pInputFormat, nullptr);
+	if(Result < 0)
+	{
+		LogChatGifDecodeError("opening gif", Line.m_aGifUrl, Result);
+		Cleanup();
+		return false;
+	}
+
+	Result = avformat_find_stream_info(pFormatContext, nullptr);
+	if(Result < 0)
+	{
+		LogChatGifDecodeError("reading gif stream info", Line.m_aGifUrl, Result);
+		Cleanup();
+		return false;
+	}
+
+	const int StreamIndex = av_find_best_stream(pFormatContext, AVMEDIA_TYPE_VIDEO, -1, -1, nullptr, 0);
+	if(StreamIndex < 0)
+	{
+		LogChatGifDecodeError("finding gif video stream", Line.m_aGifUrl, StreamIndex);
+		Cleanup();
+		return false;
+	}
+
+	const AVStream *pStream = pFormatContext->streams[StreamIndex];
+	const AVCodec *pCodec = avcodec_find_decoder(pStream->codecpar->codec_id);
+	if(pCodec == nullptr)
+	{
+		log_log(LEVEL_ERROR, "chat/gif", "failed to find decoder. url='%s' codec='%s'", Line.m_aGifUrl, avcodec_get_name(pStream->codecpar->codec_id));
+		Cleanup();
+		return false;
+	}
+
+	pCodecContext = avcodec_alloc_context3(pCodec);
+	if(pCodecContext == nullptr)
+	{
+		Cleanup();
+		return false;
+	}
+
+	Result = avcodec_parameters_to_context(pCodecContext, pStream->codecpar);
+	if(Result < 0)
+	{
+		LogChatGifDecodeError("copying gif codec parameters", Line.m_aGifUrl, Result);
+		Cleanup();
+		return false;
+	}
+
+	pCodecContext->thread_count = 1;
+	Result = avcodec_open2(pCodecContext, pCodec, nullptr);
+	if(Result < 0)
+	{
+		LogChatGifDecodeError("opening gif decoder", Line.m_aGifUrl, Result);
+		Cleanup();
+		return false;
+	}
+
+	pPacket = av_packet_alloc();
+	pFrame = av_frame_alloc();
+	if(pPacket == nullptr || pFrame == nullptr)
+	{
+		Cleanup();
+		return false;
+	}
+
+	const auto DecodeAvailableFrames = [&](const AVPacket *pDurationPacket) {
+		while(vFrames.size() < CHAT_GIF_MAX_FRAMES)
+		{
+			Result = avcodec_receive_frame(pCodecContext, pFrame);
+			if(Result == 0)
+			{
+				if(pFrame->width <= 0 || pFrame->height <= 0)
+				{
+					return false;
+				}
+
+				if(pSwsContext == nullptr || ConvertedWidth != pFrame->width || ConvertedHeight != pFrame->height || ConvertedFormat != (AVPixelFormat)pFrame->format)
+				{
+					sws_freeContext(pSwsContext);
+					pSwsContext = sws_getContext(pFrame->width, pFrame->height, (AVPixelFormat)pFrame->format, pFrame->width, pFrame->height, AV_PIX_FMT_RGBA, SWS_BILINEAR, nullptr, nullptr, nullptr);
+					if(pSwsContext == nullptr)
+					{
+						return false;
+					}
+					ConvertedWidth = pFrame->width;
+					ConvertedHeight = pFrame->height;
+					ConvertedFormat = (AVPixelFormat)pFrame->format;
+				}
+
+				CImageInfo Image;
+				Image.m_Width = pFrame->width;
+				Image.m_Height = pFrame->height;
+				Image.m_Format = CImageInfo::FORMAT_RGBA;
+				Image.m_pData = static_cast<uint8_t *>(malloc(Image.DataSize()));
+				if(Image.m_pData == nullptr)
+				{
+					return false;
+				}
+
+				uint8_t *apDestData[4] = {Image.m_pData, nullptr, nullptr, nullptr};
+				int aDestLineSize[4] = {(int)(Image.m_Width * Image.PixelSize()), 0, 0, 0};
+				Result = sws_scale(pSwsContext, pFrame->data, pFrame->linesize, 0, pFrame->height, apDestData, aDestLineSize);
+				if(Result != pFrame->height)
+				{
+					Image.Free();
+					return false;
+				}
+
+				CLine::SGifFrame Frame;
+				Frame.m_Duration = ChatGifFrameDuration(pFrame, pDurationPacket, pStream->time_base);
+				Frame.m_Texture = Graphics()->LoadTextureRawMove(Image, 0, Line.m_aGifUrl);
+				if(Frame.m_Texture.IsNullTexture())
+				{
+					Image.Free();
+					return false;
+				}
+
+				if(ImageSize == vec2(0.0f, 0.0f))
+				{
+					ImageSize = vec2((float)pFrame->width, (float)pFrame->height);
+				}
+				vFrameTimestamps.emplace_back(ChatFrameTimestamp(pFrame, pStream->time_base));
+				vFrames.emplace_back(std::move(Frame));
+			}
+			else if(Result == AVERROR(EAGAIN) || Result == AVERROR_EOF)
+			{
+				return true;
+			}
+			else
+			{
+				LogChatGifDecodeError("decoding gif frame", Line.m_aGifUrl, Result);
+				return false;
+			}
+		}
+
+		return true;
+	};
+
+	while((Result = av_read_frame(pFormatContext, pPacket)) >= 0)
+	{
+		if(pPacket->stream_index == StreamIndex)
+		{
+			Result = avcodec_send_packet(pCodecContext, pPacket);
+			if(Result < 0)
+			{
+				LogChatGifDecodeError("sending gif packet", Line.m_aGifUrl, Result);
+				av_packet_unref(pPacket);
+				Cleanup();
+				return false;
+			}
+
+			if(!DecodeAvailableFrames(pPacket))
+			{
+				av_packet_unref(pPacket);
+				Cleanup();
+				return false;
+			}
+
+			if(vFrames.size() >= CHAT_GIF_MAX_FRAMES)
+			{
+				av_packet_unref(pPacket);
+				break;
+			}
+		}
+		av_packet_unref(pPacket);
+	}
+
+	Result = avcodec_send_packet(pCodecContext, nullptr);
+	if(Result < 0)
+	{
+		LogChatGifDecodeError("flushing gif decoder", Line.m_aGifUrl, Result);
+		Cleanup();
+		return false;
+	}
+
+	if(!DecodeAvailableFrames(nullptr) || vFrames.empty())
+	{
+		Cleanup();
+		return false;
+	}
+
+	std::chrono::nanoseconds FallbackDuration = std::chrono::milliseconds(33);
+	for(size_t i = 0; i < vFrames.size(); ++i)
+	{
+		if(vFrames[i].m_Duration > std::chrono::nanoseconds::zero())
+		{
+			FallbackDuration = vFrames[i].m_Duration;
+			break;
+		}
+	}
+
+	for(size_t i = 0; i + 1 < vFrames.size(); ++i)
+	{
+		if(vFrameTimestamps[i] != std::chrono::nanoseconds::min() && vFrameTimestamps[i + 1] != std::chrono::nanoseconds::min())
+		{
+			const std::chrono::nanoseconds Delta = vFrameTimestamps[i + 1] - vFrameTimestamps[i];
+			if(Delta > std::chrono::nanoseconds::zero())
+			{
+				vFrames[i].m_Duration = Delta;
+				FallbackDuration = Delta;
+			}
+		}
+
+		if(vFrames[i].m_Duration <= std::chrono::nanoseconds::zero())
+		{
+			vFrames[i].m_Duration = FallbackDuration;
+		}
+	}
+
+	if(vFrames.back().m_Duration <= std::chrono::nanoseconds::zero())
+	{
+		vFrames.back().m_Duration = FallbackDuration;
+	}
+
+	std::chrono::nanoseconds AnimationDuration = std::chrono::nanoseconds::zero();
+	for(const auto &Frame : vFrames)
+	{
+		AnimationDuration += Frame.m_Duration;
+	}
+
+	UnloadGifPreview(Line);
+	Line.m_vGifFrames = std::move(vFrames);
+	Line.m_GifImageSize = ImageSize;
+	Line.m_GifAnimationStart = time_get_nanoseconds();
+	Line.m_GifAnimationDuration = AnimationDuration;
+	Success = true;
+	Cleanup();
+	return true;
+#endif
+}
+
+void CChat::UpdateGifPreview(CLine &Line)
+{
+	if(Line.m_pGifTask == nullptr)
+	{
+		return;
+	}
+
+	if(!Line.m_pGifTask->Done())
+	{
+		return;
+	}
+
+	if(Line.m_pGifTask->State() != EHttpState::DONE || Line.m_pGifTask->StatusCode() >= 400)
+	{
+		Line.m_GifPreviewFailed = true;
+		Line.m_pGifTask = nullptr;
+		return;
+	}
+
+	unsigned char *pData = nullptr;
+	size_t DataSize = 0;
+	Line.m_pGifTask->Result(&pData, &DataSize);
+	const bool Loaded = LoadGifPreviewFromMemory(Line, pData, DataSize);
+	Line.m_pGifTask = nullptr;
+	if(!Loaded)
+	{
+		Line.m_GifPreviewFailed = true;
+		return;
+	}
+
+	Line.m_GifPreviewFailed = false;
+	Line.m_aYOffset[0] = -1.0f;
+	Line.m_aYOffset[1] = -1.0f;
+	TextRender()->DeleteTextContainer(Line.m_TextContainerIndex);
+	Graphics()->DeleteQuadContainer(Line.m_QuadContainerIndex);
+}
+
+const IGraphics::CTextureHandle *CChat::CurrentGifTexture(const CLine &Line) const
+{
+	if(Line.m_vGifFrames.empty())
+	{
+		return nullptr;
+	}
+
+	if(Line.m_vGifFrames.size() == 1 || Line.m_GifAnimationDuration <= std::chrono::nanoseconds::zero())
+	{
+		return &Line.m_vGifFrames.front().m_Texture;
+	}
+
+	const int64_t TotalDuration = Line.m_GifAnimationDuration.count();
+	if(TotalDuration <= 0)
+	{
+		return &Line.m_vGifFrames.front().m_Texture;
+	}
+
+	int64_t Elapsed = (time_get_nanoseconds() - Line.m_GifAnimationStart).count();
+	if(Elapsed < 0)
+	{
+		Elapsed = 0;
+	}
+	Elapsed %= TotalDuration;
+
+	for(const auto &Frame : Line.m_vGifFrames)
+	{
+		if(Elapsed < Frame.m_Duration.count())
+		{
+			return &Frame.m_Texture;
+		}
+		Elapsed -= Frame.m_Duration.count();
+	}
+
+	return &Line.m_vGifFrames.back().m_Texture;
+}
+
 CUi::EPopupMenuFunctionResult CChat::CNameContextPopup::Render(void *pContext, CUIRect View, bool Active)
 {
 	CNameContextPopup *pPopup = static_cast<CNameContextPopup *>(pContext);
@@ -405,6 +1047,7 @@ void CChat::OnInit()
 
 void CChat::OnShutdown()
 {
+	ClearLines();
 	CloseNameContextMenu();
 }
 
@@ -432,15 +1075,15 @@ bool CChat::OnInput(const IInput::CEvent &Event)
 		if(VisibleLines > 0)
 		{
 			const float MaxScroll = maximum(0.0f, TotalHeight - 150.0f);
-			m_ChatScrollOffset = minimum(m_ChatScrollOffset + 20.0f, MaxScroll);
+			m_ChatScrollTarget = minimum(m_ChatScrollTarget + 36.0f, MaxScroll);
 			return true;
 		}
 	}
 	else if(Event.m_Flags & IInput::FLAG_PRESS && Event.m_Key == KEY_MOUSE_WHEEL_DOWN)
 	{
-		if(m_ChatScrollOffset > 0.0f)
+		if(m_ChatScrollTarget > 0.0f)
 		{
-			m_ChatScrollOffset = maximum(0.0f, m_ChatScrollOffset - 20.0f);
+			m_ChatScrollTarget = maximum(0.0f, m_ChatScrollTarget - 36.0f);
 			return true;
 		}
 	}
@@ -472,9 +1115,7 @@ bool CChat::OnInput(const IInput::CEvent &Event)
 			m_ServerCommandsNeedSorting = false;
 		}
 
-		if(GameClient()->m_BindChat.ChatDoBinds(m_Input.GetString()))
-			; // Do nothing as bindchat was executed
-		else if(GameClient()->m_TClient.ChatDoSpecId(m_Input.GetString()))
+		if(GameClient()->m_TClient.ChatDoSpecId(m_Input.GetString()))
 			; // Do nothing as specid was executed
 		else
 			SendChatQueued(m_Input.GetString());
@@ -527,10 +1168,7 @@ bool CChat::OnInput(const IInput::CEvent &Event)
 				});
 		}
 
-		if(GameClient()->m_BindChat.ChatDoAutocomplete(ShiftPressed))
-		{
-		}
-		else if(m_aCompletionBuffer[0] == '/' && !m_vServerCommands.empty())
+		if(m_aCompletionBuffer[0] == '/' && !m_vServerCommands.empty())
 		{
 			CCommand *pCompletionCommand = nullptr;
 
@@ -639,7 +1277,7 @@ bool CChat::OnInput(const IInput::CEvent &Event)
 
 				// quote the name
 				char aQuoted[128];
-				if((m_Input.GetString()[0] == '/' || GameClient()->m_BindChat.CheckBindChat(m_Input.GetString())) && (str_find(pCompletionString, " ") || str_find(pCompletionString, "\"")))
+				if(m_Input.GetString()[0] == '/' && (str_find(pCompletionString, " ") || str_find(pCompletionString, "\"")))
 				{
 					// escape the name
 					str_copy(aQuoted, "\"");
@@ -783,6 +1421,7 @@ void CChat::DisableMode()
 		m_TypingAnimationStartWidth = 0.0f;
 		m_TypingAnimationTargetWidth = 0.0f;
 		m_ChatScrollOffset = 0.0f;
+		m_ChatScrollTarget = 0.0f;
 	}
 }
 
@@ -1066,6 +1705,7 @@ void CChat::AddLine(int ClientId, int Team, const char *pLine)
 	CurrentLine.m_Highlighted = Highlighted;
 
 	str_copy(CurrentLine.m_aText, pMutableLine);
+	FindGifUrl(pMutableLine, CurrentLine.m_aGifUrl, sizeof(CurrentLine.m_aGifUrl));
 
 	if(CurrentLine.m_ClientId == SERVER_MSG)
 	{
@@ -1134,6 +1774,11 @@ void CChat::AddLine(int ClientId, int Team, const char *pLine)
 			CurrentLine.m_Friend = LineAuthor.m_Friend;
 			CurrentLine.m_pManagedTeeRenderInfo = GameClient()->CreateManagedTeeRenderInfo(LineAuthor);
 		}
+	}
+
+	if(CurrentLine.m_aGifUrl[0] != '\0')
+	{
+		StartGifPreview(CurrentLine);
 	}
 
 	FChatMsgCheckAndPrint(CurrentLine);
@@ -1238,6 +1883,8 @@ void CChat::OnPrepareLines(float y)
 			continue;
 		if(Now > Line.m_Time + 16 * time_freq() && !m_PrevShowChat)
 			break;
+
+		UpdateGifPreview(Line);
 
 		if(Line.m_TextContainerIndex.Valid() && !ForceRecreate)
 			continue;
@@ -1369,6 +2016,18 @@ void CChat::OnPrepareLines(float y)
 			Line.m_ContentWidth = AppendCursor.m_LongestLineWidth;
 			Line.m_TextHeight = AppendCursor.Height();
 			Line.m_aYOffset[OffsetType] = Line.m_TextHeight + RealMsgPaddingY;
+			Line.m_GifRenderWidth = 0.0f;
+			Line.m_GifRenderHeight = 0.0f;
+			Line.m_GifRenderOffsetY = 0.0f;
+			if(!Line.m_vGifFrames.empty() && Line.m_GifImageSize.x > 0.0f && Line.m_GifImageSize.y > 0.0f)
+			{
+				const float Scale = minimum(CHAT_GIF_MAX_WIDTH / Line.m_GifImageSize.x, CHAT_GIF_MAX_HEIGHT / Line.m_GifImageSize.y);
+				const float ClampedScale = std::clamp(Scale, 0.05f, 1.0f);
+				Line.m_GifRenderWidth = maximum(Line.m_GifImageSize.x * ClampedScale, 1.0f);
+				Line.m_GifRenderHeight = maximum(Line.m_GifImageSize.y * ClampedScale, 1.0f);
+				Line.m_GifRenderOffsetY = Line.m_TextHeight + CHAT_GIF_SPACING;
+				Line.m_aYOffset[OffsetType] += CHAT_GIF_SPACING + Line.m_GifRenderHeight;
+			}
 		}
 
 		y -= Line.m_aYOffset[OffsetType];
@@ -1409,8 +2068,6 @@ void CChat::OnPrepareLines(float y)
 			NameColor = color_cast<ColorRGBA>(ColorHSLA(g_Config.m_ClMessageSystemColor));
 		else if(Line.m_ClientId == CLIENT_MSG)
 			NameColor = color_cast<ColorRGBA>(ColorHSLA(g_Config.m_ClMessageClientColor));
-		else if(Line.m_ClientId >= 0 && g_Config.m_TcWarList && g_Config.m_TcWarListChat && GameClient()->m_WarList.GetAnyWar(Line.m_ClientId)) // TClient
-			NameColor = GameClient()->m_WarList.GetPriorityColor(Line.m_ClientId);
 		else if(Line.m_Team)
 			NameColor = CalculateNameColor(ColorHSLA(g_Config.m_ClMessageTeamColor));
 		else if(Line.m_NameColor == TEAM_RED)
@@ -1526,6 +2183,10 @@ void CChat::OnPrepareLines(float y)
 			else
 			{
 				FullWidth += maximum(LineCursor.m_LongestLineWidth, AppendCursor.m_LongestLineWidth);
+			}
+			if(Line.m_GifRenderWidth > 0.0f)
+			{
+				FullWidth = maximum(FullWidth, RealMsgPaddingX * 1.5f + Line.m_PrefixWidth + Line.m_GifRenderWidth);
 			}
 			Graphics()->SetColor(1, 1, 1, 1);
 			Line.m_QuadContainerIndex = Graphics()->CreateRectQuadContainer(Begin, y, FullWidth, Line.m_aYOffset[OffsetType], MessageRounding(), IGraphics::CORNER_ALL);
@@ -1792,6 +2453,22 @@ void CChat::OnRender()
 	float HeightLimit = IsScoreBoardOpen ? 180.0f : (m_PrevShowChat ? 50.0f : 200.0f);
 	int OffsetType = IsScoreBoardOpen ? 1 : 0;
 
+	float TotalScrollableHeight = 0.0f;
+	for(int i = 0; i < MAX_LINES; i++)
+	{
+		const CLine &Line = m_aLines[((m_CurrentLine - i) + MAX_LINES) % MAX_LINES];
+		if(!Line.m_Initialized)
+			break;
+		TotalScrollableHeight += maximum(Line.m_aYOffset[OffsetType], 0.0f);
+	}
+	const float ChatViewportHeight = maximum(0.0f, y - HeightLimit);
+	const float MaxChatScroll = maximum(0.0f, TotalScrollableHeight - ChatViewportHeight);
+	m_ChatScrollTarget = minimum(m_ChatScrollTarget, MaxChatScroll);
+	m_ChatScrollOffset = std::clamp(mix(m_ChatScrollOffset, m_ChatScrollTarget, std::clamp(Client()->RenderFrameTime() * 18.0f, 0.0f, 1.0f)), 0.0f, MaxChatScroll);
+	if(absolute(m_ChatScrollOffset - m_ChatScrollTarget) < 0.01f)
+	{
+		m_ChatScrollOffset = m_ChatScrollTarget;
+	}
 	float RealMsgPaddingX = MessagePaddingX();
 	float RealMsgPaddingY = MessagePaddingY();
 	bool NameContextOpenedThisFrame = false;
@@ -1862,6 +2539,27 @@ void CChat::OnRender()
 			const ColorRGBA TextColor = TextRender()->DefaultTextColor().WithMultipliedAlpha(Blend);
 			const ColorRGBA TextOutlineColor = TextRender()->DefaultTextOutlineColor().WithMultipliedAlpha(Blend);
 			TextRender()->RenderTextContainer(Line.m_TextContainerIndex, TextColor, TextOutlineColor, 0, (y + RealMsgPaddingY / 2.0f) - Line.m_TextYOffset);
+		}
+
+		if(Line.m_GifRenderWidth > 0.0f && Line.m_GifRenderHeight > 0.0f)
+		{
+			const IGraphics::CTextureHandle *pTexture = CurrentGifTexture(Line);
+			if(pTexture != nullptr)
+			{
+				Graphics()->BlendNormal();
+				Graphics()->WrapClamp();
+				Graphics()->TextureSet(*pTexture);
+				Graphics()->QuadsBegin();
+				Graphics()->SetColor(1.0f, 1.0f, 1.0f, Blend);
+				Graphics()->QuadsSetSubset(0.0f, 0.0f, 1.0f, 1.0f);
+				const float PreviewX = x + RealMsgPaddingX / 2.0f + Line.m_PrefixWidth;
+				const float PreviewY = Line.m_TextYOffset + Line.m_GifRenderOffsetY + ((y + RealMsgPaddingY / 2.0f) - Line.m_TextYOffset);
+				const IGraphics::CQuadItem Quad(PreviewX, PreviewY, Line.m_GifRenderWidth, Line.m_GifRenderHeight);
+				Graphics()->QuadsDrawTL(&Quad, 1);
+				Graphics()->QuadsEnd();
+				Graphics()->TextureClear();
+				Graphics()->WrapNormal();
+			}
 		}
 	}
 

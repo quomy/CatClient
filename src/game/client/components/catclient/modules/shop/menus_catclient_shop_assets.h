@@ -27,6 +27,8 @@ static bool CatClientShopAssetSelected(int Tab, const char *pAssetName)
 		return str_comp(g_Config.m_ClAssetParticles, pAssetName) == 0;
 	case CATCLIENT_SHOP_HUD:
 		return str_comp(g_Config.m_ClAssetHud, pAssetName) == 0;
+	case CATCLIENT_SHOP_ARROWS:
+		return str_comp(g_Config.m_ClAssetArrows, pAssetName) == 0;
 	case CATCLIENT_SHOP_CURSORS:
 		return str_comp(g_Config.m_ClAssetCursor, pAssetName) == 0;
 	default:
@@ -91,6 +93,17 @@ static void CatClientShopApplyAsset(CMenus *pMenus, int Tab, const char *pAssetN
 		else
 		{
 			pMenus->MenuGameClient()->LoadHudSkin(g_Config.m_ClAssetHud);
+		}
+		break;
+	case CATCLIENT_SHOP_ARROWS:
+		str_copy(g_Config.m_ClAssetArrows, pAssetName);
+		if(RefreshAssetsList)
+		{
+			pMenus->RefreshCustomAssetsTab(CMenus::ASSETS_TAB_ARROWS);
+		}
+		else
+		{
+			pMenus->MenuGameClient()->m_CatClient.LoadArrowAsset(g_Config.m_ClAssetArrows);
 		}
 		break;
 	case CATCLIENT_SHOP_CURSORS:

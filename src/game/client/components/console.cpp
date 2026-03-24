@@ -1586,6 +1586,53 @@ void CGameConsole::OnRender()
 		const float XScale = Graphics()->ScreenWidth() / Screen.w;
 		const float YScale = Graphics()->ScreenHeight() / Screen.h;
 		const float LogTopY = maximum(RowHeight, FilterButtonTop + FilterButtonHeight + 4.0f);
+		const float LogBottomY = y + 2.0f;
+
+		if(pConsole->m_MouseIsPress && !PointerStartedInFilters && pConsole->m_MousePress.y < pConsole->m_BoundingBox.m_Y)
+		{
+			float ScrollDirection = 0.0f;
+			float ScrollDistance = 0.0f;
+			if(PointerPos.y < LogTopY)
+			{
+				ScrollDirection = -1.0f;
+				ScrollDistance = LogTopY - PointerPos.y;
+			}
+			else if(PointerPos.y > LogBottomY)
+			{
+				ScrollDirection = 1.0f;
+				ScrollDistance = PointerPos.y - LogBottomY;
+			}
+
+			if(ScrollDirection != 0.0f)
+			{
+				const float ScrollStrength = std::clamp(ScrollDistance / maximum(RowHeight * 4.0f, 1.0f), 0.25f, 1.0f);
+				const float ScrollLinesPerSecond = mix(2.0f, 6.0f, ScrollStrength);
+				pConsole->m_SelectionAutoScrollAccumulator += Client()->RenderFrameTime() * ScrollLinesPerSecond;
+				while(pConsole->m_SelectionAutoScrollAccumulator >= 1.0f)
+				{
+					if(ScrollDirection < 0.0f)
+					{
+						pConsole->m_BacklogCurLine += pConsole->GetLinesToScroll(-1, 1);
+					}
+					else
+					{
+						pConsole->m_BacklogCurLine -= pConsole->GetLinesToScroll(1, 1);
+						if(pConsole->m_BacklogCurLine < 0)
+							pConsole->m_BacklogCurLine = 0;
+					}
+					pConsole->m_SelectionAutoScrollAccumulator -= 1.0f;
+				}
+			}
+			else
+			{
+				pConsole->m_SelectionAutoScrollAccumulator = 0.0f;
+			}
+		}
+		else
+		{
+			pConsole->m_SelectionAutoScrollAccumulator = 0.0f;
+		}
+
 		const float ClipStartY = LogTopY * YScale;
 		Graphics()->ClipEnable(0, ClipStartY, Screen.w * XScale, maximum(0.0f, (y + 2.0f) * YScale - ClipStartY));
 

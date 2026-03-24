@@ -148,24 +148,19 @@ void CGameClient::OnConsoleInit()
 					      &m_MovingTilesBackground, // TClient
 					      &m_MapLayersForeground,
 					      &m_MovingTilesForeground, // TClient
-					      &m_Outlines, // TClient
 					      &m_Mumble, // TClient
-					      &m_Pet, // TClient
 					      &m_Particles.m_RenderExplosions,
 					      &m_NamePlates,
 					      &m_Particles.m_RenderExtra,
 					      &m_Particles.m_RenderGeneral,
 					      &m_FreezeBars,
 					      &m_DamageInd,
-					      &m_PlayerIndicator, // TClient
 					      &m_Mod, // TClient
 					      &m_CustomCommunities, // TClient
 					      &m_Hud,
 					      &m_Spectator,
 					      &m_Emoticon,
-					      &m_BindChat, // TClient
 					      &m_BindWheel, // TClient
-					      &m_WarList, // TClient
 					      &m_StatusBar, // TClient
 					      &m_InfoMessages,
 					      &m_Chat,
@@ -1770,7 +1765,7 @@ void CGameClient::OnNewSnapshot()
 		CTeamsCore TempTeams = CTeamsCore();
 		TempCore.Init(&TempWorld, Collision(), &TempTeams);
 		TempCore.Read(pCharacter);
-		TempCore.m_ActiveWeapon = pCharacter->m_Weapon;
+		TempCore.m_ActiveWeapon = pCharacter->m_Weapon >= WEAPON_HAMMER && pCharacter->m_Weapon < NUM_WEAPONS ? pCharacter->m_Weapon : -1;
 
 		while(pCharacter->m_Tick < Tick)
 		{
@@ -2690,12 +2685,12 @@ void CGameClient::OnPredict()
 		if(m_Snap.m_pLocalCharacter)
 		{
 			m_PredictedChar.Read(m_Snap.m_pLocalCharacter);
-			m_PredictedChar.m_ActiveWeapon = m_Snap.m_pLocalCharacter->m_Weapon;
+			m_PredictedChar.m_ActiveWeapon = m_Snap.m_pLocalCharacter->m_Weapon >= WEAPON_HAMMER && m_Snap.m_pLocalCharacter->m_Weapon < NUM_WEAPONS ? m_Snap.m_pLocalCharacter->m_Weapon : -1;
 		}
 		if(m_Snap.m_pLocalPrevCharacter)
 		{
 			m_PredictedPrevChar.Read(m_Snap.m_pLocalPrevCharacter);
-			m_PredictedPrevChar.m_ActiveWeapon = m_Snap.m_pLocalPrevCharacter->m_Weapon;
+			m_PredictedPrevChar.m_ActiveWeapon = m_Snap.m_pLocalPrevCharacter->m_Weapon >= WEAPON_HAMMER && m_Snap.m_pLocalPrevCharacter->m_Weapon < NUM_WEAPONS ? m_Snap.m_pLocalPrevCharacter->m_Weapon : -1;
 		}
 		return;
 	}
@@ -3748,12 +3743,6 @@ void CGameClient::SendDummyInfo(bool Start)
 
 void CGameClient::SendKill()
 {
-	if(m_CatClient.ShouldBlockKill())
-	{
-		Echo(CCLocalize("Kill is blocked while another player is in your team"));
-		return;
-	}
-
 	CNetMsg_Cl_Kill Msg;
 	Client()->SendPackMsgActive(&Msg, MSGFLAG_VITAL);
 
@@ -4303,11 +4292,6 @@ void CGameClient::UpdateRenderedCharacters()
 				else if(CatClientFastInputEnabled() && g_Config.m_TcFastInputOthers && !g_Config.m_TcAntiPingImproved)
 					Pos = GetFastInputPos(i);
 
-				if(g_Config.m_TcShowOthersGhosts && g_Config.m_TcSwapGhosts && !(m_aClients[i].m_FreezeEnd > 0 && g_Config.m_TcHideFrozenGhosts))
-					Pos = UnpredPos;
-
-				if(g_Config.m_TcUnpredOthersInFreeze && Client()->m_IsLocalFrozen)
-					Pos = UnpredPos;
 			}
 		}
 		m_aClients[i].m_RenderPos = Pos;

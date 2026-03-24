@@ -40,7 +40,7 @@ Auto Refresh
 == Автообновление
 
 Auto set
-== Авто применять
+== Авто применение
 
 Auto Team Lock
 == Автоблокировка команды
@@ -200,6 +200,9 @@ Freeze Flakes
 
 Game
 == Игра
+
+Game interface
+== Игровой интерфейс
 
 Game BG
 == Фон игры

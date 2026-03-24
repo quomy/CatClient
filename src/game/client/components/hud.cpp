@@ -32,7 +32,7 @@ namespace
 {
 	ColorRGBA ModernUiBackgroundColor()
 	{
-		return ColorRGBA(0.0f, 0.0f, 0.0f, 0.48f);
+		return ColorRGBA(0.0f, 0.0f, 0.0f, 0.62f);
 	}
 
 	ColorRGBA ModernUiTextColor()
@@ -43,6 +43,19 @@ namespace
 	ColorRGBA ModernUiTextOutlineColor()
 	{
 		return ColorRGBA(0.0f, 0.0f, 0.0f, 0.55f);
+	}
+
+	ColorRGBA CompactModernUiTextOutlineColor()
+	{
+		return ColorRGBA(0.0f, 0.0f, 0.0f, 0.92f);
+	}
+
+	void FormatCompactGameTimer(int TimeSeconds, char *pBuf, size_t BufSize)
+	{
+		const int TotalHours = maximum(TimeSeconds, 0) / 3600;
+		const int Minutes = (maximum(TimeSeconds, 0) / 60) % 60;
+		const int Seconds = maximum(TimeSeconds, 0) % 60;
+		str_format(pBuf, BufSize, "%02d:%02d:%02d", TotalHours, Minutes, Seconds);
 	}
 
 	void DrawModernUiPanel(IGraphics *pGraphics, float X, float Y, float W, float H, int Corners, float Rounding)
@@ -111,6 +124,8 @@ void CHud::OnReset()
 	m_aLastPlayerSpeedChange[0] = ESpeedChange::NONE;
 	m_aLastPlayerSpeedChange[1] = ESpeedChange::NONE;
 	m_LastSpectatorCountTick = 0;
+	m_ModernGameInterfaceFps = 0.0f;
+	m_ModernGameInterfaceFpsUpdateTimer = 0.0f;
 
 	ResetHudContainers();
 }
@@ -150,7 +165,8 @@ void CHud::OnShutdown()
 void CHud::RenderGameTimer()
 {
 	float Half = m_Width / 2.0f;
-	const bool ModernRaceTimer = HasModernUiFlag(CCatClient::MODERN_UI_RACE_TIMER);
+	const bool CompactGameInterface = HasModernUiFlag(CCatClient::MODERN_UI_GAME_INTERFACE);
+	const bool ModernRaceTimer = CompactGameInterface || HasModernUiFlag(CCatClient::MODERN_UI_RACE_TIMER);
 
 	if(!(GameClient()->m_Snap.m_pGameInfoObj->m_GameStateFlags & GAMESTATEFLAG_SUDDENDEATH))
 	{
@@ -171,22 +187,32 @@ void CHud::RenderGameTimer()
 		else
 			Time = (Client()->GameTick(g_Config.m_ClDummy) - GameClient()->m_Snap.m_pGameInfoObj->m_RoundStartTick) / Client()->GameTickSpeed();
 
-		str_time((int64_t)Time * 100, ETimeFormat::DAYS, aBuf, sizeof(aBuf));
+		FormatCompactGameTimer(Time, aBuf, sizeof(aBuf));
 		float FontSize = 10.0f;
-		static float s_TextWidthM = TextRender()->TextWidth(FontSize, "00:00", -1, -1.0f);
-		static float s_TextWidthH = TextRender()->TextWidth(FontSize, "00:00:00", -1, -1.0f);
-		static float s_TextWidth0D = TextRender()->TextWidth(FontSize, "0d 00:00:00", -1, -1.0f);
-		static float s_TextWidth00D = TextRender()->TextWidth(FontSize, "00d 00:00:00", -1, -1.0f);
-		static float s_TextWidth000D = TextRender()->TextWidth(FontSize, "000d 00:00:00", -1, -1.0f);
-		float w = Time >= 3600 * 24 * 100 ? s_TextWidth000D : (Time >= 3600 * 24 * 10 ? s_TextWidth00D : (Time >= 3600 * 24 ? s_TextWidth0D : (Time >= 3600 ? s_TextWidthH : s_TextWidthM)));
-		if(ModernRaceTimer)
+		float PaddingX = 6.0f;
+		float PaddingY = 3.0f;
+		float PanelY = 0.5f;
+		float TextY = 2.0f;
+		if(CompactGameInterface)
 		{
-			const float PaddingX = 6.0f;
-			const float PaddingY = 3.0f;
-			DrawModernUiPanel(Graphics(), Half - w / 2.0f - PaddingX, 0.5f, w + PaddingX * 2.0f, FontSize + PaddingY * 2.0f + 1.0f, IGraphics::CORNER_B, 4.5f);
+			FontSize = 6.6f;
+			PaddingX = 4.0f;
+			PaddingY = 1.8f;
+			PanelY = 1.7f;
+			const float PanelH = FontSize + PaddingY * 2.0f + 1.0f;
+			TextY = PanelY + (PanelH - FontSize) / 2.0f - 0.3f;
+		}
+		const STextBoundingBox TimerBoundingBox = TextRender()->TextBoundingBox(FontSize, aBuf);
+		const float PanelTextWidth = TimerBoundingBox.m_W;
+		if(CompactGameInterface)
+		{
+			DrawModernUiPanel(Graphics(), Half - PanelTextWidth / 2.0f - PaddingX, PanelY, PanelTextWidth + PaddingX * 2.0f, FontSize + PaddingY * 2.0f + 1.0f, CompactGameInterface ? IGraphics::CORNER_ALL : IGraphics::CORNER_B, 4.5f);
 		}
 		// last 60 sec red, last 10 sec blink
 		const bool CriticalTime = GameClient()->m_Snap.m_pGameInfoObj->m_TimeLimit && Time <= 60 && (GameClient()->m_Snap.m_pGameInfoObj->m_WarmupTimer <= 0);
+		const ColorRGBA OldOutlineColor = TextRender()->GetTextOutlineColor();
+		if(CompactGameInterface)
+			TextRender()->TextOutlineColor(CompactModernUiTextOutlineColor());
 		if(CriticalTime)
 		{
 			float Alpha = Time <= 10 && (2 * time() / time_freq()) % 2 ? 0.5f : 1.0f;
@@ -196,8 +222,10 @@ void CHud::RenderGameTimer()
 		{
 			TextRender()->TextColor(ModernUiTextColor());
 		}
-		TextRender()->Text(Half - w / 2, 2, FontSize, aBuf, -1.0f);
+		TextRender()->Text(Half - (TimerBoundingBox.m_X + TimerBoundingBox.m_W / 2.0f), TextY, FontSize, aBuf, -1.0f);
 		TextRender()->TextColor(TextRender()->DefaultTextColor());
+		if(CompactGameInterface)
+			TextRender()->TextOutlineColor(OldOutlineColor);
 	}
 }
 
@@ -572,69 +600,140 @@ void CHud::RenderWarmupTimer()
 void CHud::RenderTextInfo()
 {
 	int Showfps = g_Config.m_ClShowfps;
+	const bool CompactGameInterface = HasModernUiFlag(CCatClient::MODERN_UI_GAME_INTERFACE);
 	const bool ModernFpsPing = HasModernUiFlag(CCatClient::MODERN_UI_FPS_PING);
 #if defined(CONF_VIDEORECORDER)
 	if(IVideo::Current())
 		Showfps = 0;
 #endif
-	const bool ShowModernFps = ModernFpsPing && Showfps != 0;
-	const bool ShowModernPing = ModernFpsPing && g_Config.m_ClShowpred && Client()->State() != IClient::STATE_DEMOPLAYBACK;
 	int InfoLines = 0;
-	if(Showfps)
+	if(CompactGameInterface)
 	{
-		char aBuf[16];
-		const int FramesPerSecond = round_to_int(1.0f / Client()->DisplayFrameTimeAverage());
-		str_format(aBuf, sizeof(aBuf), "%d", FramesPerSecond);
-
-		static float s_TextWidth0 = TextRender()->TextWidth(12.f, "0", -1, -1.0f);
-		static float s_TextWidth00 = TextRender()->TextWidth(12.f, "00", -1, -1.0f);
-		static float s_TextWidth000 = TextRender()->TextWidth(12.f, "000", -1, -1.0f);
-		static float s_TextWidth0000 = TextRender()->TextWidth(12.f, "0000", -1, -1.0f);
-		static float s_TextWidth00000 = TextRender()->TextWidth(12.f, "00000", -1, -1.0f);
-		static const float s_aTextWidth[5] = {s_TextWidth0, s_TextWidth00, s_TextWidth000, s_TextWidth0000, s_TextWidth00000};
-
-		int DigitIndex = GetDigitsIndex(FramesPerSecond, 4);
-		const float TextWidth = s_aTextWidth[DigitIndex];
-		if(ShowModernFps)
+		const bool ShowCompactFps = Showfps != 0;
+		const bool ShowCompactPing = g_Config.m_ClShowpred && Client()->State() != IClient::STATE_DEMOPLAYBACK;
+		if(ShowCompactFps || ShowCompactPing)
 		{
-			DrawModernUiPanel(Graphics(), m_Width - 10.0f - TextWidth - 7.0f, 2.0f, TextWidth + 12.0f, 14.5f, IGraphics::CORNER_ALL, 4.5f);
-		}
+			char aInfoBuf[64];
+			char aTemplateBuf[64];
+			const float FontSize = 6.6f;
+			const float PaddingX = 3.55f;
+			const float PaddingY = 1.7f;
 
-		CTextCursor Cursor;
-		Cursor.SetPosition(vec2(m_Width - 10 - TextWidth, 5));
-		Cursor.m_FontSize = 12.0f;
-		auto OldFlags = TextRender()->GetRenderFlags();
-		TextRender()->SetRenderFlags(OldFlags | TEXT_RENDER_FLAG_ONE_TIME_USE);
-		if(m_FPSTextContainerIndex.Valid())
-			TextRender()->RecreateTextContainerSoft(m_FPSTextContainerIndex, &Cursor, aBuf);
-		else
-			TextRender()->CreateTextContainer(m_FPSTextContainerIndex, &Cursor, "0");
-		TextRender()->SetRenderFlags(OldFlags);
-		if(m_FPSTextContainerIndex.Valid())
-		{
-			TextRender()->RenderTextContainer(m_FPSTextContainerIndex, ShowModernFps ? ModernUiTextColor() : TextRender()->DefaultTextColor(), ShowModernFps ? ModernUiTextOutlineColor() : TextRender()->DefaultTextOutlineColor());
+			if(ShowCompactFps)
+			{
+				const float CurrentFps = 1.0f / maximum(Client()->DisplayFrameTimeAverage(), 0.0001f);
+				m_ModernGameInterfaceFpsUpdateTimer += Client()->RenderFrameTime();
+				if(m_ModernGameInterfaceFps <= 0.0f || m_ModernGameInterfaceFpsUpdateTimer >= 0.08f)
+				{
+					m_ModernGameInterfaceFps = CurrentFps;
+					m_ModernGameInterfaceFpsUpdateTimer = 0.0f;
+				}
+			}
+			else
+			{
+				m_ModernGameInterfaceFpsUpdateTimer = 0.0f;
+			}
+			if(ShowCompactPing)
+			{
+				const int LocalClientId = GameClient()->m_Snap.m_LocalClientId;
+				const int Ping = LocalClientId >= 0 && GameClient()->m_Snap.m_apPlayerInfos[LocalClientId] ? GameClient()->m_Snap.m_apPlayerInfos[LocalClientId]->m_Latency : 0;
+				if(ShowCompactFps)
+				{
+					str_format(aInfoBuf, sizeof(aInfoBuf), "FPS: %d | PING: %d", round_to_int(m_ModernGameInterfaceFps), maximum(Ping, 0));
+					str_copy(aTemplateBuf, "FPS: 1488 | PING: 777", sizeof(aTemplateBuf));
+				}
+				else
+				{
+					str_format(aInfoBuf, sizeof(aInfoBuf), "PING: %d", maximum(Ping, 0));
+					str_copy(aTemplateBuf, "PING: 777", sizeof(aTemplateBuf));
+				}
+			}
+			else
+			{
+				str_format(aInfoBuf, sizeof(aInfoBuf), "FPS: %d", round_to_int(m_ModernGameInterfaceFps));
+				str_copy(aTemplateBuf, "FPS: 1488", sizeof(aTemplateBuf));
+			}
+
+			float TextWidth = maximum(
+				TextRender()->TextWidth(FontSize, aTemplateBuf, -1, -1.0f),
+				TextRender()->TextWidth(FontSize, aInfoBuf, -1, -1.0f));
+			float PanelW = TextWidth + PaddingX * 2.0f;
+			const float PanelH = FontSize + PaddingY * 2.0f + 1.0f;
+			const float PanelX = m_Width - 8.0f - PanelW;
+			const float PanelY = 1.7f;
+			const float TextY = PanelY + (PanelH - FontSize) / 2.0f - 0.3f;
+			const ColorRGBA OldOutlineColor = TextRender()->GetTextOutlineColor();
+
+			DrawModernUiPanel(Graphics(), PanelX, PanelY, PanelW, PanelH, IGraphics::CORNER_ALL, 4.5f);
+			TextRender()->TextColor(ModernUiTextColor());
+			TextRender()->TextOutlineColor(CompactModernUiTextOutlineColor());
+			TextRender()->Text(PanelX + (PanelW - TextRender()->TextWidth(FontSize, aInfoBuf, -1, -1.0f)) / 2.0f, TextY, FontSize, aInfoBuf, -1.0f);
+			TextRender()->TextColor(TextRender()->DefaultTextColor());
+			TextRender()->TextOutlineColor(OldOutlineColor);
 		}
-		InfoLines++;
 	}
-	if(ShowModernPing)
+	else
 	{
-		char aBuf[32];
-		const int LocalClientId = GameClient()->m_Snap.m_LocalClientId;
-		const int Ping = LocalClientId >= 0 && GameClient()->m_Snap.m_apPlayerInfos[LocalClientId] ? GameClient()->m_Snap.m_apPlayerInfos[LocalClientId]->m_Latency : 0;
-		str_format(aBuf, sizeof(aBuf), "%d", maximum(Ping, 0));
-		const float TextWidth = TextRender()->TextWidth(12.0f, aBuf, -1, -1.0f);
-		const float TextY = 5.0f + InfoLines * 15.0f;
-		DrawModernUiPanel(Graphics(), m_Width - 10.0f - TextWidth - 7.0f, TextY - 2.5f, TextWidth + 12.0f, 14.5f, IGraphics::CORNER_ALL, 4.5f);
-		TextRender()->TextColor(ModernUiTextColor());
-		TextRender()->Text(m_Width - 10.0f - TextWidth, TextY, 12.0f, aBuf, -1.0f);
-		TextRender()->TextColor(TextRender()->DefaultTextColor());
-		InfoLines++;
-	}
-	if(g_Config.m_ClShowpred && Client()->State() != IClient::STATE_DEMOPLAYBACK && !ShowModernPing)
-	{
-		char aBuf[64];
-		str_format(aBuf, sizeof(aBuf), "%d", Client()->GetPredictionTime());
-		TextRender()->Text(m_Width - 10 - TextRender()->TextWidth(12, aBuf, -1, -1.0f), 5 + InfoLines * 15, 12, aBuf, -1.0f);
+		const bool ShowModernFps = ModernFpsPing && Showfps != 0;
+		const bool ShowModernPing = ModernFpsPing && g_Config.m_ClShowpred && Client()->State() != IClient::STATE_DEMOPLAYBACK;
+		if(Showfps)
+		{
+			char aBuf[16];
+			const int FramesPerSecond = round_to_int(1.0f / Client()->DisplayFrameTimeAverage());
+			str_format(aBuf, sizeof(aBuf), "%d", FramesPerSecond);
+
+			static float s_TextWidth0 = TextRender()->TextWidth(12.f, "0", -1, -1.0f);
+			static float s_TextWidth00 = TextRender()->TextWidth(12.f, "00", -1, -1.0f);
+			static float s_TextWidth000 = TextRender()->TextWidth(12.f, "000", -1, -1.0f);
+			static float s_TextWidth0000 = TextRender()->TextWidth(12.f, "0000", -1, -1.0f);
+			static float s_TextWidth00000 = TextRender()->TextWidth(12.f, "00000", -1, -1.0f);
+			static const float s_aTextWidth[5] = {s_TextWidth0, s_TextWidth00, s_TextWidth000, s_TextWidth0000, s_TextWidth00000};
+
+			int DigitIndex = GetDigitsIndex(FramesPerSecond, 4);
+			const float TextWidth = s_aTextWidth[DigitIndex];
+			if(ShowModernFps)
+			{
+				if(CompactGameInterface)
+					DrawModernUiPanel(Graphics(), m_Width - 10.0f - TextWidth - 7.0f, 2.0f, TextWidth + 12.0f, 14.5f, IGraphics::CORNER_ALL, 4.5f);
+			}
+
+			CTextCursor Cursor;
+			Cursor.SetPosition(vec2(m_Width - 10 - TextWidth, 5));
+			Cursor.m_FontSize = 12.0f;
+			auto OldFlags = TextRender()->GetRenderFlags();
+			TextRender()->SetRenderFlags(OldFlags | TEXT_RENDER_FLAG_ONE_TIME_USE);
+			if(m_FPSTextContainerIndex.Valid())
+				TextRender()->RecreateTextContainerSoft(m_FPSTextContainerIndex, &Cursor, aBuf);
+			else
+				TextRender()->CreateTextContainer(m_FPSTextContainerIndex, &Cursor, "0");
+			TextRender()->SetRenderFlags(OldFlags);
+			if(m_FPSTextContainerIndex.Valid())
+			{
+				TextRender()->RenderTextContainer(m_FPSTextContainerIndex, ShowModernFps ? ModernUiTextColor() : TextRender()->DefaultTextColor(), ShowModernFps ? ModernUiTextOutlineColor() : TextRender()->DefaultTextOutlineColor());
+			}
+			InfoLines++;
+		}
+		if(ShowModernPing)
+		{
+			char aBuf[32];
+			const int LocalClientId = GameClient()->m_Snap.m_LocalClientId;
+			const int Ping = LocalClientId >= 0 && GameClient()->m_Snap.m_apPlayerInfos[LocalClientId] ? GameClient()->m_Snap.m_apPlayerInfos[LocalClientId]->m_Latency : 0;
+			str_format(aBuf, sizeof(aBuf), "%d", maximum(Ping, 0));
+			const float TextWidth = TextRender()->TextWidth(12.0f, aBuf, -1, -1.0f);
+			const float TextY = 5.0f + InfoLines * 15.0f;
+			if(CompactGameInterface)
+				DrawModernUiPanel(Graphics(), m_Width - 10.0f - TextWidth - 7.0f, TextY - 2.5f, TextWidth + 12.0f, 14.5f, IGraphics::CORNER_ALL, 4.5f);
+			TextRender()->TextColor(ModernUiTextColor());
+			TextRender()->Text(m_Width - 10.0f - TextWidth, TextY, 12.0f, aBuf, -1.0f);
+			TextRender()->TextColor(TextRender()->DefaultTextColor());
+			InfoLines++;
+		}
+		if(g_Config.m_ClShowpred && Client()->State() != IClient::STATE_DEMOPLAYBACK && !ShowModernPing)
+		{
+			char aBuf[64];
+			str_format(aBuf, sizeof(aBuf), "%d", Client()->GetPredictionTime());
+			TextRender()->Text(m_Width - 10 - TextRender()->TextWidth(12, aBuf, -1, -1.0f), 5 + InfoLines * 15, 12, aBuf, -1.0f);
+		}
 	}
 
 	if(g_Config.m_TcMiniDebug)
@@ -1991,37 +2090,6 @@ void CHud::RenderSpectatorHud()
 	}
 }
 
-void CHud::RenderLocalTime(float x)
-{
-	const bool ModernLocalTimer = HasModernUiFlag(CCatClient::MODERN_UI_LOCAL_TIMER);
-	if(!ModernLocalTimer && !g_Config.m_ClShowLocalTimeAlways && !GameClient()->m_Scoreboard.IsActive())
-		return;
-
-	const bool Seconds = g_Config.m_TcShowLocalTimeSeconds; // TClient
-
-	char aTimeStr[16];
-	str_timestamp_format(aTimeStr, sizeof(aTimeStr), Seconds ? "%H:%M.%S" : "%H:%M");
-	const float Width = std::round(TextRender()->TextBoundingBox(5.0f, aTimeStr).m_W);
-
-	if(ModernLocalTimer)
-	{
-		DrawModernUiPanel(Graphics(), x - (Width + 16.0f), -1.0f, Width + 12.0f, 13.5f, IGraphics::CORNER_B, 4.0f);
-		TextRender()->TextColor(ModernUiTextColor());
-	}
-	else
-	{
-		Graphics()->DrawRect(x - (Width + 15.0f), 0.0f, Width + 10.0f, 12.5f, ColorRGBA(0.0f, 0.0f, 0.0f, 0.4f), IGraphics::CORNER_B, 3.75f);
-	}
-	TextRender()->Text(x - (Width + 10.0f), (12.5f - 5.f) / 2.f, 5.0f, aTimeStr, -1.0f);
-	if(ModernLocalTimer)
-	{
-		TextRender()->TextColor(TextRender()->DefaultTextColor());
-	}
-
-	// Graphics()->DrawRect(x - 30.0f, 0.0f, 25.0f, 12.5f, ColorRGBA(0.0f, 0.0f, 0.0f, 0.4f), IGraphics::CORNER_B, 3.75f);
-	// TextRender()->Text(x - 25.0f, (12.5f - 5.f) / 2.f, 5.0f, aTimeStr, -1.0f);
-}
-
 bool CHud::HasModernUiFlag(int Flag) const
 {
 	return (g_Config.m_CcModernUi & Flag) != 0;
@@ -2131,7 +2199,7 @@ void CHud::OnRender()
 			RenderSpectatorHud();
 		}
 
-		if(g_Config.m_ClShowhudTimer || HasModernUiFlag(CCatClient::MODERN_UI_RACE_TIMER))
+		if(g_Config.m_ClShowhudTimer || HasModernUiFlag(CCatClient::MODERN_UI_RACE_TIMER) || HasModernUiFlag(CCatClient::MODERN_UI_GAME_INTERFACE))
 			RenderGameTimer();
 		RenderPauseNotification();
 		RenderSuddenDeath();
@@ -2143,7 +2211,6 @@ void CHud::OnRender()
 		GameClient()->m_VoiceChat.RenderHudTalkingIndicator(m_Width, m_Height);
 		GameClient()->m_VoiceChat.RenderHudMuteStatusIndicator(m_Width, m_Height);
 		GameClient()->m_TClient.RenderCenterLines();
-		RenderLocalTime((m_Width / 7) * 3);
 		if(Client()->State() != IClient::STATE_DEMOPLAYBACK)
 			RenderConnectionWarning();
 		RenderTeambalanceWarning();

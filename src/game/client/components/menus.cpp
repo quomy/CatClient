@@ -901,6 +901,7 @@ void CMenus::OnInit()
 	Console()->Chain("cl_asset_hud", ConchainAssetHud, this);
 	Console()->Chain("cl_asset_extras", ConchainAssetExtras, this);
 	Console()->Chain("cl_asset_audio", ConchainAssetAudio, this);
+	Console()->Chain("cl_asset_arrows", ConchainAssetArrows, this);
 	Console()->Chain("cl_asset_cursor", ConchainAssetCursor, this);
 
 	Console()->Chain("demo_play", ConchainDemoPlay, this);
@@ -2731,30 +2732,26 @@ void CMenus::BeginPageTransition(SPageTransitionState &State, int Page, const CU
 	RenderRect = ClipRect;
 	if(State.m_StartTime == std::chrono::nanoseconds::zero())
 	{
+		Ui()->SetTransitionAlpha(1.0f);
+		CUIRect::SetGlobalAlpha(1.0f);
 		Ui()->ClipEnable(&ClipRect);
 		return;
 	}
 
-	constexpr auto Duration = std::chrono::milliseconds(95);
+	constexpr auto Duration = std::chrono::milliseconds(110);
 	const float RawProgress = std::clamp(std::chrono::duration<float>(Now - State.m_StartTime).count() / std::chrono::duration<float>(Duration).count(), 0.0f, 1.0f);
 	const float SmoothProgress = RawProgress * RawProgress * (3.0f - 2.0f * RawProgress);
-	const float Reveal = 1.0f - SmoothProgress;
-
-	CUIRect AnimatedClip = ClipRect;
-	const float HorizontalInset = minimum(14.0f, ClipRect.w * 0.03f) * Reveal;
-	const float VerticalInset = minimum(8.0f, ClipRect.h * 0.03f) * Reveal;
-	AnimatedClip.x += HorizontalInset;
-	AnimatedClip.y += VerticalInset;
-	AnimatedClip.w -= HorizontalInset * 2.0f;
-	AnimatedClip.h -= VerticalInset * 2.0f;
-
-	RenderRect.y += Reveal * 5.0f;
-	Ui()->ClipEnable(&AnimatedClip);
+	const float ContentAlpha = 0.90f + SmoothProgress * 0.10f;
+	Ui()->SetTransitionAlpha(ContentAlpha);
+	CUIRect::SetGlobalAlpha(ContentAlpha);
+	Ui()->ClipEnable(&ClipRect);
 }
 
 void CMenus::EndPageTransition()
 {
 	Ui()->ClipDisable();
+	Ui()->SetTransitionAlpha(1.0f);
+	CUIRect::SetGlobalAlpha(1.0f);
 }
 
 void CMenus::SetMenuPage(int NewPage)

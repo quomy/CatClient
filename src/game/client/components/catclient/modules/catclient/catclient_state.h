@@ -22,12 +22,6 @@ void CCatClient::ResetAutoTeamLock()
 	m_AutoTeamLockIssued = false;
 }
 
-void CCatClient::ResetAntiKill()
-{
-	m_AntiKillTeam = TEAM_FLOCK;
-	m_AntiKillStart = std::chrono::nanoseconds::zero();
-}
-
 void CCatClient::ConfigSaveCallback(IConfigManager *pConfigManager, void *pUserData)
 {
 	CCatClient *pThis = static_cast<CCatClient *>(pUserData);
@@ -63,49 +57,6 @@ bool CCatClient::IsLocalTeamLocked() const
 	return LocalCharacter.m_Active &&
 	       LocalCharacter.m_HasExtendedDisplayInfo &&
 	       (LocalCharacter.m_ExtendedData.m_Flags & CHARACTERFLAG_LOCK_MODE) != 0;
-}
-
-bool CCatClient::IsLocalPlayerInTeam() const
-{
-	const int LocalClientId = GameClient()->m_Snap.m_LocalClientId;
-	if(LocalClientId < 0)
-	{
-		return false;
-	}
-
-	const int Team = GameClient()->m_Teams.Team(LocalClientId);
-	return Team > TEAM_FLOCK && Team < TEAM_SUPER;
-}
-
-bool CCatClient::HasActiveTeammateInLocalTeam() const
-{
-	const int LocalClientId = GameClient()->m_Snap.m_LocalClientId;
-	if(LocalClientId < 0)
-	{
-		return false;
-	}
-
-	if(!IsLocalPlayerInTeam())
-	{
-		return false;
-	}
-
-	const int Team = GameClient()->m_Teams.Team(LocalClientId);
-
-	for(int ClientId = 0; ClientId < MAX_CLIENTS; ++ClientId)
-	{
-		if(ClientId == LocalClientId || !GameClient()->m_aClients[ClientId].m_Active)
-		{
-			continue;
-		}
-
-		if(GameClient()->m_Teams.Team(ClientId) == Team)
-		{
-			return true;
-		}
-	}
-
-	return false;
 }
 
 bool CCatClient::IsLocalClientId(int ClientId) const
@@ -158,36 +109,6 @@ void CCatClient::UpdateAspectRatioOverride()
 	}
 
 	Graphics()->SetScreenAspectOverride(std::clamp(AspectRatio, 1.0f, 4.0f));
-}
-
-void CCatClient::UpdateAntiKillState()
-{
-	if(!g_Config.m_CcAntiKill ||
-		Client()->State() != IClient::STATE_ONLINE ||
-		GameClient()->m_Snap.m_LocalClientId < 0 ||
-		!GameClient()->m_Snap.m_pLocalCharacter ||
-		!GameClient()->m_Snap.m_pLocalInfo)
-	{
-		ResetAntiKill();
-		return;
-	}
-
-	const int Team = GameClient()->m_Teams.Team(GameClient()->m_Snap.m_LocalClientId);
-	if(!IsLocalPlayerInTeam() || !HasActiveTeammateInLocalTeam())
-	{
-		ResetAntiKill();
-		return;
-	}
-
-	if(m_AntiKillTeam != Team)
-	{
-		m_AntiKillTeam = Team;
-		m_AntiKillStart = time_get_nanoseconds();
-	}
-	else if(m_AntiKillStart == std::chrono::nanoseconds::zero())
-	{
-		m_AntiKillStart = time_get_nanoseconds();
-	}
 }
 
 void CCatClient::UpdateIgnoredPlayers()

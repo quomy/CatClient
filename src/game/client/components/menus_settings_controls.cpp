@@ -19,6 +19,7 @@
 #include <game/client/ui_scrollregion.h>
 #include <game/localization.h>
 
+#include <algorithm>
 #include <functional>
 #include <string>
 #include <vector>
@@ -562,15 +563,37 @@ void CMenusSettingsControls::RenderSettingsBinds(EBindOptionGroup Group, CUIRect
 
 float CMenusSettingsControls::MeasureSettingsMouseHeight() const
 {
-	return 2.0f * BUTTON_HEIGHT + BUTTON_SPACING;
+	return 3.0f * BUTTON_HEIGHT + 2.0f * BUTTON_SPACING;
 }
 
 void CMenusSettingsControls::RenderSettingsMouse(CUIRect View)
 {
+	if(!m_IngameMouseSensInput.IsActive() && m_IngameMouseSensInput.GetInteger() != g_Config.m_InpMousesens)
+	{
+		m_IngameMouseSensInput.SetInteger(g_Config.m_InpMousesens);
+	}
+	m_IngameMouseSensInput.SetEmptyText("1-100000");
+
 	CUIRect Button;
 	View.HSplitTop(BUTTON_HEIGHT, &Button, &View);
 	Ui()->DoScrollbarOption(&g_Config.m_InpMousesens, &g_Config.m_InpMousesens, &Button, Localize("Ingame mouse sens."), 1, 500,
 		&CUi::ms_LogarithmicScrollbarScale, CUi::SCROLLBAR_OPTION_NOCLAMPVALUE);
+
+	View.HSplitTop(BUTTON_SPACING, nullptr, &View);
+
+	View.HSplitTop(BUTTON_HEIGHT, &Button, &View);
+	CUIRect Label, Input;
+	Button.VSplitLeft(150.0f, &Label, &Input);
+	Input.VSplitLeft(MARGIN, nullptr, &Input);
+	Ui()->DoLabel(&Label, Localize("Mouse sens value"), FONT_SIZE, TEXTALIGN_ML);
+	if(Ui()->DoEditBox(&m_IngameMouseSensInput, &Input, FONT_SIZE))
+	{
+		const int Value = m_IngameMouseSensInput.GetInteger();
+		if(Value > 0)
+		{
+			g_Config.m_InpMousesens = std::clamp(Value, 1, 100000);
+		}
+	}
 
 	View.HSplitTop(BUTTON_SPACING, nullptr, &View);
 
