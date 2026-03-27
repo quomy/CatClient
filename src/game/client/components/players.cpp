@@ -713,20 +713,6 @@ void CPlayers::RenderPlayer(
 		{
 			Graphics()->SetColor(1.0f, 1.0f, 1.0f, Alpha);
 
-			if(g_Config.m_TcRenderWeaponsAsGun && (Player.m_Weapon == WEAPON_SHOTGUN || Player.m_Weapon == WEAPON_GRENADE || Player.m_Weapon == WEAPON_LASER))
-			{
-				if(g_Config.m_TcRenderWeaponsAsGun == 1)
-				{
-					if(Player.m_Weapon == WEAPON_SHOTGUN)
-						Graphics()->SetColor(color_cast<ColorRGBA>(ColorHSLA(g_Config.m_ClLaserShotgunInnerColor).WithAlpha(Alpha)));
-					if(Player.m_Weapon == WEAPON_GRENADE)
-						Graphics()->SetColor(ColorRGBA(0.866666f, 0.372549f, 0.372549f).WithAlpha(Alpha));
-					if(Player.m_Weapon == WEAPON_LASER)
-						Graphics()->SetColor(color_cast<ColorRGBA>(ColorHSLA(g_Config.m_ClLaserRifleInnerColor).WithAlpha(Alpha)));
-				}
-				Player.m_Weapon = WEAPON_GUN;
-			}
-
 			// normal weapons
 			int CurrentWeapon = std::clamp(Player.m_Weapon, 0, NUM_WEAPONS - 1);
 			const bool JetpackGun = ClientId >= 0 && GameClient()->m_aClients[ClientId].m_Jetpack && CurrentWeapon == WEAPON_GUN;
@@ -1091,13 +1077,6 @@ void CPlayers::OnRender()
 			Frozen = GameClient()->m_Snap.m_aCharacters[i].m_HasExtendedData && GameClient()->m_Snap.m_aCharacters[i].m_ExtendedData.m_FreezeEnd != 0;
 		}
 
-		// TClient
-		if(g_Config.m_TcFrozenKatana > 0 && Frozen)
-		{
-			GameClient()->m_aClients[i].m_RenderCur.m_Weapon = WEAPON_NINJA;
-			aRenderInfo[i].m_TeeRenderFlags &= ~TEE_NO_WEAPON;
-		}
-
 		if((GameClient()->m_aClients[i].m_RenderCur.m_Weapon == WEAPON_NINJA || (Frozen && !GameClient()->m_GameInfo.m_NoSkinChangeForFrozen)) && g_Config.m_ClShowNinja)
 		{
 			// change the skin for the player to the ninja
@@ -1108,21 +1087,6 @@ void CPlayers::OnRender()
 			{
 				aRenderInfo[i].m_ColorBody = ColorRGBA(1, 1, 1);
 				aRenderInfo[i].m_ColorFeet = ColorRGBA(1, 1, 1);
-
-				if(g_Config.m_TcColorFreeze)
-				{
-					bool CustomColor = GameClient()->m_aClients[i].m_RenderInfo.m_CustomColoredSkin;
-					aRenderInfo[i].m_CustomColoredSkin = true;
-
-					aRenderInfo[i].m_ColorFeet = g_Config.m_TcColorFreezeFeet ? GameClient()->m_aClients[i].m_RenderInfo.m_ColorFeet : ColorRGBA(1, 1, 1);
-					float Darken = (g_Config.m_TcColorFreezeDarken / 100.0f) * 0.5f + 0.5f;
-
-					aRenderInfo[i].m_ColorBody = GameClient()->m_aClients[i].m_RenderInfo.m_ColorBody;
-					if(!CustomColor)
-						aRenderInfo[i].m_ColorBody = GameClient()->m_aClients[i].m_RenderInfo.m_BloodColor;
-
-					aRenderInfo[i].m_ColorBody = ColorRGBA(aRenderInfo[i].m_ColorBody.r * Darken, aRenderInfo[i].m_ColorBody.g * Darken, aRenderInfo[i].m_ColorBody.b * Darken, 1.0);
-				}
 			}
 		}
 	}

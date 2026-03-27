@@ -2475,33 +2475,6 @@ void CGameClient::OnNewSnapshot()
 		}
 	}
 
-	if(g_Config.m_ClFreezeStars && !m_SuppressEvents)
-	{
-		for(auto &Character : m_Snap.m_aCharacters)
-		{
-			if(Character.m_Active && Character.m_HasExtendedData && Character.m_pPrevExtendedData)
-			{
-				int FreezeTimeNow = Character.m_ExtendedData.m_FreezeEnd - Client()->GameTick(g_Config.m_ClDummy);
-				int FreezeTimePrev = Character.m_pPrevExtendedData->m_FreezeEnd - Client()->PrevGameTick(g_Config.m_ClDummy);
-				vec2 Pos = vec2(Character.m_Cur.m_X, Character.m_Cur.m_Y);
-				int StarsNow = (FreezeTimeNow + 1) / Client()->GameTickSpeed();
-				int StarsPrev = (FreezeTimePrev + 1) / Client()->GameTickSpeed();
-				if(StarsNow < StarsPrev || (StarsPrev == 0 && StarsNow > 0))
-				{
-					int Amount = StarsNow + 1;
-					float Mid = 3 * pi / 2;
-					float Min = Mid - pi / 3;
-					float Max = Mid + pi / 3;
-					for(int j = 0; j < Amount; j++)
-					{
-						float Angle = mix(Min, Max, (j + 1) / (float)(Amount + 2));
-						m_Effects.DamageIndicator(Pos, direction(Angle), 1.0f);
-					}
-				}
-			}
-		}
-	}
-
 	// Record m_LastRaceTick for g_Config.m_ClConfirmDisconnect/QuitTime
 	if(m_GameInfo.m_Race &&
 		Client()->State() == IClient::STATE_ONLINE &&

@@ -747,6 +747,15 @@ public:
 
 	enum
 	{
+		CLIENT_TAB_CATCLIENT = 0,
+		CLIENT_TAB_DDNET,
+		CLIENT_TAB_TCLIENT,
+
+		NUM_CLIENT_TABS,
+	};
+
+	enum
+	{
 		ASSETS_TAB_ENTITIES = 0,
 		ASSETS_TAB_GAME,
 		ASSETS_TAB_EMOTICONS,
@@ -831,6 +840,7 @@ public:
 	std::chrono::nanoseconds m_LastBrowserAutoRefresh = std::chrono::nanoseconds::zero();
 	int m_LastBrowserAutoRefreshPage = -1;
 	int m_CatClientTab = CATCLIENT_TAB_GENERAL;
+	int m_ClientTab = CLIENT_TAB_CATCLIENT;
 	int m_AssetsTab = ASSETS_TAB_ENTITIES;
 	int m_FirstRunSetupStep = FIRST_RUN_SETUP_UI_SCALE;
 	int m_FirstRunSetupAnimatedStep = -1;
@@ -958,6 +968,7 @@ private:
 
 	// found in menus_settings.cpp
 	void RenderSettingsDDNet(CUIRect MainView);
+	void RenderSettingsClient(CUIRect MainView);
 	void RenderSettingsAppearance(CUIRect MainView);
 
 	// found in menus_tclient.cpp

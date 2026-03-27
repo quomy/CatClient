@@ -52,3 +52,5 @@ MACRO_CONFIG_INT(CcAutoLagMessage, cc_auto_lag_message, 0, 0, 1, CFGFLAG_CLIENT 
 MACRO_CONFIG_STR(CcAutoLagMessageText, cc_auto_lag_message_text, 128, "lag", CFGFLAG_CLIENT | CFGFLAG_SAVE, "Custom message to send when experiencing lag")
 MACRO_CONFIG_INT(CcAutoLagMessagePing, cc_auto_lag_message_ping, 200, 100, 500, CFGFLAG_CLIENT | CFGFLAG_SAVE, "Minimum ping threshold in milliseconds to trigger lag message")
 MACRO_CONFIG_INT(CcAutoLagMessageThreshold, cc_auto_lag_message_threshold, 200, 100, 500, CFGFLAG_CLIENT | CFGFLAG_SAVE, "Frame time threshold in milliseconds to detect real game lag")
+MACRO_CONFIG_INT(CcAutoSwitchFirstWeapon, cc_auto_switch_first_weapon, 0, 0, 4, CFGFLAG_CLIENT | CFGFLAG_SAVE, "First weapon to select for the CatClient auto switch bind (0 = hammer, 1 = pistol, 2 = shotgun, 3 = grenade, 4 = laser)")
+MACRO_CONFIG_INT(CcAutoSwitchSecondWeapon, cc_auto_switch_second_weapon, 1, 0, 4, CFGFLAG_CLIENT | CFGFLAG_SAVE, "Second weapon to select for the CatClient auto switch bind (0 = hammer, 1 = pistol, 2 = shotgun, 3 = grenade, 4 = laser)")

@@ -1727,7 +1727,7 @@ namespace
 		std::vector<int> vVisibleTabs;
 		for(int i = 0; i < NumTabs; ++i)
 		{
-			if(i != CMenus::SETTINGS_PLAYER)
+			if(i != CMenus::SETTINGS_PLAYER && i != CMenus::SETTINGS_TCLIENT && i != CMenus::SETTINGS_CATCLIENT)
 				vVisibleTabs.push_back(i);
 		}
 		const int NumVisibleTabs = vVisibleTabs.size();
@@ -1787,6 +1787,16 @@ void CMenus::RenderSettings(CUIRect MainView)
 	ResetFirstRunFocus();
 	if(IsFirstRunSetupActive())
 		UpdateFirstRunSetupRouting();
+	if(g_Config.m_UiSettingsPage == SETTINGS_CATCLIENT)
+	{
+		g_Config.m_UiSettingsPage = SETTINGS_DDNET;
+		m_ClientTab = CLIENT_TAB_CATCLIENT;
+	}
+	if(g_Config.m_UiSettingsPage == SETTINGS_TCLIENT)
+	{
+		g_Config.m_UiSettingsPage = SETTINGS_DDNET;
+		m_ClientTab = CLIENT_TAB_TCLIENT;
+	}
 
 	// render background
 	CUIRect Button, TabBar, RestartBar;
@@ -1817,7 +1827,7 @@ void CMenus::RenderSettings(CUIRect MainView)
 		Localize("Controls"),
 		Localize("Graphics"),
 		Localize("Sound"),
-		Localize("DDNet"),
+		Localize("Client"),
 		Localize("Assets"),
 		TCLocalize("TClient"),
 		Localize("Profiles"),
@@ -1857,6 +1867,9 @@ void CMenus::RenderSettings(CUIRect MainView)
 
 		for(int i = 0; i < SETTINGS_LENGTH; i++)
 		{
+			if(i == SETTINGS_PLAYER || i == SETTINGS_TCLIENT || i == SETTINGS_CATCLIENT)
+				continue;
+
 			TabBar.HSplitTop(10.0f, nullptr, &TabBar);
 			TabBar.HSplitTop(26.0f, &Button, &TabBar);
 			if(DoButton_MenuTab(&s_aTabButtons[i], apTabs[i], g_Config.m_UiSettingsPage == i, &Button, IGraphics::CORNER_R, &m_aAnimatorsSettingsTab[i]))
@@ -1922,28 +1935,17 @@ void CMenus::RenderSettings(CUIRect MainView)
 	}
 	else if(g_Config.m_UiSettingsPage == SETTINGS_DDNET)
 	{
-		GameClient()->m_MenuBackground.ChangePosition(CMenuBackground::POS_SETTINGS_DDNET);
-		RenderSettingsDDNet(AnimatedMainView);
+		RenderSettingsClient(AnimatedMainView);
 	}
 	else if(g_Config.m_UiSettingsPage == SETTINGS_ASSETS)
 	{
 		GameClient()->m_MenuBackground.ChangePosition(CMenuBackground::POS_SETTINGS_ASSETS);
 		RenderSettingsCustom(AnimatedMainView);
 	}
-	else if(g_Config.m_UiSettingsPage == SETTINGS_TCLIENT)
-	{
-		GameClient()->m_MenuBackground.ChangePosition(13);
-		RenderSettingsTClient(AnimatedMainView);
-	}
 	else if(g_Config.m_UiSettingsPage == SETTINGS_PROFILES)
 	{
 		GameClient()->m_MenuBackground.ChangePosition(14);
 		RenderSettingsTClientProfiles(AnimatedMainView);
-	}
-	else if(g_Config.m_UiSettingsPage == SETTINGS_CATCLIENT)
-	{
-		GameClient()->m_MenuBackground.ChangePosition(15);
-		RenderSettingsCatClient(AnimatedMainView);
 	}
 	else
 	{
@@ -1982,6 +1984,45 @@ void CMenus::RenderSettings(CUIRect MainView)
 				Client()->Restart();
 			}
 		}
+	}
+}
+
+void CMenus::RenderSettingsClient(CUIRect MainView)
+{
+	CUIRect TabBar, Button;
+	MainView.HSplitTop(26.0f, &TabBar, &MainView);
+	const float TabWidth = TabBar.w / (float)NUM_CLIENT_TABS;
+	static CButtonContainer s_aClientTabs[NUM_CLIENT_TABS] = {};
+	const char *apTabNames[NUM_CLIENT_TABS] = {
+		CCLocalize("CatClient"),
+		Localize("DDNet"),
+		TCLocalize("TClient"),
+	};
+
+	for(int Tab = 0; Tab < NUM_CLIENT_TABS; ++Tab)
+	{
+		TabBar.VSplitLeft(TabWidth, &Button, &TabBar);
+		const int Corners = Tab == 0 ? IGraphics::CORNER_L : (Tab == NUM_CLIENT_TABS - 1 ? IGraphics::CORNER_R : IGraphics::CORNER_NONE);
+		if(DoButton_MenuTab(&s_aClientTabs[Tab], apTabNames[Tab], m_ClientTab == Tab, &Button, Corners, nullptr, nullptr, nullptr, nullptr, 4.0f))
+			m_ClientTab = Tab;
+	}
+
+	MainView.HSplitTop(10.0f, nullptr, &MainView);
+
+	if(m_ClientTab == CLIENT_TAB_CATCLIENT)
+	{
+		GameClient()->m_MenuBackground.ChangePosition(15);
+		RenderSettingsCatClient(MainView);
+	}
+	else if(m_ClientTab == CLIENT_TAB_DDNET)
+	{
+		GameClient()->m_MenuBackground.ChangePosition(CMenuBackground::POS_SETTINGS_DDNET);
+		RenderSettingsDDNet(MainView);
+	}
+	else
+	{
+		GameClient()->m_MenuBackground.ChangePosition(13);
+		RenderSettingsTClient(MainView);
 	}
 }
 
@@ -3385,70 +3426,6 @@ void CMenus::RenderSettingsDDNet(CUIRect MainView)
 	MainView.HSplitBottom(5.0f, &MainView, nullptr);
 #endif
 
-	// demo
-	CUIRect Demo;
-	MainView.HSplitTop(110.0f, &Demo, &MainView);
-	Demo.HSplitTop(30.0f, &Label, &Demo);
-	Ui()->DoLabel(&Label, Localize("Demo"), 20.0f, TEXTALIGN_ML);
-	Label.VSplitMid(nullptr, &Label, 20.0f);
-	Ui()->DoLabel(&Label, Localize("Ghost"), 20.0f, TEXTALIGN_ML);
-
-	Demo.HSplitTop(5.0f, nullptr, &Demo);
-	Demo.VSplitMid(&Left, &Right, 20.0f);
-
-	Left.HSplitTop(20.0f, &Button, &Left);
-	if(DoButton_CheckBox(&g_Config.m_ClAutoRaceRecord, Localize("Save the best demo of each race"), g_Config.m_ClAutoRaceRecord, &Button))
-	{
-		g_Config.m_ClAutoRaceRecord ^= 1;
-	}
-
-	Left.HSplitTop(20.0f, &Button, &Left);
-	if(DoButton_CheckBox(&g_Config.m_ClReplays, Localize("Enable replays"), g_Config.m_ClReplays, &Button))
-	{
-		g_Config.m_ClReplays ^= 1;
-		if(Client()->State() == IClient::STATE_ONLINE)
-		{
-			Client()->DemoRecorder_UpdateReplayRecorder();
-		}
-	}
-
-	Left.HSplitTop(20.0f, &Button, &Left);
-	if(g_Config.m_ClReplays)
-		Ui()->DoScrollbarOption(&g_Config.m_ClReplayLength, &g_Config.m_ClReplayLength, &Button, Localize("Default length"), 10, 600, &CUi::ms_LinearScrollbarScale, CUi::SCROLLBAR_OPTION_NOCLAMPVALUE);
-
-	Right.HSplitTop(20.0f, &Button, &Right);
-	if(DoButton_CheckBox(&g_Config.m_ClRaceGhost, Localize("Enable ghost"), g_Config.m_ClRaceGhost, &Button))
-	{
-		g_Config.m_ClRaceGhost ^= 1;
-	}
-	GameClient()->m_Tooltips.DoToolTip(&g_Config.m_ClRaceGhost, &Button, Localize("When you cross the start line, show a ghost tee replicating the movements of your best time"));
-
-	if(g_Config.m_ClRaceGhost)
-	{
-		Right.HSplitTop(20.0f, &Button, &Right);
-		Button.VSplitMid(&LeftLeft, &Button);
-		if(DoButton_CheckBox(&g_Config.m_ClRaceShowGhost, Localize("Show ghost"), g_Config.m_ClRaceShowGhost, &LeftLeft))
-		{
-			g_Config.m_ClRaceShowGhost ^= 1;
-		}
-		Ui()->DoScrollbarOption(&g_Config.m_ClRaceGhostAlpha, &g_Config.m_ClRaceGhostAlpha, &Button, Localize("Opacity"), 0, 100, &CUi::ms_LinearScrollbarScale, 0u, "%");
-
-		Right.HSplitTop(20.0f, &Button, &Right);
-		if(DoButton_CheckBox(&g_Config.m_ClRaceSaveGhost, Localize("Save ghost"), g_Config.m_ClRaceSaveGhost, &Button))
-		{
-			g_Config.m_ClRaceSaveGhost ^= 1;
-		}
-
-		if(g_Config.m_ClRaceSaveGhost)
-		{
-			Right.HSplitTop(20.0f, &Button, &Right);
-			if(DoButton_CheckBox(&g_Config.m_ClRaceGhostSaveBest, Localize("Only save improvements"), g_Config.m_ClRaceGhostSaveBest, &Button))
-			{
-				g_Config.m_ClRaceGhostSaveBest ^= 1;
-			}
-		}
-	}
-
 	// gameplay
 	CUIRect Gameplay;
 	MainView.HSplitTop(170.0f, &Gameplay, &MainView);
@@ -3502,12 +3479,6 @@ void CMenus::RenderSettingsDDNet(CUIRect MainView)
 
 	Right.HSplitTop(20.0f, &Button, &Right);
 	Ui()->DoScrollbarOption(&g_Config.m_ClPredictionMargin, &g_Config.m_ClPredictionMargin, &Button, Localize("Prediction margin"), 1, 300);
-
-	Right.HSplitTop(20.0f, &Button, &Right);
-	if(DoButton_CheckBox(&g_Config.m_ClPredictEvents, Localize("Predict events (experimental)"), g_Config.m_ClPredictEvents, &Button))
-	{
-		g_Config.m_ClPredictEvents ^= 1;
-	}
 
 	Right.HSplitTop(20.0f, &Button, &Right);
 	if(DoButton_CheckBox(&g_Config.m_ClAntiPing, Localize("AntiPing"), g_Config.m_ClAntiPing, &Button))

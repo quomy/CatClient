@@ -39,6 +39,8 @@ public:
 	int m_aInputDirectionLeft[NUM_DUMMIES];
 	int m_aInputDirectionRight[NUM_DUMMIES];
 	int m_aShowHookColl[NUM_DUMMIES];
+	bool m_aAutoSwitchUseFirst[NUM_DUMMIES];
+	bool m_AutoSwitchBindHeld = false;
 
 	// TClient
 	CNetObj_PlayerInput m_aFastInput[NUM_DUMMIES];
@@ -66,5 +68,6 @@ private:
 	static void ConKeyInputCounter(IConsole::IResult *pResult, void *pUserData);
 	static void ConKeyInputSet(IConsole::IResult *pResult, void *pUserData);
 	static void ConKeyInputNextPrevWeapon(IConsole::IResult *pResult, void *pUserData);
+	static void ConKeyInputAutoSwitchWeapon(IConsole::IResult *pResult, void *pUserData);
 };
 #endif

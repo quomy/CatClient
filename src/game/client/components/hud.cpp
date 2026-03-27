@@ -787,8 +787,8 @@ void CHud::RenderTextInfo()
 		Graphics()->TextureSet(GameClient()->m_GameSkin.m_aSpriteWeaponCursors[CurWeapon]);
 		Graphics()->RenderQuadContainerAsSprite(m_HudQuadContainerIndex, m_aCursorOffset[CurWeapon], m_Width / 2.0f, m_Height / 2.0f, 0.36f, 0.36f);
 	}
-	// render team in freeze text and last notify
-	if((g_Config.m_TcShowFrozenText > 0 || g_Config.m_TcShowFrozenHud > 0 || g_Config.m_TcNotifyWhenLast) && GameClient()->m_GameInfo.m_EntitiesDDRace)
+	// render last-alive notify
+	if(g_Config.m_TcNotifyWhenLast && GameClient()->m_GameInfo.m_EntitiesDDRace)
 	{
 		int NumInTeam = 0;
 		int NumFrozen = 0;
@@ -825,109 +825,6 @@ void CHud::RenderTextInfo()
 
 				TextRender()->Text(XPos, YPos, FontSize, g_Config.m_TcNotifyWhenLastText, -1.0f);
 				TextRender()->TextColor(TextRender()->DefaultTextColor());
-			}
-		}
-		// Show freeze text
-		char aBuf[64];
-		if(g_Config.m_TcShowFrozenText == 1)
-			str_format(aBuf, sizeof(aBuf), "%d / %d", NumInTeam - NumFrozen, NumInTeam);
-		else if(g_Config.m_TcShowFrozenText == 2)
-			str_format(aBuf, sizeof(aBuf), "%d / %d", NumFrozen, NumInTeam);
-		if(g_Config.m_TcShowFrozenText > 0)
-			TextRender()->Text(m_Width / 2.0f - TextRender()->TextWidth(10.0f, aBuf) / 2.0f, 12.0f, 10.0f, aBuf);
-
-		// str_format(aBuf, sizeof(aBuf), "%d", GameClient()->m_aClients[GameClient()->m_Snap.m_LocalClientId].m_PrevPredicted.m_FreezeEnd);
-		// str_format(aBuf, sizeof(aBuf), "%d", g_Config.m_ClWhatsMyPing);
-		// TextRender()->Text(0, m_Width / 2 - TextRender()->TextWidth(0, 10, aBuf, -1, -1.0f) / 2, 20, 10, aBuf, -1.0f);
-
-		if(g_Config.m_TcShowFrozenHud > 0 && !GameClient()->m_Scoreboard.IsActive() && !(LocalTeamID == 0 && g_Config.m_TcFrozenHudTeamOnly))
-		{
-			CTeeRenderInfo FreezeInfo;
-			const CSkin *pSkin = GameClient()->m_Skins.Find("x_ninja");
-			FreezeInfo.m_OriginalRenderSkin = pSkin->m_OriginalSkin;
-			FreezeInfo.m_ColorableRenderSkin = pSkin->m_ColorableSkin;
-			FreezeInfo.m_BloodColor = pSkin->m_BloodColor;
-			FreezeInfo.m_SkinMetrics = pSkin->m_Metrics;
-			FreezeInfo.m_ColorBody = ColorRGBA(1.0f, 1.0f, 1.0f);
-			FreezeInfo.m_ColorFeet = ColorRGBA(1.0f, 1.0f, 1.0f);
-			FreezeInfo.m_CustomColoredSkin = false;
-
-			float ProgressiveOffset = 0.0f;
-			float TeeSize = g_Config.m_TcFrozenHudTeeSize;
-			int MaxTees = (int)(8.3f * (m_Width / m_Height) * 13.0f / TeeSize);
-			if(!g_Config.m_ClShowfps && !g_Config.m_ClShowpred)
-				MaxTees = (int)(9.5f * (m_Width / m_Height) * 13.0f / TeeSize);
-			int MaxRows = g_Config.m_TcFrozenMaxRows;
-			float StartPos = m_Width / 2.0f + 38.0f * (m_Width / m_Height) / 1.78f;
-
-			int TotalRows = std::min(MaxRows, (NumInTeam + MaxTees - 1) / MaxTees);
-			Graphics()->TextureClear();
-			Graphics()->QuadsBegin();
-			Graphics()->SetColor(0.0f, 0.0f, 0.0f, 0.4f);
-			Graphics()->DrawRectExt(StartPos - TeeSize / 2.0f, 0.0f, TeeSize * std::min(NumInTeam, MaxTees), TeeSize + 3.0f + (TotalRows - 1) * TeeSize, 5.0f, IGraphics::CORNER_B);
-			Graphics()->QuadsEnd();
-
-			bool Overflow = NumInTeam > MaxTees * MaxRows;
-
-			int NumDisplayed = 0;
-			int NumInRow = 0;
-			int CurrentRow = 0;
-
-			for(int OverflowIndex = 0; OverflowIndex < 1 + Overflow; OverflowIndex++)
-			{
-				for(int i = 0; i < MAX_CLIENTS && NumDisplayed < MaxTees * MaxRows; i++)
-				{
-					if(!GameClient()->m_Snap.m_apPlayerInfos[i])
-						continue;
-					if(GameClient()->m_Teams.Team(i) == LocalTeamID)
-					{
-						bool Frozen = false;
-						CTeeRenderInfo TeeInfo = GameClient()->m_aClients[i].m_RenderInfo;
-						if(GameClient()->m_aClients[i].m_FreezeEnd > 0 || GameClient()->m_aClients[i].m_DeepFrozen)
-						{
-							if(!g_Config.m_TcShowFrozenHudSkins)
-								TeeInfo = FreezeInfo;
-							Frozen = true;
-						}
-
-						if(Overflow && Frozen && OverflowIndex == 0)
-							continue;
-						if(Overflow && !Frozen && OverflowIndex == 1)
-							continue;
-
-						NumDisplayed++;
-						NumInRow++;
-						if(NumInRow > MaxTees)
-						{
-							NumInRow = 1;
-							ProgressiveOffset = 0.0f;
-							CurrentRow++;
-						}
-
-						TeeInfo.m_Size = TeeSize;
-						const CAnimState *pIdleState = CAnimState::GetIdle();
-						vec2 OffsetToMid;
-						CRenderTools::GetRenderTeeOffsetToRenderedTee(pIdleState, &TeeInfo, OffsetToMid);
-						vec2 TeeRenderPos(StartPos + ProgressiveOffset, TeeSize * (0.7f) + CurrentRow * TeeSize);
-						float Alpha = 1.0f;
-						CNetObj_Character CurChar = GameClient()->m_aClients[i].m_RenderCur;
-						if(g_Config.m_TcShowFrozenHudSkins && Frozen)
-						{
-							Alpha = 0.6f;
-							TeeInfo.m_ColorBody.r *= 0.4f;
-							TeeInfo.m_ColorBody.g *= 0.4f;
-							TeeInfo.m_ColorBody.b *= 0.4f;
-							TeeInfo.m_ColorFeet.r *= 0.4f;
-							TeeInfo.m_ColorFeet.g *= 0.4f;
-							TeeInfo.m_ColorFeet.b *= 0.4f;
-						}
-						if(Frozen)
-							RenderTools()->RenderTee(pIdleState, &TeeInfo, EMOTE_PAIN, vec2(1.0f, 0.0f), TeeRenderPos, Alpha);
-						else
-							RenderTools()->RenderTee(pIdleState, &TeeInfo, CurChar.m_Emote, vec2(1.0f, 0.0f), TeeRenderPos);
-						ProgressiveOffset += TeeSize;
-					}
-				}
 			}
 		}
 	}

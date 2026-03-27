@@ -15,6 +15,7 @@
 
 #include "modules/general/menus_catclient_general_protection.h"
 #include "modules/general/menus_catclient_general_fast_inputs.h"
+#include "modules/general/menus_catclient_general_better_movement.h"
 #include "modules/general/menus_catclient_general_browser.h"
 #include "modules/general/menus_catclient_general_audio.h"
 #include "modules/general/menus_catclient_general_voice.h"
@@ -47,7 +48,7 @@ void CMenus::RenderSettingsCatClientGeneral(CUIRect MainView)
 	RenderFastInputsSection(this, Ui(), LeftView);
 	LeftView.HSplitTop(CATCLIENT_MENU_SECTION_SPACING, nullptr, &LeftView);
 
-	RenderAntiQuitSection(this, Ui(), LeftView);
+	RenderBetterMovementSection(this, Ui(), LeftView);
 	LeftView.HSplitTop(CATCLIENT_MENU_SECTION_SPACING, nullptr, &LeftView);
 
 	RenderServerBrowserSection(this, Ui(), RightView);
@@ -57,6 +58,9 @@ void CMenus::RenderSettingsCatClientGeneral(CUIRect MainView)
 	RightView.HSplitTop(CATCLIENT_MENU_SECTION_SPACING, nullptr, &RightView);
 
 	RenderMuteSoundsSection(this, Ui(), RightView);
+	RightView.HSplitTop(CATCLIENT_MENU_SECTION_SPACING, nullptr, &RightView);
+
+	RenderAntiQuitSection(this, Ui(), RightView);
 
 	CUIRect ScrollRegion;
 	ScrollRegion.x = ContentView.x;

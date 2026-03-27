@@ -828,7 +828,7 @@ bool CGameWorld::EmulateBug(int Bug) const
 
 void CGameWorld::CreatePredictedEvent(const CPredictedEvent &NewEvent)
 {
-	if(!g_Config.m_ClPredictEvents || !m_WorldConfig.m_PredictEvents)
+	if(!m_WorldConfig.m_PredictEvents)
 		return;
 
 	// prediction is ran multiple times per tick, check if event already exists

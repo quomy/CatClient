@@ -18,6 +18,17 @@
 #include <game/client/gameclient.h>
 #include <game/collision.h>
 
+namespace
+{
+void NormalizeCatClientAutoSwitchWeapons(int &First, int &Second)
+{
+	First = maximum<int>(WEAPON_HAMMER, minimum<int>(WEAPON_LASER, First));
+	Second = maximum<int>(WEAPON_HAMMER, minimum<int>(WEAPON_LASER, Second));
+	if(First == Second)
+		Second = First == WEAPON_LASER ? WEAPON_HAMMER : First + 1;
+}
+}
+
 CControls::CControls()
 {
 	mem_zero(&m_aLastData, sizeof(m_aLastData));
@@ -27,6 +38,7 @@ CControls::CControls()
 	std::fill(std::begin(m_aMousePosOnAction), std::end(m_aMousePosOnAction), vec2(0.0f, 0.0f));
 	std::fill(std::begin(m_aTargetPos), std::end(m_aTargetPos), vec2(0.0f, 0.0f));
 	std::fill(std::begin(m_aMouseInputType), std::end(m_aMouseInputType), EMouseInputType::ABSOLUTE);
+	std::fill(std::begin(m_aAutoSwitchUseFirst), std::end(m_aAutoSwitchUseFirst), true);
 }
 
 void CControls::OnReset()
@@ -39,6 +51,8 @@ void CControls::OnReset()
 
 	mem_zero(&m_aFastInput, sizeof(m_aFastInput));
 	mem_zero(&m_SaikoFastInput, sizeof(m_SaikoFastInput));
+	std::fill(std::begin(m_aAutoSwitchUseFirst), std::end(m_aAutoSwitchUseFirst), true);
+	m_AutoSwitchBindHeld = false;
 	m_LastSendTime = 0;
 }
 
@@ -114,6 +128,31 @@ void CControls::ConKeyInputNextPrevWeapon(IConsole::IResult *pResult, void *pUse
 	pSet->m_pControls->m_aInputData[g_Config.m_ClDummy].m_WantedWeapon = 0;
 }
 
+void CControls::ConKeyInputAutoSwitchWeapon(IConsole::IResult *pResult, void *pUserData)
+{
+	CControls *pControls = (CControls *)pUserData;
+	if(!pResult->GetInteger(0))
+	{
+		pControls->m_AutoSwitchBindHeld = false;
+		return;
+	}
+
+	if(pControls->m_AutoSwitchBindHeld)
+		return;
+	pControls->m_AutoSwitchBindHeld = true;
+
+	int FirstWeapon = g_Config.m_CcAutoSwitchFirstWeapon;
+	int SecondWeapon = g_Config.m_CcAutoSwitchSecondWeapon;
+	NormalizeCatClientAutoSwitchWeapons(FirstWeapon, SecondWeapon);
+	g_Config.m_CcAutoSwitchFirstWeapon = FirstWeapon;
+	g_Config.m_CcAutoSwitchSecondWeapon = SecondWeapon;
+
+	const int Dummy = g_Config.m_ClDummy;
+	const int Weapon = pControls->m_aAutoSwitchUseFirst[Dummy] ? FirstWeapon : SecondWeapon;
+	pControls->m_aInputData[Dummy].m_WantedWeapon = Weapon + 1;
+	pControls->m_aAutoSwitchUseFirst[Dummy] = !pControls->m_aAutoSwitchUseFirst[Dummy];
+}
+
 void CControls::OnConsoleInit()
 {
 	// game commands
@@ -171,6 +210,7 @@ void CControls::OnConsoleInit()
 		static CInputSet s_Set = {this, {&m_aInputData[0].m_PrevWeapon, &m_aInputData[1].m_PrevWeapon}, 0};
 		Console()->Register("+prevweapon", "", CFGFLAG_CLIENT, ConKeyInputNextPrevWeapon, &s_Set, "Switch to previous weapon");
 	}
+	Console()->Register("+catclient_auto_switch_weapon", "", CFGFLAG_CLIENT, ConKeyInputAutoSwitchWeapon, this, "Alternate between the configured CatClient auto switch weapons");
 }
 
 void CControls::OnMessage(int Msg, void *pRawMsg)
@@ -222,10 +262,6 @@ int CControls::SnapInput(int *pData)
 		for(auto &InputData : m_aInputData)
 			InputData.m_PlayerFlags &= ~PLAYERFLAG_CHATTING;
 
-	if(g_Config.m_TcNameplatePingCircle)
-		for(auto &InputData : m_aInputData)
-			InputData.m_PlayerFlags |= PLAYERFLAG_SCOREBOARD;
-
 	bool Send = m_aLastData[g_Config.m_ClDummy].m_PlayerFlags != m_aInputData[g_Config.m_ClDummy].m_PlayerFlags;
 
 	m_aLastData[g_Config.m_ClDummy].m_PlayerFlags = m_aInputData[g_Config.m_ClDummy].m_PlayerFlags;
@@ -233,6 +269,8 @@ int CControls::SnapInput(int *pData)
 	// we freeze the input if chat or menu is activated
 	if(!(m_aInputData[g_Config.m_ClDummy].m_PlayerFlags & PLAYERFLAG_PLAYING))
 	{
+		m_AutoSwitchBindHeld = false;
+
 		if(!GameClient()->m_GameInfo.m_BugDDRaceInput)
 			ResetInput(g_Config.m_ClDummy);
 
