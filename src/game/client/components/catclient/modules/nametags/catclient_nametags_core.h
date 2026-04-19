@@ -1,7 +1,7 @@
 #ifndef GAME_CLIENT_COMPONENTS_CATCLIENT_MODULES_NAMETAGS_CATCLIENT_NAMETAGS_CORE_H
 #define GAME_CLIENT_COMPONENTS_CATCLIENT_MODULES_NAMETAGS_CATCLIENT_NAMETAGS_CORE_H
 
-static constexpr const char *CATCLIENT_NAME_TAGS_URL = "https://tags.quomy.win/users.json";
+static constexpr const char *CATCLIENT_NAME_TAGS_URL = "https://catclient-tags-api.itsquomy.workers.dev/users.json";
 static constexpr const char *CATCLIENT_ICON_URL = "https://tags.quomy.win/catproject.png";
 static constexpr const char *CATCLIENT_ICON_PATH = "catclient/catproject.png";
 static constexpr auto FETCH_INTERVAL = std::chrono::seconds(5);

@@ -10,10 +10,10 @@ void CMenus::RenderSettingsCatClientInfo(CUIRect MainView)
 	CUIRect TopView, BottomView, LeftView, RightView, Section, Content, Button, Label;
 	MainView.HSplitTop(CATCLIENT_MENU_MARGIN_SMALL, nullptr, &MainView);
 	CatClientMenuConstrainWidth(MainView, MainView, 760.0f);
-	MainView.HSplitTop(115.0f, &TopView, &BottomView);
+	MainView.HSplitTop(145.0f, &TopView, &BottomView);
 	TopView.VSplitMid(&LeftView, &RightView, CATCLIENT_MENU_MARGIN_BETWEEN_VIEWS);
 
-	CatClientMenuBeginSection(LeftView, Section, Content, 115.0f);
+	CatClientMenuBeginSection(LeftView, Section, Content, 145.0f);
 	Content.HSplitTop(CATCLIENT_MENU_HEADLINE_HEIGHT, &Label, &Content);
 	Ui()->DoLabel(&Label, CCLocalize("CatClient Links"), CATCLIENT_MENU_HEADLINE_FONT_SIZE, TEXTALIGN_ML);
 	Content.HSplitTop(CATCLIENT_MENU_MARGIN_SMALL, nullptr, &Content);
@@ -28,7 +28,7 @@ void CMenus::RenderSettingsCatClientInfo(CUIRect MainView)
 	if(DoButtonLineSize_Menu(&s_DiscordButton, CCLocalize("Discord"), 0, &Button, CATCLIENT_MENU_LINE_SIZE, false, 0, IGraphics::CORNER_ALL, 5.0f, 0.0f, ColorRGBA(0.0f, 0.0f, 0.0f, 0.25f)))
 		Client()->ViewLink("https://discord.gg/28YFTUW5Jg");
 
-	CatClientMenuBeginSection(RightView, Section, Content, 115.0f);
+	CatClientMenuBeginSection(RightView, Section, Content, 145.0f);
 	Content.HSplitTop(CATCLIENT_MENU_HEADLINE_HEIGHT, &Label, &Content);
 	Ui()->DoLabel(&Label, CCLocalize("CatClient Developer"), CATCLIENT_MENU_HEADLINE_FONT_SIZE, TEXTALIGN_ML);
 	Content.HSplitTop(CATCLIENT_MENU_MARGIN_SMALL, nullptr, &Content);
@@ -38,6 +38,11 @@ void CMenus::RenderSettingsCatClientInfo(CUIRect MainView)
 	DevCardRect.VSplitLeft(CATCLIENT_MENU_DEVELOPER_CARD_SIZE, &TeeRect, &Label);
 	Ui()->DoLabel(&Label, "quomy", CATCLIENT_MENU_LINE_SIZE, TEXTALIGN_ML);
 	RenderDevSkin(TeeRect.Center(), CATCLIENT_MENU_DEVELOPER_TEE_SIZE, "xp", "default", true, 255, 4980530, EMOTE_NORMAL, false, true);
+	Content.HSplitTop(CATCLIENT_MENU_MARGIN_SMALL, nullptr, &Content);
+	Content.HSplitTop(CATCLIENT_MENU_DEVELOPER_CARD_SIZE, &DevCardRect, &Content);
+	DevCardRect.VSplitLeft(CATCLIENT_MENU_DEVELOPER_CARD_SIZE, &TeeRect, &Label);
+	Ui()->DoLabel(&Label, "rXelelo", CATCLIENT_MENU_LINE_SIZE, TEXTALIGN_ML);
+	RenderDevSkin(TeeRect.Center(), CATCLIENT_MENU_DEVELOPER_TEE_SIZE, "mushkitt", "default", false, 0, 0, EMOTE_NORMAL, false, true);
 	BottomView.HSplitTop(CATCLIENT_MENU_SECTION_SPACING, nullptr, &BottomView);
 	CatClientMenuBeginSection(BottomView, Section, Content, 90.0f);
 	Content.HSplitTop(CATCLIENT_MENU_HEADLINE_HEIGHT, &Label, &Content);

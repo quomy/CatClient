@@ -49,6 +49,7 @@ constexpr float PANEL_SECTION_BUTTON_SIZE = 34.0f;
 constexpr float PANEL_ROW_HEIGHT = 48.0f;
 constexpr float PANEL_COMPACT_WIDTH = 500.0f;
 constexpr float PANEL_COMPACT_PADDING = 10.0f;
+constexpr int SERVER_LIST_AUTO_REFRESH_SEC = 30;
 constexpr int SERVER_LIST_PING_TIMEOUT_SEC = 2;
 constexpr int SERVER_LIST_PING_INTERVAL_SEC = 30;
 constexpr const char *VOICE_MASTER_LIST_URL = "https://150.241.70.188:3000/voice/servers.json";
@@ -398,6 +399,7 @@ void CVoiceChat::OnStateChange(int NewState, int OldState)
 		StopVoice();
 		m_ServerRowButtons.clear();
 		m_vServerEntries.clear();
+		m_LastServerListFetchTick = 0;
 		ResetServerListTask();
 		CloseServerListPingSocket();
 	}
@@ -593,6 +595,85 @@ void CVoiceChat::OnRender()
 void CVoiceChat::RenderMenuPanel(const CUIRect &View)
 {
 	RenderPanel(View, false);
+}
+
+void CVoiceChat::RenderSettingsPage(const CUIRect &View)
+{
+	CUIRect Page = View;
+	CUIRect Header, Body, Footer;
+	Page.HSplitTop(30.0f, &Header, &Page);
+	Page.HSplitTop(8.0f, nullptr, &Page);
+	Page.HSplitBottom(34.0f, &Body, &Footer);
+
+	CUIRect HeaderTabs = Header;
+	const float TabWidth = minimum(110.0f, maximum(82.0f, (HeaderTabs.w - 16.0f) / 3.0f));
+	CUIRect Tab;
+
+	if(TabWidth * 3.0f + 8.0f * 2.0f < HeaderTabs.w)
+		HeaderTabs.VMargin((HeaderTabs.w - (TabWidth * 3.0f + 16.0f)) / 2.0f, &HeaderTabs);
+
+	HeaderTabs.VSplitLeft(TabWidth, &Tab, &HeaderTabs);
+	if(GameClient()->m_Menus.DoButton_Menu(&m_SectionRoomButton, CCLocalize("Servers"), 0, &Tab, BUTTONFLAG_LEFT, nullptr, IGraphics::CORNER_ALL, 6.0f, 0.0f, VoiceIconButtonColor(m_ActiveSection == VOICE_SECTION_SERVERS)))
+		m_ActiveSection = VOICE_SECTION_SERVERS;
+	HeaderTabs.VSplitLeft(8.0f, nullptr, &HeaderTabs);
+	HeaderTabs.VSplitLeft(TabWidth, &Tab, &HeaderTabs);
+	if(GameClient()->m_Menus.DoButton_Menu(&m_SectionMembersButton, CCLocalize("Members"), 0, &Tab, BUTTONFLAG_LEFT, nullptr, IGraphics::CORNER_ALL, 6.0f, 0.0f, VoiceIconButtonColor(m_ActiveSection == VOICE_SECTION_MEMBERS)))
+		m_ActiveSection = VOICE_SECTION_MEMBERS;
+	HeaderTabs.VSplitLeft(8.0f, nullptr, &HeaderTabs);
+	HeaderTabs.VSplitLeft(TabWidth, &Tab, &HeaderTabs);
+	if(GameClient()->m_Menus.DoButton_Menu(&m_SectionSettingsButton, CCLocalize("Settings"), 0, &Tab, BUTTONFLAG_LEFT, nullptr, IGraphics::CORNER_ALL, 6.0f, 0.0f, VoiceIconButtonColor(m_ActiveSection == VOICE_SECTION_SETTINGS)))
+		m_ActiveSection = VOICE_SECTION_SETTINGS;
+
+	Body.Draw(VoiceSectionBgColor(), IGraphics::CORNER_ALL, 8.0f);
+	CUIRect Content = Body;
+	Content.Margin(12.0f, &Content);
+
+	if(m_ActiveSection == VOICE_SECTION_MEMBERS)
+		RenderMembersSection(Content);
+	else if(m_ActiveSection == VOICE_SECTION_SETTINGS)
+		RenderSettingsSection(Content);
+	else
+		RenderServersSection(Content);
+
+	CUIRect FooterInner = Footer;
+	FooterInner.Margin(2.0f, &FooterInner);
+	CUIRect StatusRect, ButtonsRow;
+	FooterInner.VSplitLeft(maximum(180.0f, FooterInner.w - 96.0f), &StatusRect, &ButtonsRow);
+
+	char aStatus[192];
+	const char *pMic = g_Config.m_BcVoiceChatMicMuted ? CCLocalize("Muted") : CCLocalize("On");
+	const char *pHeadphones = g_Config.m_BcVoiceChatHeadphonesMuted ? CCLocalize("Muted") : CCLocalize("On");
+	str_format(aStatus, sizeof(aStatus), "%s: %s  |  %s: %s  |  %s: %s",
+		CCLocalize("Voice"), g_Config.m_BcVoiceChatEnable ? CCLocalize("On") : CCLocalize("Off"),
+		CCLocalize("Mic"), pMic,
+		CCLocalize("Headphones"), pHeadphones);
+	Ui()->DoLabel(&StatusRect, aStatus, 12.0f, TEXTALIGN_ML);
+
+	CUIRect MicButton;
+	ButtonsRow.VSplitLeft(40.0f, &MicButton, &ButtonsRow);
+	ButtonsRow.VSplitLeft(8.0f, nullptr, &ButtonsRow);
+	CUIRect HeadphonesButton;
+	ButtonsRow.VSplitLeft(40.0f, &HeadphonesButton, nullptr);
+
+	TextRender()->SetFontPreset(EFontPreset::ICON_FONT);
+	if(GameClient()->m_Menus.DoButton_Menu(&m_MicMuteButton, VOICE_ICON_MIC, 0, &MicButton, BUTTONFLAG_LEFT, nullptr, IGraphics::CORNER_ALL, 5.0f, 0.0f, VoiceMuteButtonColor(g_Config.m_BcVoiceChatMicMuted != 0)))
+		g_Config.m_BcVoiceChatMicMuted ^= 1;
+	if(GameClient()->m_Menus.DoButton_Menu(&m_HeadphonesMuteButton, VOICE_ICON_HEADPHONES, 0, &HeadphonesButton, BUTTONFLAG_LEFT, nullptr, IGraphics::CORNER_ALL, 5.0f, 0.0f, VoiceMuteButtonColor(g_Config.m_BcVoiceChatHeadphonesMuted != 0)))
+	{
+		g_Config.m_BcVoiceChatHeadphonesMuted ^= 1;
+		if(g_Config.m_BcVoiceChatHeadphonesMuted)
+			g_Config.m_BcVoiceChatMicMuted = 1;
+		else
+			g_Config.m_BcVoiceChatMicMuted = 0;
+	}
+
+	TextRender()->TextColor(1.0f, 0.25f, 0.25f, 1.0f);
+	if(g_Config.m_BcVoiceChatMicMuted)
+		Ui()->DoLabel(&MicButton, VOICE_ICON_CLOSE, 12.0f, TEXTALIGN_MC);
+	if(g_Config.m_BcVoiceChatHeadphonesMuted)
+		Ui()->DoLabel(&HeadphonesButton, VOICE_ICON_CLOSE, 12.0f, TEXTALIGN_MC);
+	TextRender()->TextColor(TextRender()->DefaultTextColor());
+	TextRender()->SetFontPreset(EFontPreset::DEFAULT_FONT);
 }
 
 void CVoiceChat::RenderMenuPanelToggleBind(const CUIRect &View)
@@ -2664,6 +2745,14 @@ std::vector<uint16_t> CVoiceChat::SortedPeerIds() const
 
 void CVoiceChat::RenderServersSection(CUIRect View)
 {
+	const int64_t Now = time_get();
+	const int64_t RefreshTicks = time_freq() * SERVER_LIST_AUTO_REFRESH_SEC;
+	if((!m_pServerListTask || m_pServerListTask->Done()) &&
+		(m_vServerEntries.empty() || m_LastServerListFetchTick == 0 || Now - m_LastServerListFetchTick >= RefreshTicks))
+	{
+		FetchServerList();
+	}
+
 	CUIRect Top;
 	View.HSplitTop(24.0f, &Top, &View);
 	Ui()->DoLabel(&Top, CCLocalize("Voice servers"), 15.0f, TEXTALIGN_ML);
@@ -3404,6 +3493,7 @@ void CVoiceChat::FetchServerList()
 	if(m_pServerListTask && !m_pServerListTask->Done())
 		return;
 
+	m_LastServerListFetchTick = time_get();
 	m_pServerListTask = HttpGet(VOICE_MASTER_LIST_URL);
 	m_pServerListTask->Timeout(CTimeout{10000, 0, 500, 5});
 	m_pServerListTask->IpResolve(IPRESOLVE::V4);

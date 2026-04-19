@@ -48,6 +48,8 @@ public:
 	void RenderHudMuteStatusIndicator(float HudWidth, float HudHeight, bool ForcePreview = false);
 	// Renders the voice panel inside menus/settings (independent from the in-game toggle state).
 	void RenderMenuPanel(const CUIRect &View);
+	// Renders the inline voice settings page used by CatClient settings surfaces.
+	void RenderSettingsPage(const CUIRect &View);
 	// Renders a bind row for toggling the voice panel (used by the settings menu).
 	void RenderMenuPanelToggleBind(const CUIRect &View);
 	// Handles chat commands starting with "!voice". Returns true if consumed locally (not sent to server).
@@ -199,6 +201,7 @@ private:
 	char m_aLastServerAddr[128] = "";
 	int64_t m_LastStartAttempt = 0;
 	int64_t m_LastAudioInitAttempt = 0;
+	int64_t m_LastServerListFetchTick = 0;
 	int64_t m_LastServerListPingSweepTick = 0;
 	int m_LastInputDevice = -2;
 	int m_LastOutputDevice = -2;
