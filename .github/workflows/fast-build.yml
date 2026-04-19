@@ -1,0 +1,9 @@
+name: Fast Build
+
+on:
+  push:
+    branches-ignore:
+      - gh-readonly-queue/**
+
+jobs
+       path: artifacts
