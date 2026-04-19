@@ -1,0 +1,36 @@
+variables:
+  - &fast_build_env
+    environment:
+      VERSION:
+        from_secret: VERSION
+      CARGO_HTTP_MULTIPLEXING: "false"
+
+when:
+  - event: push
+    branch:
+      exclude:
+        - gh-readonly-queue/**
+  - event: manual
+
+labels:
+  platform: windows
+
+clone:
+  git:
+    image: woodpeckerci/plugin-git
+    settings:
+      recursive: true
+
+steps:
+  build-windows:
+    image: bash
+    <<: *fast_build_env
+    commands:
+      - rustup default stable
+      - printf '%s' "$VERSION" | base64 -d > "$CI_WORKSPACE/versioninfo.h"
+      - mkdir -p release
+      - cd release
+      - export MSYS_ARG_CONV_EXCL="/FI"
+      - cmake -A x64 -DDISCORD=ON -DTOOLS=OFF -DAUTOUPDATE=ON -DVULKAN=ON -DCMAKE_CXX_FLAGS="/FI$CI_WORKSPACE/versioninfo.h" -DDOWNLOAD_GTEST=ON -DCMAKE_RUNTIME_OUTPUT_DIRECTORY_RELEASE=. ..
+      - cmake --build . --config Release --target everything
+      - cmake --build . --config Release --target package_default
