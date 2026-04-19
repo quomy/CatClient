@@ -1,8 +1,6 @@
 variables:
   - &fast_build_env
     environment:
-      VERSION:
-        from_secret: VERSION
       CARGO_HTTP_MULTIPLEXING: "false"
 
 when:
@@ -33,10 +31,9 @@ steps:
       - rustup default stable
       - rustup update
       - rustup target add x86_64-apple-darwin aarch64-apple-darwin
-      - printf '%s' "$VERSION" | base64 -d > "$CI_WORKSPACE/versioninfo.h"
       - rm -rf /Library/Developer/CommandLineTools || true
       - mkdir -p release
       - cd release
-      - CXXFLAGS="-include$CI_WORKSPACE/versioninfo.h" cmake -G Ninja -DCMAKE_BUILD_TYPE=Release -DDISCORD=ON -DWEBSOCKETS=OFF -DPREFER_BUNDLED_LIBS=ON -DCMAKE_OSX_ARCHITECTURES=arm64 -DCMAKE_OSX_DEPLOYMENT_TARGET=11.0 -DCMAKE_SYSTEM_IGNORE_PATH=/usr/lib -DCMAKE_FIND_FRAMEWORK=LAST -DAUTOUPDATE=OFF -DPNG_LIBRARY="$CI_WORKSPACE/ddnet-libs/png/mac/libfat/libpng16.16.dylib" -DPNG_INCLUDEDIR="$CI_WORKSPACE/ddnet-libs/png/include" -DDOWNLOAD_GTEST=ON -DCMAKE_RUNTIME_OUTPUT_DIRECTORY_RELEASE=. ..
+      - cmake -G Ninja -DCMAKE_BUILD_TYPE=Release -DDISCORD=ON -DWEBSOCKETS=OFF -DPREFER_BUNDLED_LIBS=ON -DCMAKE_OSX_ARCHITECTURES=arm64 -DCMAKE_OSX_DEPLOYMENT_TARGET=11.0 -DCMAKE_SYSTEM_IGNORE_PATH=/usr/lib -DCMAKE_FIND_FRAMEWORK=LAST -DAUTOUPDATE=OFF -DPNG_LIBRARY="$CI_WORKSPACE/ddnet-libs/png/mac/libfat/libpng16.16.dylib" -DPNG_INCLUDEDIR="$CI_WORKSPACE/ddnet-libs/png/include" -DDOWNLOAD_GTEST=ON -DCMAKE_RUNTIME_OUTPUT_DIRECTORY_RELEASE=. ..
       - cmake --build . --config Release --target everything
       - cmake --build . --config Release --target package_default

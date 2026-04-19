@@ -1,8 +1,6 @@
 variables:
   - &fast_build_env
     environment:
-      VERSION:
-        from_secret: VERSION
       CARGO_HTTP_MULTIPLEXING: "false"
 
 when:
@@ -30,9 +28,8 @@ steps:
       - curl -L -o /tmp/vulkan-sdk-linux.tar.xz https://sdk.lunarg.com/sdk/download/1.3.296.0/linux/vulkansdk-linux-x86_64-1.3.296.0.tar.xz
       - mkdir -p /opt/vulkan-sdk
       - tar -xJf /tmp/vulkan-sdk-linux.tar.xz -C /opt/vulkan-sdk
-      - printf '%s' "$VERSION" | base64 -d > "$CI_WORKSPACE/versioninfo.h"
       - mkdir -p release
       - cd release
-      - CXXFLAGS="-include$CI_WORKSPACE/versioninfo.h" cmake -G Ninja -DCMAKE_BUILD_TYPE=Release -DDISCORD=ON -DDISCORD_DYNAMIC=ON -DWEBSOCKETS=OFF -DPREFER_BUNDLED_LIBS=ON -DAUTOUPDATE=ON -DDOWNLOAD_GTEST=ON -DCMAKE_RUNTIME_OUTPUT_DIRECTORY_RELEASE=. ..
+      - cmake -G Ninja -DCMAKE_BUILD_TYPE=Release -DDISCORD=ON -DDISCORD_DYNAMIC=ON -DWEBSOCKETS=OFF -DPREFER_BUNDLED_LIBS=ON -DAUTOUPDATE=ON -DDOWNLOAD_GTEST=ON -DCMAKE_RUNTIME_OUTPUT_DIRECTORY_RELEASE=. ..
       - cmake --build . --config Release --target everything
       - cmake --build . --config Release --target package_default
