@@ -25,9 +25,9 @@
 #include <string>
 #include <vector>
 
-static constexpr const char *CATCLIENT_SHOP_HOST = "https://data.teeworlds.xyz";
-static constexpr const char *CATCLIENT_SHOP_API_URL = "https://data.teeworlds.xyz/api/skins?page=%d&limit=10&type=%s";
-static constexpr const char *CATCLIENT_SHOP_API_SEARCH_URL = "https://data.teeworlds.xyz/api/skins?page=%d&limit=10&type=%s&search=%s";
+static constexpr const char *CATCLIENT_SHOP_HOST = "https://catdata.pages.dev";
+static constexpr const char *CATCLIENT_SHOP_API_URL = "https://catdata.pages.dev/api/skins?page=%d&limit=10&type=%s";
+static constexpr const char *CATCLIENT_SHOP_API_SEARCH_URL = "https://catdata.pages.dev/api/skins?page=%d&limit=10&type=%s&search=%s";
 static constexpr CTimeout CATCLIENT_SHOP_TIMEOUT{8000, 0, 1024, 8};
 static constexpr int64_t CATCLIENT_SHOP_PAGE_MAX_RESPONSE_SIZE = 2 * 1024 * 1024;
 static constexpr int64_t CATCLIENT_SHOP_IMAGE_MAX_RESPONSE_SIZE = 32 * 1024 * 1024;

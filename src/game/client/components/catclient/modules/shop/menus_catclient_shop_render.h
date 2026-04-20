@@ -149,7 +149,7 @@ void CMenus::RenderSettingsCatClientShop(CUIRect MainView)
 	const bool PoweredByHovered = Ui()->HotItem() == &s_PoweredByButton;
 	if(PoweredByResult)
 	{
-		Client()->ViewLink("https://data.teeworlds.xyz");
+		Client()->ViewLink("https://catdata.pages.dev");
 	}
 
 	const ColorRGBA OldTextColor = TextRender()->GetTextColor();
