@@ -48,10 +48,12 @@ class CCatClient : public CComponent
 	bool m_LagMessageSent = false;
 	bool m_LastAspectRatioEnabled = false;
 	float m_LastAppliedAspectRatio = 0.0f;
+	char m_aOldMouse1Bind[128]{};
 
 	static void ConfigSaveCallback(class IConfigManager *pConfigManager, void *pUserData);
 	static void ConIgnorePlayer(class IConsole::IResult *pResult, void *pUserData);
 	static void ConUnignorePlayer(class IConsole::IResult *pResult, void *pUserData);
+	static void ConToggleDeepfly(class IConsole::IResult *pResult, void *pUserData);
 
 	void AbortTask(std::shared_ptr<CHttpRequest> &pTask);
 	void ResetAutoTeamLock();

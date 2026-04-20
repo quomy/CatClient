@@ -46,3 +46,28 @@ struct CAvByteBufferReader
 #include "modules/catclient/catclient_background.h"
 #include "modules/catclient/catclient_lifecycle.h"
 #include "modules/catclient/catclient_social.h"
+
+void CCatClient::ConToggleDeepfly(IConsole::IResult *pResult, void *pUserData)
+{
+	(void)pResult;
+	auto *pSelf = static_cast<CCatClient *>(pUserData);
+	char aCurBind[128];
+	str_copy(aCurBind, pSelf->GameClient()->m_Binds.Get(KEY_MOUSE_1, KeyModifier::NONE), sizeof(aCurBind));
+	if(str_find_nocase(aCurBind, "+toggle cl_dummy_hammer"))
+	{
+		pSelf->GameClient()->Echo("[[red]] Deepfly off");
+		if(str_length(pSelf->m_aOldMouse1Bind) > 1)
+			pSelf->GameClient()->m_Binds.Bind(KEY_MOUSE_1, pSelf->m_aOldMouse1Bind, false, KeyModifier::NONE);
+		else
+		{
+			pSelf->GameClient()->Echo("[[red]] No old bind in memory. Binding +fire");
+			pSelf->GameClient()->m_Binds.Bind(KEY_MOUSE_1, "+fire", false, KeyModifier::NONE);
+		}
+	}
+	else
+	{
+		pSelf->GameClient()->Echo("[[green]] Deepfly on");
+		str_copy(pSelf->m_aOldMouse1Bind, aCurBind, sizeof(pSelf->m_aOldMouse1Bind));
+		pSelf->GameClient()->m_Binds.Bind(KEY_MOUSE_1, "+fire; +toggle cl_dummy_hammer 1 0", false, KeyModifier::NONE);
+	}
+}

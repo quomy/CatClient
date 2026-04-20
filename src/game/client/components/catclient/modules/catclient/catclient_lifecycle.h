@@ -10,6 +10,7 @@ void CCatClient::OnConsoleInit()
 
 	Console()->Register("catclient_ignore_player", "s[player_name]", CFGFLAG_CLIENT, ConIgnorePlayer, this, "Add a player name to the CatClient ignore list");
 	Console()->Register("catclient_unignore_player", "s[player_name]", CFGFLAG_CLIENT, ConUnignorePlayer, this, "Remove a player name from the CatClient ignore list");
+	Console()->Register("ri_deepfly_toggle", "", CFGFLAG_CLIENT, ConToggleDeepfly, this, "Deep fly toggle");
 }
 
 void CCatClient::OnInit()
