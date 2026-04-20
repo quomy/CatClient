@@ -1282,7 +1282,12 @@ public:
 	// TClient
 	void SetCustomFace(const char *pFace) override
 	{
+		const FT_Face pOldFace = m_pGlyphMap->DefaultFace();
 		m_pGlyphMap->SetDefaultFaceByName(pFace);
+		if(m_pGlyphMap->DefaultFace() != pOldFace)
+		{
+			m_pGlyphMap->Clear();
+		}
 	}
 
 	bool LoadFonts() override

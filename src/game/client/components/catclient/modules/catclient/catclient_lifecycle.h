@@ -45,7 +45,6 @@ void CCatClient::OnUpdate()
 		}
 	}
 
-	UpdateIgnoredPlayers();
 	UpdateAspectRatioOverride();
 	EnsureSelectedCustomBackgroundLoaded();
 	m_NameTags.Update();
@@ -148,7 +147,6 @@ void CCatClient::OnShutdown()
 void CCatClient::OnNewSnapshot()
 {
 	UpdateIgnoredPlayers();
-	m_NameTags.Update();
 }
 
 #endif

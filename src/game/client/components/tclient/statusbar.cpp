@@ -7,6 +7,30 @@
 #include <game/client/render.h>
 #include <game/client/ui.h>
 
+namespace
+{
+float CachedTemplateWidth(ITextRender *pTextRender, float FontSize, const char *pTemplate)
+{
+	struct SCacheEntry
+	{
+		float m_FontSize = -1.0f;
+		float m_Width = 0.0f;
+		const char *m_pTemplate = nullptr;
+	};
+
+	static std::vector<SCacheEntry> s_vCache;
+	for(const auto &Entry : s_vCache)
+	{
+		if(Entry.m_pTemplate == pTemplate && Entry.m_FontSize == FontSize)
+			return Entry.m_Width;
+	}
+
+	const float Width = pTextRender->TextWidth(FontSize, pTemplate);
+	s_vCache.push_back({FontSize, Width, pTemplate});
+	return Width;
+}
+}
+
 CStatusItem::CStatusItem(std::function<void()> Render, std::function<float()> Width, const char *pLetters, const char *pName, const char *pDisplayName, const char *pDesc, bool ShowLabel)
 {
 	m_RenderItem = std::move(Render);
@@ -60,7 +84,7 @@ float CStatusBar::AngleWidth()
 	if(GameClient()->m_Snap.m_SpecInfo.m_SpectatorId == SPEC_FREEVIEW)
 		return 0.0f;
 
-	return TextRender()->TextWidth(m_FontSize, "000.00");
+	return CachedTemplateWidth(TextRender(), m_FontSize, "000.00");
 }
 void CStatusBar::AngleRender()
 {
@@ -85,7 +109,7 @@ float CStatusBar::PingWidth()
 	if(!GameClient()->m_Snap.m_apPlayerInfos[m_PlayerId])
 		return 0.0f;
 
-	return TextRender()->TextWidth(m_FontSize, "0000");
+	return CachedTemplateWidth(TextRender(), m_FontSize, "0000");
 }
 void CStatusBar::PingRender()
 {
@@ -98,7 +122,7 @@ void CStatusBar::PingRender()
 
 float CStatusBar::PredictionWidth()
 {
-	return TextRender()->TextWidth(m_FontSize, "0000");
+	return CachedTemplateWidth(TextRender(), m_FontSize, "0000");
 }
 void CStatusBar::PredictionRender()
 {
@@ -109,7 +133,7 @@ void CStatusBar::PredictionRender()
 
 float CStatusBar::LocalTimeWidth()
 {
-	return TextRender()->TextWidth(m_FontSize,
+	return CachedTemplateWidth(TextRender(), m_FontSize,
 		g_Config.m_TcStatusBar12HourClock ? (g_Config.m_TcStatusBarLocalTimeSeocnds ? "00:00:00 XX" : "00:00 XX") : (g_Config.m_TcStatusBarLocalTimeSeocnds ? "00:00:00" : "00:00"));
 }
 void CStatusBar::LocalTimeRender()
@@ -154,7 +178,7 @@ void CStatusBar::RaceTimeRender()
 
 float CStatusBar::FPSWidth()
 {
-	return TextRender()->TextWidth(m_FontSize, "00000");
+	return CachedTemplateWidth(TextRender(), m_FontSize, "00000");
 }
 void CStatusBar::FPSRender()
 {
@@ -169,7 +193,7 @@ float CStatusBar::PositionWidth()
 	if(!GameClient()->m_Snap.m_apPlayerInfos[m_PlayerId])
 		return 0.0f;
 
-	return TextRender()->TextWidth(m_FontSize, "-0000.00, -0000.00");
+	return CachedTemplateWidth(TextRender(), m_FontSize, "-0000.00, -0000.00");
 }
 void CStatusBar::PositionRender()
 {
@@ -188,7 +212,7 @@ float CStatusBar::VelocityWidth()
 	if(!GameClient()->m_Snap.m_apPlayerInfos[m_PlayerId])
 		return 0.0f;
 
-	return TextRender()->TextWidth(m_FontSize, "+00.00, +00.00");
+	return CachedTemplateWidth(TextRender(), m_FontSize, "+00.00, +00.00");
 }
 void CStatusBar::VelocityRender()
 {
@@ -216,7 +240,7 @@ void CStatusBar::VelocityRender()
 	TextRender()->Text(m_CursorX, m_CursorY, m_FontSize, aBuf);
 }
 
-float CStatusBar::ZoomWidth() { return TextRender()->TextWidth(m_FontSize, "00.00"); }
+float CStatusBar::ZoomWidth() { return CachedTemplateWidth(TextRender(), m_FontSize, "00.00"); }
 void CStatusBar::ZoomRender()
 {
 	char aBuf[32];
@@ -331,9 +355,9 @@ void CStatusBar::OnRender()
 	UsedWidth += m_Margin * (ItemCount + 1);
 	AvailableWidth -= UsedWidth;
 	// AvailableWidth can be negative so might as well not make it even worse
-	float SpaceWidth = std::max((AvailableWidth) / (float)SpaceCount, 0.0f);
+	float SpaceWidth = SpaceCount > 0 ? std::max(AvailableWidth / (float)SpaceCount, 0.0f) : 0.0f;
 
-	float SpaceBetweenItems = std::max(AvailableWidth / (float)(ItemCount - 1), 0.0f);
+	float SpaceBetweenItems = ItemCount > 1 ? std::max(AvailableWidth / (float)(ItemCount - 1), 0.0f) : 0.0f;
 	if(SpaceCount > 0)
 		SpaceBetweenItems = 0;
 

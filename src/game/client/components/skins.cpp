@@ -64,8 +64,8 @@ bool CSkins::CSkinContainer::operator<(const CSkinContainer &Other) const
 	return str_comp(m_aName, Other.m_aName) < 0;
 }
 
-static constexpr std::chrono::nanoseconds MIN_REQUESTED_TIME_FOR_PENDING = 250ms;
-static constexpr std::chrono::nanoseconds MAX_REQUESTED_TIME_FOR_PENDING = 500ms;
+static constexpr std::chrono::nanoseconds MIN_REQUESTED_TIME_FOR_PENDING = 0ms;
+static constexpr std::chrono::nanoseconds MAX_REQUESTED_TIME_FOR_PENDING = 1ms;
 static constexpr std::chrono::nanoseconds MIN_UNLOAD_TIME_PENDING = 1s;
 static constexpr std::chrono::nanoseconds MIN_UNLOAD_TIME_LOADED = 2s;
 static_assert(MIN_REQUESTED_TIME_FOR_PENDING < MAX_REQUESTED_TIME_FOR_PENDING);
@@ -78,22 +78,12 @@ void CSkins::CSkinContainer::RequestLoad()
 		return;
 	}
 
-	// Delay loading skins a bit after the load has been requested to avoid loading a lot of skins
-	// when quickly scrolling through lists or if a player with a new skin quickly joins and leaves.
 	if(m_State == EState::UNLOADED)
 	{
 		const std::chrono::nanoseconds Now = time_get_nanoseconds();
-		if(!m_FirstLoadRequest.has_value() ||
-			!m_LastLoadRequest.has_value() ||
-			Now - m_LastLoadRequest.value() > MAX_REQUESTED_TIME_FOR_PENDING)
-		{
-			m_FirstLoadRequest = Now;
-			m_LastLoadRequest = m_FirstLoadRequest;
-		}
-		else if(Now - m_FirstLoadRequest.value() > MIN_REQUESTED_TIME_FOR_PENDING)
-		{
-			m_State = EState::PENDING;
-		}
+		m_FirstLoadRequest = Now;
+		m_LastLoadRequest = Now;
+		m_State = EState::PENDING;
 	}
 	else if(m_State == EState::PENDING ||
 		m_State == EState::LOADING ||
@@ -523,42 +513,25 @@ void CSkins::OnShutdown()
 
 void CSkins::OnUpdate()
 {
-	// Only update skins periodically to reduce FPS impact
 	const std::chrono::nanoseconds StartTime = time_get_nanoseconds();
-	const std::chrono::nanoseconds MaxTime = std::chrono::milliseconds(std::clamp(round_to_int(Client()->RenderFrameTime() * 50000.0f), 25, 500));
-	if(m_ContainerUpdateTime.has_value() && StartTime - m_ContainerUpdateTime.value() < MaxTime)
-	{
-		return;
-	}
+	const std::chrono::nanoseconds MaxTime = std::chrono::nanoseconds::max();
 	m_ContainerUpdateTime = StartTime;
 
-	// Update loaded state of managed skins which are not retrieved with the FindOrNullptr function
+	// Update loaded state of managed skins which are not retrieved with the FindOrNullptr function.
+	// Automatic database/community-skin replacement is intentionally disabled here to avoid
+	// join-time background work that can drag FPS up slowly on crowded servers.
 	GameClient()->CollectManagedTeeRenderInfos([&](const char *pSkinName) {
-		// This will update the loaded state of the container
 		const CSkinContainer *pSkinContainer = FindContainerOrNullptr(pSkinName);
 		dbg_assert(pSkinContainer != nullptr, "No skin container found for managed tee render info: %s", pSkinName);
-		if(pSkinContainer->Type() == CSkinContainer::EType::LOCAL && pSkinContainer->State() == CSkinContainer::EState::LOADED)
-		{
-			RequestDatabaseSkin(pSkinName);
-		}
+		(void)pSkinContainer;
 	});
-	// Keep player and dummy skin loaded
-	const CSkinContainer *pPlayerSkinContainer = FindContainerOrNullptr(g_Config.m_ClPlayerSkin);
-	const CSkinContainer *pDummySkinContainer = FindContainerOrNullptr(g_Config.m_ClDummySkin);
-	if(pPlayerSkinContainer != nullptr && pPlayerSkinContainer->Type() == CSkinContainer::EType::LOCAL && pPlayerSkinContainer->State() == CSkinContainer::EState::LOADED)
-	{
-		RequestDatabaseSkin(g_Config.m_ClPlayerSkin);
-	}
-	if(pDummySkinContainer != nullptr && pDummySkinContainer->Type() == CSkinContainer::EType::LOCAL && pDummySkinContainer->State() == CSkinContainer::EState::LOADED)
-	{
-		RequestDatabaseSkin(g_Config.m_ClDummySkin);
-	}
+	FindContainerOrNullptr(g_Config.m_ClPlayerSkin);
+	FindContainerOrNullptr(g_Config.m_ClDummySkin);
 
 	CSkinLoadingStats Stats = LoadingStats();
 	UpdateUnloadSkins(Stats);
 	UpdateStartLoading(Stats);
 	UpdateFinishLoading(Stats, StartTime, MaxTime);
-	UpdateDatabaseDownloads(StartTime, MaxTime);
 }
 
 void CSkins::UpdateUnloadSkins(CSkinLoadingStats &Stats)
@@ -664,7 +637,6 @@ void CSkins::UpdateFinishLoading(CSkinLoadingStats &Stats, std::chrono::nanoseco
 			Stats.m_NumLoaded++;
 			if(time_get_nanoseconds() - StartTime >= MaxTime)
 			{
-				// Avoid using too much frame time for loading skins
 				break;
 			}
 		}

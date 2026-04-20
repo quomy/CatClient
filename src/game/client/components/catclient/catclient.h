@@ -46,6 +46,8 @@ class CCatClient : public CComponent
 	std::chrono::nanoseconds m_LastLagMessageTime = std::chrono::nanoseconds::zero();
 	std::chrono::nanoseconds m_LastFrameTime = std::chrono::nanoseconds::zero();
 	bool m_LagMessageSent = false;
+	bool m_LastAspectRatioEnabled = false;
+	float m_LastAppliedAspectRatio = 0.0f;
 
 	static void ConfigSaveCallback(class IConfigManager *pConfigManager, void *pUserData);
 	static void ConIgnorePlayer(class IConsole::IResult *pResult, void *pUserData);

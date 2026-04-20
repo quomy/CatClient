@@ -98,7 +98,12 @@ void CCatClient::UpdateAspectRatioOverride()
 {
 	if(!g_Config.m_CcAspectRatioEnabled)
 	{
-		Graphics()->ClearScreenAspectOverride();
+		if(m_LastAspectRatioEnabled)
+		{
+			Graphics()->ClearScreenAspectOverride();
+			m_LastAspectRatioEnabled = false;
+			m_LastAppliedAspectRatio = 0.0f;
+		}
 		return;
 	}
 
@@ -108,7 +113,14 @@ void CCatClient::UpdateAspectRatioOverride()
 		AspectRatio = (float)maximum(g_Config.m_CcAspectRatioCustomX, 1) / (float)g_Config.m_CcAspectRatioCustomY;
 	}
 
-	Graphics()->SetScreenAspectOverride(std::clamp(AspectRatio, 1.0f, 4.0f));
+	AspectRatio = std::clamp(AspectRatio, 1.0f, 4.0f);
+	const float AspectRatioDiff = m_LastAppliedAspectRatio - AspectRatio;
+	if(!m_LastAspectRatioEnabled || AspectRatioDiff < -0.0001f || AspectRatioDiff > 0.0001f)
+	{
+		Graphics()->SetScreenAspectOverride(AspectRatio);
+		m_LastAspectRatioEnabled = true;
+		m_LastAppliedAspectRatio = AspectRatio;
+	}
 }
 
 void CCatClient::UpdateIgnoredPlayers()

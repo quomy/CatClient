@@ -405,7 +405,8 @@ void CVoiceChat::OnStateChange(int NewState, int OldState)
 	}
 	else if(NewState == IClient::STATE_ONLINE)
 	{
-		FetchServerList();
+		if(g_Config.m_BcVoiceChatEnable != 0)
+			FetchServerList();
 	}
 }
 
