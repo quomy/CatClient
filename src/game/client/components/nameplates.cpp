@@ -343,31 +343,29 @@ public:
 	}
 };
 
-class CNamePlatePartCatTag : public CNamePlatePartText
+class CNamePlatePartCatTag : public CNamePlatePartIcon
 {
 private:
 	float m_FontSize = -INFINITY;
+	static constexpr float ms_LogoAspect = 1.0f;
 
 protected:
-	bool UpdateNeeded(CGameClient &This, const CNamePlateData &Data) override
+	void Update(CGameClient &This, const CNamePlateData &Data) override
 	{
 		m_Visible = Data.m_ShowCatTag;
 		if(!m_Visible)
-			return false;
-		m_Color = ColorRGBA(1.0f, 0.56f, 0.18f, Data.m_Color.a);
-		return m_FontSize != Data.m_FontSizeCatTag;
-	}
-	void UpdateText(CGameClient &This, const CNamePlateData &Data) override
-	{
+			return;
+
+		m_Texture = g_pData->m_aImages[IMAGE_CATCLIENT_LOGO].m_Id;
 		m_FontSize = Data.m_FontSizeCatTag;
-		CTextCursor Cursor;
-		Cursor.m_FontSize = m_FontSize;
-		This.TextRender()->CreateOrAppendTextContainer(m_TextContainerIndex, &Cursor, "[CAT]");
+		m_Size = vec2(m_FontSize * ms_LogoAspect, m_FontSize);
+		m_Padding = vec2(DEFAULT_PADDING, DEFAULT_PADDING);
+		m_Color = ColorRGBA(1.0f, 1.0f, 1.0f, Data.m_Color.a);
 	}
 
 public:
 	CNamePlatePartCatTag(CGameClient &This) :
-		CNamePlatePartText(This) {}
+		CNamePlatePartIcon(This) {}
 };
 
 class CNamePlatePartName : public CNamePlatePartText
@@ -577,9 +575,8 @@ private:
 		AddPart<CNamePlatePartIgnoreMark>(This); // TClient
 		AddPart<CNamePlatePartFriendMark>(This);
 		AddPart<CNamePlatePartClientId>(This, false);
-		AddPart<CNamePlatePartName>(This);
-		AddPart<CNamePlatePartNewLine>(This);
 		AddPart<CNamePlatePartCatTag>(This);
+		AddPart<CNamePlatePartName>(This);
 		AddPart<CNamePlatePartNewLine>(This);
 
 		AddPart<CNamePlatePartClan>(This);
